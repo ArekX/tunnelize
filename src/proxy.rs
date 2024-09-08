@@ -1,42 +1,45 @@
 use std::error::Error;
-use std::net::SocketAddr;
-use tokio::io::{self};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::io::{self, AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 
 pub async fn start_proxy() -> Result<(), Box<dyn Error>> {
-    let bind_addr: SocketAddr = "127.0.0.1:9080".parse()?;
-    let dest_addr: SocketAddr = "127.0.0.1:8000".parse()?;
+    let mut server_stream = TcpStream::connect("0.0.0.0:3456").await?;
+    let mut proxy_from = TcpStream::connect("0.0.0.0:8000").await?;
 
-    let listener = TcpListener::bind(bind_addr).await?;
-    println!("Proxy listening on {}", bind_addr);
-
-    /*
-    Add routing per app route or per host
-    client and server should have json configuration files
-    client connects to the server, authenticates and then
-    sends the configuration file to the server
-    set keepalive to 30 seconds
-
-    */
+    let (mut server_reader, mut server_writer) = server_stream.split();
+    let (mut proxy_reader, mut proxy_writer) = proxy_from.split();
 
     loop {
-        let (client_socket, _) = listener.accept().await?;
-        tokio::spawn(async move {
-            if let Err(e) = proxy(client_socket, dest_addr).await {
-                eprintln!("Error: {}", e);
-            }
-        });
+        tokio::select! {
+            result = proxy(&mut server_reader, &mut proxy_writer) => {
+                if let Err(e) = result {
+                    eprintln!("Error in proxying from server to proxy: {:?}", e);
+                }
+            },
+            result = proxy(&mut proxy_reader, &mut server_writer) => {
+                if let Err(e) = result {
+                    eprintln!("Error in proxying from proxy to server: {:?}", e);
+                }
+            },
+        }
     }
+
+    Ok(())
 }
 
-async fn proxy(mut client_socket: TcpStream, dest_addr: SocketAddr) -> Result<(), Box<dyn Error>> {
-    let mut dest_socket = TcpStream::connect(dest_addr).await?;
-    let (mut client_reader, mut client_writer) = client_socket.split();
-    let (mut dest_reader, mut dest_writer) = dest_socket.split();
+async fn proxy(
+    from_socket: &mut (impl AsyncReadExt + Unpin),
+    to_socket: &mut (impl AsyncWriteExt + Unpin),
+) -> Result<(), Box<dyn Error>> {
+    let mut buffer = [0; 1024];
 
-    let client_to_dest = io::copy(&mut client_reader, &mut dest_writer);
-    let dest_to_client = io::copy(&mut dest_reader, &mut client_writer);
+    loop {
+        let n = from_socket.read(&mut buffer).await?;
+        if n == 0 {
+            break;
+        }
+        to_socket.write_all(&buffer[..n]).await?;
+    }
 
-    tokio::try_join!(client_to_dest, dest_to_client)?;
     Ok(())
 }
