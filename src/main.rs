@@ -7,6 +7,7 @@ mod server;
 mod server2;
 mod ss;
 mod sx;
+mod testv2;
 
 /// CLI interpreter for Brain**** language
 #[derive(Parser, Debug)]
@@ -29,19 +30,19 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    sx::start().await?;
-    // let args = Args::parse();
+    // testv2::start_all_this().await?;
+    let args = Args::parse();
 
-    // let command = args.command.unwrap_or(Commands::Proxy);
+    let command = args.command.unwrap_or(Commands::Proxy);
 
-    // match command {
-    //     Commands::Server => {
-    //         server2::start_server().await?;
-    //     }
-    //     Commands::Proxy => {
-    //         proxy::start_proxy().await?;
-    //     }
-    // }
+    match command {
+        Commands::Server => {
+            testv2::start_server().await?;
+        }
+        Commands::Proxy => {
+            testv2::start_client().await?;
+        }
+    }
 
     Ok(())
 }
