@@ -82,23 +82,36 @@ pub async fn start_server() -> Result<()> {
 
             stream.readable().await.unwrap();
 
-            let mut buffer = [0; BUFFER_SIZE];
-            let n = stream.read(&mut buffer).await.unwrap();
+            let link_client_map_clone = link_client_map.clone();
 
-            let message: Message = serde_json::from_slice(&buffer[..n]).unwrap();
+            tokio::spawn(async move {
+                let mut buffer = [0; BUFFER_SIZE];
 
-            match message {
-                Message::LinkAccept { id } => {
-                    let mut client_link_map = link_client_map.lock().await;
-                    let link = client_link_map.get_mut(&id).unwrap();
-                    io::copy_bidirectional(&mut link.client, &mut stream)
-                        .await
-                        .unwrap();
+                match stream.read(&mut buffer).await {
+                    Ok(0) => {
+                        return;
+                    }
+                    Ok(n) => {
+                        let message: Message = serde_json::from_slice(&buffer[..n]).unwrap();
 
-                    client_link_map.remove(&id);
+                        match message {
+                            Message::LinkAccept { id } => {
+                                let mut link = {
+                                    let mut client_link_map = link_client_map_clone.lock().await;
+                                    let (_, link) = client_link_map.remove_entry(&id).unwrap();
+                                    link
+                                };
+
+                                match io::copy_bidirectional(&mut link.client, &mut stream).await {
+                                    _ => {}
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
-            }
+            });
         }
     });
 
@@ -110,7 +123,7 @@ pub async fn start_server() -> Result<()> {
 }
 
 pub async fn start_client() -> Result<()> {
-    let mut server = TcpStream::connect("54.87.75.143:3455").await?;
+    let mut server = TcpStream::connect("0.0.0.0:3455").await?;
 
     loop {
         println!("Waiting for request.");
@@ -120,27 +133,33 @@ pub async fn start_client() -> Result<()> {
         let mut buffer = [0; BUFFER_SIZE];
         let n = server.read(&mut buffer).await.unwrap();
 
-        let message: Message = serde_json::from_slice(&buffer[..n]).unwrap();
+        let message: Message = if let Ok(m) = serde_json::from_slice(&buffer[..n]) {
+            m
+        } else {
+            continue;
+        };
 
-        match message {
-            Message::LinkRequest { id } => {
-                let mut tunnel = TcpStream::connect("54.87.75.143:3456").await.unwrap();
-                let mut proxy = TcpStream::connect("0.0.0.0:8000").await.unwrap();
+        tokio::spawn(async move {
+            match message {
+                Message::LinkRequest { id } => {
+                    let mut tunnel = TcpStream::connect("0.0.0.0:3456").await.unwrap();
+                    let mut proxy = TcpStream::connect("0.0.0.0:8000").await.unwrap();
 
-                tunnel
-                    .write_all(
-                        serde_json::to_string(&Message::LinkAccept { id })
-                            .unwrap()
-                            .as_bytes(),
-                    )
-                    .await
-                    .unwrap();
+                    tunnel
+                        .write_all(
+                            serde_json::to_string(&Message::LinkAccept { id })
+                                .unwrap()
+                                .as_bytes(),
+                        )
+                        .await
+                        .unwrap();
 
-                io::copy_bidirectional(&mut tunnel, &mut proxy)
-                    .await
-                    .unwrap();
+                    io::copy_bidirectional(&mut tunnel, &mut proxy)
+                        .await
+                        .unwrap();
+                }
+                _ => {}
             }
-            _ => {}
-        }
+        });
     }
 }
