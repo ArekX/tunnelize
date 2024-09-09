@@ -8,6 +8,7 @@ for await (const conn of listener) {
   (async () => {
     const httpConn = Deno.serveHttp(conn);
     for await (const requestEvent of httpConn) {
+      try {
       const url = new URL(requestEvent.request.url);
       if (url.pathname === "/image") {
         const image = await Deno.readFile("idemo.jpg");
@@ -16,13 +17,18 @@ for await (const conn of listener) {
         const body = `
           <html>
             <body>
-              <h1>Hello, Deno!</h1>
+              <h1>Hello, Mata!</h1>
               <img src="/image" alt="Deno Logo" />
             </body>
           </html>
         `;
         requestEvent.respondWith(new Response(body, { headers: { "Content-Type": "text/html" } }));
       }
+      } catch (error) {
+        console.error(error);
+      }
+
+      
     }
   })();
 }

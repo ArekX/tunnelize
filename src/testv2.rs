@@ -107,12 +107,10 @@ pub async fn start_server() -> Result<()> {
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(300)).await;
     }
-
-    Ok(())
 }
 
 pub async fn start_client() -> Result<()> {
-    let mut server = TcpStream::connect("0.0.0.0:3455").await?;
+    let mut server = TcpStream::connect("54.87.75.143:3455").await?;
 
     loop {
         println!("Waiting for request.");
@@ -126,7 +124,7 @@ pub async fn start_client() -> Result<()> {
 
         match message {
             Message::LinkRequest { id } => {
-                let mut tunnel = TcpStream::connect("0.0.0.0:3456").await.unwrap();
+                let mut tunnel = TcpStream::connect("54.87.75.143:3456").await.unwrap();
                 let mut proxy = TcpStream::connect("0.0.0.0:8000").await.unwrap();
 
                 tunnel
@@ -145,13 +143,4 @@ pub async fn start_client() -> Result<()> {
             _ => {}
         }
     }
-}
-
-pub async fn start_all_this() -> Result<()> {
-    let server = start_server();
-    let client = start_client();
-
-    tokio::try_join!(server, client)?;
-
-    Ok(())
 }
