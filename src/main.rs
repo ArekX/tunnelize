@@ -9,7 +9,6 @@ mod messages;
 mod server;
 mod tunnel;
 
-/// CLI interpreter for Brain**** language
 #[derive(Parser, Debug)]
 #[command(
     name = "Tunnelize", 
@@ -30,7 +29,6 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // testv2::start_all_this().await?;
     let args = Args::parse();
 
     let command = args.command.unwrap_or(Commands::Proxy);
