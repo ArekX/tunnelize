@@ -9,7 +9,7 @@ use tokio::{
 
 use crate::{
     configuration::ServerConfiguration,
-    messages::{read_message, write_message, Message},
+    messages::{read_message, write_message, ServerMessage, TunnelMessage},
 };
 
 struct TunnelLink {
@@ -48,7 +48,7 @@ pub async fn start_server(config: ServerConfiguration) -> Result<()> {
             let mut tunnel_value = cloned_tunnel.lock().await;
             let client = tunnel_value.as_mut().unwrap();
 
-            write_message(client, &Message::LinkRequest { id })
+            write_message(client, &ServerMessage::LinkRequest { id })
                 .await
                 .unwrap();
         }
@@ -79,19 +79,19 @@ pub async fn start_server(config: ServerConfiguration) -> Result<()> {
             let link_client_tunnel_clone = link_tunnel_client.clone();
 
             tokio::spawn(async move {
-                let message = if let Ok(m) = read_message(&mut stream).await {
+                let message: TunnelMessage = if let Ok(m) = read_message(&mut stream).await {
                     m
                 } else {
                     return;
                 };
 
                 match message {
-                    Message::Connect => {
+                    TunnelMessage::Connect => {
                         let mut new_client = link_client_tunnel_clone.lock().await;
                         info!("Tunnel established with {}", address);
                         *new_client = Some(stream);
                     }
-                    Message::LinkAccept { id } => {
+                    TunnelMessage::LinkAccept { id } => {
                         let mut link = {
                             let mut client_link_map = link_client_map_clone.lock().await;
                             let (_, link) = client_link_map.remove_entry(&id).unwrap();
@@ -102,7 +102,6 @@ pub async fn start_server(config: ServerConfiguration) -> Result<()> {
                             _ => {}
                         }
                     }
-                    _ => {}
                 }
             });
         }

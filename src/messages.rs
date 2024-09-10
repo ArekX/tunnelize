@@ -6,10 +6,14 @@ use serde::{Deserialize, Serialize};
 use tokio::io::AsyncReadExt;
 
 #[derive(Serialize, Deserialize)]
-pub enum Message {
+pub enum TunnelMessage {
     Connect,
-    LinkRequest { id: u32 },
     LinkAccept { id: u32 },
+}
+
+#[derive(Serialize, Deserialize)]
+pub enum ServerMessage {
+    LinkRequest { id: u32 },
 }
 
 #[derive(Debug)]
@@ -55,16 +59,21 @@ impl From<std::io::Error> for MessageError {
     }
 }
 
-fn serialize_message(message: &Message) -> Result<Bytes, MessageError> {
+fn serialize_message<T>(message: &T) -> Result<Bytes, MessageError>
+where
+    T: ?Sized + serde::Serialize,
+{
     let encoded: Vec<u8> = bincode::serialize(message)?;
     let mut bytes = BytesMut::with_capacity(encoded.len());
     bytes.put_slice(&encoded);
     Ok(bytes.freeze())
 }
 
-fn deserialize_message(bytes: &Bytes) -> Result<Message, MessageError> {
-    let message: Message = bincode::deserialize(bytes)?;
-    Ok(message)
+fn deserialize_message<T>(bytes: Bytes) -> Result<T, MessageError>
+where
+    T: serde::de::DeserializeOwned,
+{
+    Ok(bincode::deserialize(&bytes)?)
 }
 
 async fn read_exact<T: AsyncReadExt + Unpin>(
@@ -77,9 +86,10 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
     Ok(buffer.freeze())
 }
 
-pub async fn read_message<T: AsyncReadExt + Unpin>(
-    stream: &mut T,
-) -> Result<Message, MessageError> {
+pub async fn read_message<T: AsyncReadExt + Unpin, M>(stream: &mut T) -> Result<M, MessageError>
+where
+    M: serde::de::DeserializeOwned,
+{
     let mut length_bytes = read_exact(stream, 4).await?;
     let length = length_bytes.get_u32();
 
@@ -89,15 +99,17 @@ pub async fn read_message<T: AsyncReadExt + Unpin>(
 
     // Read the message data
     let message_bytes = read_exact(stream, length as usize).await?;
-    let message = deserialize_message(&message_bytes)?;
 
-    Ok(message)
+    deserialize_message(message_bytes)
 }
 
-pub async fn write_message<T: tokio::io::AsyncWriteExt + Unpin>(
+pub async fn write_message<T: tokio::io::AsyncWriteExt + Unpin, M>(
     stream: &mut T,
-    message: &Message,
-) -> Result<(), MessageError> {
+    message: &M,
+) -> Result<(), MessageError>
+where
+    M: ?Sized + serde::Serialize,
+{
     let message_bytes = serialize_message(message)?;
     let length = message_bytes.len() as u32;
 

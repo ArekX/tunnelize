@@ -6,7 +6,7 @@ use tokio::{
 
 use crate::{
     configuration::TunnelConfiguration,
-    messages::{self, write_message, Message},
+    messages::{self, write_message, ServerMessage, TunnelMessage},
 };
 
 const TUNNEL_FROM_ADDRESS: &str = "0.0.0.0:8000";
@@ -14,7 +14,7 @@ const TUNNEL_FROM_ADDRESS: &str = "0.0.0.0:8000";
 pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
     let mut server = TcpStream::connect(config.server_address.clone()).await?;
 
-    messages::write_message(&mut server, &messages::Message::Connect)
+    messages::write_message(&mut server, &TunnelMessage::Connect)
         .await
         .unwrap();
 
@@ -26,7 +26,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
 
         info!("Request received.");
 
-        let message: messages::Message = if let Ok(m) = messages::read_message(&mut server).await {
+        let message: ServerMessage = if let Ok(m) = messages::read_message(&mut server).await {
             m
         } else {
             continue;
@@ -36,11 +36,11 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
 
         tokio::spawn(async move {
             match message {
-                messages::Message::LinkRequest { id } => {
+                ServerMessage::LinkRequest { id } => {
                     let mut tunnel = TcpStream::connect(server_address).await.unwrap();
                     let mut proxy = TcpStream::connect(TUNNEL_FROM_ADDRESS).await.unwrap();
 
-                    write_message(&mut tunnel, &Message::LinkAccept { id })
+                    write_message(&mut tunnel, &TunnelMessage::LinkAccept { id })
                         .await
                         .unwrap();
 
@@ -48,7 +48,6 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                         .await
                         .unwrap();
                 }
-                _ => {}
             }
         });
     }
