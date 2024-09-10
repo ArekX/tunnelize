@@ -1,13 +1,13 @@
 use clap::{Parser, Subcommand};
+use configuration::parse_configuration;
+use env_logger::Env;
+use log::{error, info};
 use std::error::Error;
 
 mod configuration;
-mod proxy;
+mod messages;
 mod server;
-mod server2;
-mod ss;
-mod sx;
-mod testv2;
+mod tunnel;
 
 /// CLI interpreter for Brain**** language
 #[derive(Parser, Debug)]
@@ -35,12 +35,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let command = args.command.unwrap_or(Commands::Proxy);
 
+    let env = Env::default()
+        .filter_or("LOG_LEVEL", "trace")
+        .write_style_or("LOG_STYLE", "always");
+
+    env_logger::init_from_env(env);
+
     match command {
         Commands::Server => {
-            testv2::start_server().await?;
+            info!("Starting server...");
+
+            let config = parse_configuration()?;
+
+            if let Some(server) = config.server {
+                server::start_server(server).await?;
+            } else {
+                error!("No server configuration found. Exiting...");
+            }
         }
         Commands::Proxy => {
-            testv2::start_client().await?;
+            info!("Starting client...");
+
+            let config = parse_configuration()?;
+
+            if let Some(tunnel) = config.tunnel {
+                tunnel::start_client(tunnel).await?;
+            } else {
+                error!("No tunel configuration found. Exiting...");
+            }
         }
     }
 

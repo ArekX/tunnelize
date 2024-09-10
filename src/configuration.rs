@@ -1,34 +1,49 @@
-use std::{fs::File, io::BufReader};
+// use std::{fs::File, io::BufReader};
 
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
 pub struct Configuration {
-    pub tunnel_address: Option<String>,
-    pub client_address: Option<String>,
+    pub server: Option<ServerConfiguration>,
+    pub tunnel: Option<TunnelConfiguration>,
 }
 
-fn get_configuration_dir() -> Result<std::path::PathBuf, std::io::Error> {
-    let exe_dir = std::env::current_exe()?;
-    let dir = exe_dir.parent().ok_or(std::io::Error::new(
-        std::io::ErrorKind::NotFound,
-        "Directory could not be found.",
-    ))?;
-
-    Ok(dir.to_owned())
+#[derive(Debug, Deserialize)]
+pub struct ServerConfiguration {
+    pub tunnel_address: String,
+    pub client_address: String,
 }
 
-pub fn configuration_exists() -> bool {
-    let config_dir = get_configuration_dir().unwrap();
-    let config_file = config_dir.join("tunnelize.json");
-
-    config_file.exists()
+#[derive(Debug, Deserialize)]
+pub struct TunnelConfiguration {
+    pub server_address: String,
 }
+
+// fn get_configuration_dir() -> Result<std::path::PathBuf, std::io::Error> {
+//     let exe_dir = std::env::current_exe()?;
+//     let dir = exe_dir.parent().ok_or(std::io::Error::new(
+//         std::io::ErrorKind::NotFound,
+//         "Directory could not be found.",
+//     ))?;
+
+//     Ok(dir.to_owned())
+// }
+
+// pub fn configuration_exists() -> bool {
+//     let config_dir = get_configuration_dir().unwrap();
+//     let config_file = config_dir.join("tunnelize.json");
+
+//     config_file.exists()
+// }
 
 pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
-    let config_dir = get_configuration_dir()?;
-    let file = File::open(config_dir.join("tunnelize.json"))?;
-    let mut reader = BufReader::new(file);
-
-    Ok(serde_json::from_reader(&mut reader)?)
+    Ok(Configuration {
+        server: Some(ServerConfiguration {
+            tunnel_address: "0.0.0.0:3456".to_string(),
+            client_address: "0.0.0.0:3457".to_string(),
+        }),
+        tunnel: Some(TunnelConfiguration {
+            server_address: "0.0.0.0:3456".to_string(),
+        }),
+    })
 }
