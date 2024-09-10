@@ -13,12 +13,11 @@ const BUFFER_SIZE: usize = 8 * 1024;
 enum Message {
     LinkRequest { id: u32 },
     LinkAccept { id: u32 },
-    LinkEnded { id: u32 },
+    Connect,
 }
 
 struct TunnelLink {
     pub client: TcpStream,
-    pub tunnel: Option<TcpStream>,
 }
 
 pub async fn start_server() -> Result<()> {
@@ -26,18 +25,6 @@ pub async fn start_server() -> Result<()> {
     let tunnel_client: Arc<Mutex<Option<TcpStream>>> = Arc::new(Mutex::new(None));
     let client_link_map: Arc<Mutex<HashMap<u32, TunnelLink>>> =
         Arc::new(Mutex::new(HashMap::new()));
-
-    let link_tunnel_client = tunnel_client.clone();
-
-    tokio::spawn(async move {
-        let tunnel = TcpListener::bind("0.0.0.0:3455").await.unwrap();
-        loop {
-            let (stream, address) = tunnel.accept().await.unwrap();
-            let mut new_client = link_tunnel_client.lock().await;
-            println!("Tunnel established with {}", address);
-            *new_client = Some(stream);
-        }
-    });
 
     let cloned_tunnel = tunnel_client.clone();
     let cloned_link_map = client_link_map.clone();
@@ -53,13 +40,7 @@ pub async fn start_server() -> Result<()> {
             let id = *id_counter;
 
             let mut client_link_map = cloned_link_map.lock().await;
-            client_link_map.insert(
-                id,
-                TunnelLink {
-                    client: stream,
-                    tunnel: None,
-                },
-            );
+            client_link_map.insert(id, TunnelLink { client: stream });
 
             let mut tunnel_value = cloned_tunnel.lock().await;
             let client = tunnel_value.as_mut().unwrap();
@@ -72,6 +53,8 @@ pub async fn start_server() -> Result<()> {
 
     let link_client_map = client_link_map.clone();
 
+    let link_tunnel_client = tunnel_client.clone();
+
     tokio::spawn(async move {
         let link = TcpListener::bind("0.0.0.0:3456").await.unwrap();
 
@@ -83,6 +66,7 @@ pub async fn start_server() -> Result<()> {
             stream.readable().await.unwrap();
 
             let link_client_map_clone = link_client_map.clone();
+            let link_client_tunnel_clone = link_tunnel_client.clone();
 
             tokio::spawn(async move {
                 let mut buffer = [0; BUFFER_SIZE];
@@ -95,6 +79,11 @@ pub async fn start_server() -> Result<()> {
                         let message: Message = serde_json::from_slice(&buffer[..n]).unwrap();
 
                         match message {
+                            Message::Connect => {
+                                let mut new_client = link_client_tunnel_clone.lock().await;
+                                println!("Tunnel established with {}", address);
+                                *new_client = Some(stream);
+                            }
                             Message::LinkAccept { id } => {
                                 let mut link = {
                                     let mut client_link_map = link_client_map_clone.lock().await;
@@ -123,7 +112,12 @@ pub async fn start_server() -> Result<()> {
 }
 
 pub async fn start_client() -> Result<()> {
-    let mut server = TcpStream::connect("0.0.0.0:3455").await?;
+    let mut server = TcpStream::connect("0.0.0.0:3456").await?;
+
+    server
+        .write_all(serde_json::to_string(&Message::Connect).unwrap().as_bytes())
+        .await
+        .unwrap();
 
     loop {
         println!("Waiting for request.");
