@@ -13,6 +13,7 @@ use crate::{
 };
 
 struct Tunnel {
+    pub connected_client_id: Option<u32>,
     pub stream: TcpStream,
 }
 
@@ -65,6 +66,8 @@ async fn listen_to_client(
         let mut tunnel_value = tunnel_list.lock().await;
         let tunnel = tunnel_value.get();
 
+        tunnel.connected_client_id = Some(client_id);
+
         info!(
             "Sending link request to tunnel, for client ID: {}",
             client_id
@@ -107,7 +110,10 @@ async fn listen_to_tunnel(
             match message {
                 TunnelMessage::Connect => {
                     info!("Tunnel connected, waiting for link request.");
-                    tunnel_list.lock().await.register(Tunnel { stream });
+                    tunnel_list.lock().await.register(Tunnel {
+                        stream,
+                        connected_client_id: None,
+                    });
                 }
                 TunnelMessage::LinkAccept { id } => {
                     info!("Link accepted for client ID: {}", id);
