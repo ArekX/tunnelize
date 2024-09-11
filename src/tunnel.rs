@@ -26,10 +26,18 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
 
         info!("Request received.");
 
-        let message: ServerMessage = if let Ok(m) = messages::read_message(&mut server).await {
-            m
-        } else {
-            continue;
+        let message: ServerMessage = match messages::read_message(&mut server).await {
+            Ok(message) => message,
+            Err(e) => match e {
+                messages::MessageError::ConnectionClosed => {
+                    info!("Connection closed.");
+                    return Ok(());
+                }
+                _ => {
+                    info!("Error reading message: {:?}", e);
+                    continue;
+                }
+            },
         };
 
         let server_address = config.server_address.clone();

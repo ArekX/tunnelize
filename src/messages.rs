@@ -21,6 +21,7 @@ pub enum MessageError {
     SerializationError(bincode::Error),
     IoError(std::io::Error),
     InvalidLength(u32),
+    ConnectionClosed,
 }
 
 const MAX_MESSAGE_LENGTH: u32 = 10000000; // 10MB
@@ -33,6 +34,7 @@ impl fmt::Display for MessageError {
             MessageError::InvalidLength(length) => {
                 write!(f, "Message longer than 10MB. Length: {} bytes.", length)
             }
+            MessageError::ConnectionClosed => write!(f, "Connection closed."),
         }
     }
 }
@@ -43,6 +45,7 @@ impl std::error::Error for MessageError {
             MessageError::SerializationError(e) => Some(e),
             MessageError::IoError(e) => Some(e),
             MessageError::InvalidLength(_) => None,
+            MessageError::ConnectionClosed => None,
         }
     }
 }
@@ -82,8 +85,15 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
 ) -> Result<Bytes, MessageError> {
     let mut buffer = BytesMut::with_capacity(length);
     buffer.resize(length, 0);
-    stream.read_exact(&mut buffer).await?;
-    Ok(buffer.freeze())
+    match stream.read_exact(&mut buffer).await {
+        Ok(0) => {
+            return Err(MessageError::ConnectionClosed);
+        }
+        Ok(_) => return Ok(buffer.freeze()),
+        Err(e) => {
+            return Err(MessageError::IoError(e));
+        }
+    }
 }
 
 pub async fn read_message<T: AsyncReadExt + Unpin, M>(stream: &mut T) -> Result<M, MessageError>
