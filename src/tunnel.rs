@@ -42,7 +42,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
     match messages::write_message(
         &mut server,
         &TunnelMessage::Connect {
-            hostname: "localhost:3457".to_string(),
+            hostname: config.hostname.clone(),
         },
     )
     .await

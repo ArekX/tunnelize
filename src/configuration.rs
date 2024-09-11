@@ -17,6 +17,7 @@ pub struct ServerConfiguration {
 #[derive(Debug, Deserialize)]
 pub struct TunnelConfiguration {
     pub server_address: String,
+    pub hostname: String,
 }
 
 // fn get_configuration_dir() -> Result<std::path::PathBuf, std::io::Error> {
@@ -44,6 +45,7 @@ pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
         }),
         tunnel: Some(TunnelConfiguration {
             server_address: "0.0.0.0:3456".to_string(),
+            hostname: "localhost:3457".to_string(),
         }),
     })
 }

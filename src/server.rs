@@ -46,7 +46,7 @@ impl TunnelList {
 }
 
 async fn read_until_block(stream: &mut TcpStream) -> String {
-    let mut result = String::new();
+    let mut request_buffer = Vec::new();
     loop {
         let mut buffer = [0; 100024];
 
@@ -54,20 +54,29 @@ async fn read_until_block(stream: &mut TcpStream) -> String {
 
         match stream.try_read(&mut buffer) {
             Ok(0) => {
-                return result;
+                break;
             }
             Ok(read) => {
-                result.push_str(&String::from_utf8_lossy(&buffer[..read]));
+                request_buffer.extend_from_slice(&buffer[..read]);
                 if read < buffer.len() {
-                    return result;
+                    break;
                 }
             }
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
-                return result;
+                break;
             }
             Err(e) => {
                 debug!("Error while reading until block: {:?}", e);
+                break;
             }
+        }
+    }
+
+    match String::from_utf8(request_buffer) {
+        Ok(result) => result,
+        Err(e) => {
+            debug!("Error while converting buffer to string: {:?}", e);
+            String::new()
         }
     }
 }
@@ -159,10 +168,14 @@ async fn listen_to_client(
         )
         .await
         {
-            Ok(_) => {}
+            Ok(_) => {
+                debug!("Link request sent to tunnel for client ID: {}", client_id);
+            }
             Err(e) => match e {
                 MessageError::IoError(err) => {
-                    if err.kind() == io::ErrorKind::BrokenPipe {
+                    if err.kind() == io::ErrorKind::BrokenPipe
+                        || err.kind() == io::ErrorKind::ConnectionReset
+                    {
                         debug!("Tunnel disconnected while sending link request.");
                         let mut client = client_list.lock().await.remove(&client_id).unwrap();
                         end_respond_to_client(
@@ -213,7 +226,10 @@ async fn listen_to_tunnel(
 
             match message {
                 TunnelMessage::Connect { hostname } => {
-                    info!("Tunnel connected, waiting for link request.");
+                    info!(
+                        "Tunnel connected for hostname '{}', waiting for client link requests.",
+                        hostname
+                    );
                     tunnel_list.lock().await.register(Tunnel {
                         id: 0,
                         stream,
