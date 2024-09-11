@@ -1,18 +1,20 @@
 use std::{collections::HashMap, sync::Arc};
 
-use log::info;
+use log::{debug, info};
 use tokio::{
-    io::{self, Result},
+    io::{self, AsyncWriteExt, Result},
     net::{TcpListener, TcpStream},
     sync::Mutex,
 };
 
 use crate::{
     configuration::ServerConfiguration,
-    messages::{read_message, write_message, ServerMessage, TunnelMessage},
+    messages::{read_message, write_message, MessageError, ServerMessage, TunnelMessage},
 };
 
 struct Tunnel {
+    pub id: u32,
+    pub hostname: String,
     pub connected_client_id: Option<u32>,
     pub stream: TcpStream,
 }
@@ -32,9 +34,53 @@ impl TunnelList {
         self.tunnels.push(tunnel);
     }
 
-    pub fn get(&mut self) -> &mut Tunnel {
-        self.tunnels.get_mut(0).unwrap()
+    pub fn remove_tunnel(&mut self, id: u32) {
+        self.tunnels.retain(|t| t.id != id);
     }
+
+    pub fn find_by_hostname(&mut self, hostname: String) -> Option<&mut Tunnel> {
+        self.tunnels
+            .iter_mut()
+            .find(|tunnel| tunnel.hostname == hostname)
+    }
+}
+
+async fn read_until_block(stream: &mut TcpStream) -> String {
+    let mut result = String::new();
+    loop {
+        let mut buffer = [0; 100024];
+
+        stream.readable().await.unwrap();
+
+        match stream.try_read(&mut buffer) {
+            Ok(0) => {
+                return result;
+            }
+            Ok(read) => {
+                result.push_str(&String::from_utf8_lossy(&buffer[..read]));
+                if read < buffer.len() {
+                    return result;
+                }
+            }
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                return result;
+            }
+            Err(e) => {
+                debug!("Error while reading until block: {:?}", e);
+            }
+        }
+    }
+}
+
+fn find_hostname(request: &String) -> Option<String> {
+    request
+        .lines()
+        .find(|line| line.starts_with("Host:"))
+        .map(|host_header| host_header.trim_start_matches("Host:").trim().to_string())
+}
+
+async fn end_respond_to_client(stream: &mut TcpStream, message: &str) {
+    stream.write_all(message.as_bytes()).await.unwrap();
 }
 
 async fn listen_to_client(
@@ -49,7 +95,7 @@ async fn listen_to_client(
     info!("Listening to client connections on {}", client_address);
 
     loop {
-        let (stream, address) = client.accept().await.unwrap();
+        let (mut stream, address) = client.accept().await.unwrap();
 
         let mut id_counter = client_counter.lock().await;
         (*id_counter) = (*id_counter).wrapping_add(1);
@@ -60,24 +106,82 @@ async fn listen_to_client(
             address, client_id
         );
 
-        let mut client_link_map = client_list.lock().await;
-        client_link_map.insert(client_id, stream);
+        let initial_request = read_until_block(&mut stream).await;
 
+        let hostname = match find_hostname(&initial_request) {
+            Some(hostname) => hostname,
+            None => {
+                info!("No hostname found in initial request, closing connection.");
+                end_respond_to_client(
+                    &mut stream,
+                    "No hostname found for this request. Cannot resolve to a tunnel. Closing connection.",
+                )
+                .await;
+                continue;
+            }
+        };
         let mut tunnel_value = tunnel_list.lock().await;
-        let tunnel = tunnel_value.get();
+        let tunnel = match tunnel_value.find_by_hostname(hostname.clone()) {
+            Some(tunnel) => tunnel,
+            None => {
+                debug!("No tunnel found for hostname: {}", hostname);
+                end_respond_to_client(
+                    &mut stream,
+                    "No tunnel connected for this hostname. Closing connection.",
+                )
+                .await;
+                continue;
+            }
+        };
 
+        let id = tunnel.id;
+
+        {
+            let mut client_link_map = client_list.lock().await;
+            client_link_map.insert(
+                client_id,
+                Client {
+                    stream,
+                    initial_request: initial_request.clone(),
+                },
+            );
+        }
         tunnel.connected_client_id = Some(client_id);
 
         info!(
             "Sending link request to tunnel, for client ID: {}",
             client_id
         );
-        write_message(
+
+        match write_message(
             &mut tunnel.stream,
             &ServerMessage::LinkRequest { id: client_id },
         )
         .await
-        .unwrap();
+        {
+            Ok(_) => {}
+            Err(e) => match e {
+                MessageError::IoError(err) => {
+                    if err.kind() == io::ErrorKind::BrokenPipe {
+                        debug!("Tunnel disconnected while sending link request.");
+                        let mut client = client_list.lock().await.remove(&client_id).unwrap();
+                        end_respond_to_client(
+                            &mut client.stream,
+                            "No tunnel connected for this hostname. Closing connection.",
+                        )
+                        .await;
+                    } else {
+                        debug!("Error while sending link request: {:?}", err);
+                    }
+
+                    tunnel_value.remove_tunnel(id);
+                }
+                _ => {
+                    debug!("Error while sending link request: {:?}", e);
+                    tunnel_value.remove_tunnel(id);
+                }
+            },
+        }
     }
 }
 
@@ -108,10 +212,12 @@ async fn listen_to_tunnel(
             };
 
             match message {
-                TunnelMessage::Connect => {
+                TunnelMessage::Connect { hostname } => {
                     info!("Tunnel connected, waiting for link request.");
                     tunnel_list.lock().await.register(Tunnel {
+                        id: 0,
                         stream,
+                        hostname,
                         connected_client_id: None,
                     });
                 }
@@ -127,7 +233,12 @@ async fn listen_to_tunnel(
                         client_list.remove_entry(&id).unwrap().1
                     };
 
-                    match io::copy_bidirectional(&mut client, &mut stream).await {
+                    stream
+                        .write_all(client.initial_request.as_bytes())
+                        .await
+                        .unwrap();
+
+                    match io::copy_bidirectional(&mut client.stream, &mut stream).await {
                         _ => {}
                     }
                 }
@@ -136,7 +247,12 @@ async fn listen_to_tunnel(
     }
 }
 
-type MainClientList = Arc<Mutex<HashMap<u32, TcpStream>>>;
+struct Client {
+    pub initial_request: String,
+    pub stream: TcpStream,
+}
+
+type MainClientList = Arc<Mutex<HashMap<u32, Client>>>;
 type MainTunnelList = Arc<Mutex<TunnelList>>;
 
 pub async fn start_server(config: ServerConfiguration) -> Result<()> {

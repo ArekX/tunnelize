@@ -11,8 +11,8 @@ mod tunnel;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "Tunnelize", 
-    author = "Aleksandar Panic", 
+    name = "Tunnelize",
+    author = "Aleksandar Panic",
     version,
     long_about = None
 )]
@@ -57,7 +57,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let config = parse_configuration()?;
 
             if let Some(tunnel) = config.tunnel {
-                tunnel::start_client(tunnel).await?;
+                if let Err(_) = tunnel::start_client(tunnel).await {
+                    error!("Could not start tunnel client due to error.");
+                }
             } else {
                 error!("No tunel configuration found. Exiting...");
             }

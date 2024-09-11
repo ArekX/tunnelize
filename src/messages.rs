@@ -7,7 +7,7 @@ use tokio::io::AsyncReadExt;
 
 #[derive(Serialize, Deserialize)]
 pub enum TunnelMessage {
-    Connect,
+    Connect { hostname: String },
     LinkAccept { id: u32 },
 }
 
@@ -90,6 +90,9 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
             return Err(MessageError::ConnectionClosed);
         }
         Ok(_) => return Ok(buffer.freeze()),
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+            return Err(MessageError::ConnectionClosed);
+        }
         Err(e) => {
             return Err(MessageError::IoError(e));
         }
