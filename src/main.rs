@@ -5,6 +5,7 @@ use log::{error, info};
 use std::error::Error;
 
 mod configuration;
+mod data;
 mod messages;
 mod server;
 mod tunnel;

@@ -8,11 +8,13 @@ use tokio::io::AsyncReadExt;
 #[derive(Serialize, Deserialize)]
 pub enum TunnelMessage {
     Connect { hostname: String },
-    LinkAccept { id: u32 },
+    Disconnect { tunnel_id: u32 },
+    LinkAccept { tunnel_id: u32, id: u32 },
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum ServerMessage {
+    ConnectAccept { tunnel_id: u32 },
     LinkRequest { id: u32 },
 }
 

@@ -44,8 +44,8 @@ pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
             client_address: "0.0.0.0:3457".to_string(),
         }),
         tunnel: Some(TunnelConfiguration {
-            server_address: "arekxv.name:3456".to_string(),
-            hostname: "tunnel-opa.arekxv.name".to_string(),
+            server_address: "0.0.0.0:3456".to_string(),
+            hostname: "localhost:3457".to_string(),
         }),
     })
 }

@@ -1,49 +1,22 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::{
+    atomic::{AtomicU32, Ordering},
+    Arc,
+};
 
 use log::{debug, info};
 use tokio::{
     io::{self, AsyncWriteExt, Result},
     net::{TcpListener, TcpStream},
-    sync::Mutex,
 };
 
 use crate::{
     configuration::ServerConfiguration,
+    data::{
+        client::{create_client_list, Client, MainClientList},
+        tunnel::{create_tunnel_list, MainTunnelList, Tunnel},
+    },
     messages::{read_message, write_message, MessageError, ServerMessage, TunnelMessage},
 };
-
-struct Tunnel {
-    pub id: u32,
-    pub hostname: String,
-    pub connected_client_id: Option<u32>,
-    pub stream: TcpStream,
-}
-
-struct TunnelList {
-    tunnels: Vec<Tunnel>,
-}
-
-impl TunnelList {
-    pub fn new() -> Self {
-        TunnelList {
-            tunnels: Vec::new(),
-        }
-    }
-
-    pub fn register(&mut self, tunnel: Tunnel) {
-        self.tunnels.push(tunnel);
-    }
-
-    pub fn remove_tunnel(&mut self, id: u32) {
-        self.tunnels.retain(|t| t.id != id);
-    }
-
-    pub fn find_by_hostname(&mut self, hostname: String) -> Option<&mut Tunnel> {
-        self.tunnels
-            .iter_mut()
-            .find(|tunnel| tunnel.hostname == hostname)
-    }
-}
 
 async fn read_until_block(stream: &mut TcpStream) -> String {
     let mut request_buffer = Vec::new();
@@ -97,7 +70,7 @@ async fn listen_to_client(
     client_list: MainClientList,
     tunnel_list: MainTunnelList,
 ) -> Result<()> {
-    let client_counter = Arc::new(Mutex::new(0 as u32));
+    let mut client_counter: u32 = 0;
 
     let client = TcpListener::bind(client_address.clone()).await.unwrap();
 
@@ -106,9 +79,8 @@ async fn listen_to_client(
     loop {
         let (mut stream, address) = client.accept().await.unwrap();
 
-        let mut id_counter = client_counter.lock().await;
-        (*id_counter) = (*id_counter).wrapping_add(1);
-        let client_id = *id_counter;
+        client_counter = client_counter.wrapping_add(1);
+        let client_id = client_counter;
 
         println!(
             "Client connected from {}, assigned ID: {}",
@@ -155,8 +127,6 @@ async fn listen_to_client(
                 },
             );
         }
-        tunnel.connected_client_id = Some(client_id);
-
         info!(
             "Sending link request to tunnel, for client ID: {}",
             client_id
@@ -204,6 +174,7 @@ async fn listen_to_tunnel(
     tunnel_list: MainTunnelList,
 ) -> Result<()> {
     let link = TcpListener::bind(tunnel_address.clone()).await.unwrap();
+    let tunel_id_counter = Arc::new(AtomicU32::new(0));
 
     info!("Listening to tunnel connections on {}", tunnel_address);
 
@@ -216,6 +187,7 @@ async fn listen_to_tunnel(
 
         let tunnel_list = tunnel_list.clone();
         let client_list = client_list.clone();
+        let tunel_id_counter = tunel_id_counter.clone();
 
         tokio::spawn(async move {
             let message: TunnelMessage = if let Ok(m) = read_message(&mut stream).await {
@@ -226,18 +198,43 @@ async fn listen_to_tunnel(
 
             match message {
                 TunnelMessage::Connect { hostname } => {
+                    let id = tunel_id_counter.fetch_add(1, Ordering::SeqCst);
                     info!(
-                        "Tunnel connected for hostname '{}', waiting for client link requests.",
-                        hostname
-                    );
-                    tunnel_list.lock().await.register(Tunnel {
-                        id: 0,
-                        stream,
+                        "Tunnel connected for hostname '{}' (ID: {}), waiting for client link requests.",
                         hostname,
-                        connected_client_id: None,
-                    });
+                        id
+                    );
+
+                    match write_message(
+                        &mut stream,
+                        &ServerMessage::ConnectAccept { tunnel_id: id },
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            tunnel_list.lock().await.register(Tunnel {
+                                id,
+                                stream,
+                                hostname,
+                            });
+                        }
+                        Err(e) => {
+                            debug!("Error while sending connect accept: {:?}", e);
+                            return;
+                        }
+                    }
                 }
-                TunnelMessage::LinkAccept { id } => {
+                TunnelMessage::Disconnect { tunnel_id } => {
+                    info!("Tunnel disconnected for ID: {}", tunnel_id);
+                    tunnel_list.lock().await.remove_tunnel(tunnel_id);
+                }
+                TunnelMessage::LinkAccept { id, tunnel_id } => {
+                    let is_registered = { tunnel_list.lock().await.is_registered(tunnel_id) };
+                    if !is_registered {
+                        info!("Link request for non-existing tunnel ID: {}", tunnel_id);
+                        return;
+                    }
+
                     info!("Link accepted for client ID: {}", id);
                     let mut client = {
                         let mut client_list = client_list.lock().await;
@@ -249,10 +246,10 @@ async fn listen_to_tunnel(
                         client_list.remove_entry(&id).unwrap().1
                     };
 
-                    stream
-                        .write_all(client.initial_request.as_bytes())
-                        .await
-                        .unwrap();
+                    if let Err(e) = stream.write_all(client.initial_request.as_bytes()).await {
+                        debug!("Error while sending initial request to client: {:?}", e);
+                        return;
+                    }
 
                     match io::copy_bidirectional(&mut client.stream, &mut stream).await {
                         _ => {}
@@ -263,17 +260,9 @@ async fn listen_to_tunnel(
     }
 }
 
-struct Client {
-    pub initial_request: String,
-    pub stream: TcpStream,
-}
-
-type MainClientList = Arc<Mutex<HashMap<u32, Client>>>;
-type MainTunnelList = Arc<Mutex<TunnelList>>;
-
 pub async fn start_server(config: ServerConfiguration) -> Result<()> {
-    let main_client_list: MainClientList = Arc::new(Mutex::new(HashMap::new()));
-    let main_tunnel_list: MainTunnelList = Arc::new(Mutex::new(TunnelList::new()));
+    let main_client_list: MainClientList = create_client_list();
+    let main_tunnel_list: MainTunnelList = create_tunnel_list();
 
     let tunnel_client_list = main_client_list.clone();
     let tunnel_list = main_tunnel_list.clone();
