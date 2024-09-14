@@ -8,6 +8,7 @@ mod configuration;
 mod data;
 mod messages;
 mod server;
+mod servers;
 mod tunnel;
 
 #[derive(Parser, Debug)]
@@ -24,6 +25,7 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    Init,
     Server,
     Proxy,
 }
@@ -41,6 +43,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init_from_env(env);
 
     match command {
+        Commands::Init => {
+            configuration::write_default_tunnel_config()?;
+        }
         Commands::Server => {
             info!("Starting server...");
 

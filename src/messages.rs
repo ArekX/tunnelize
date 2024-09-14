@@ -112,7 +112,6 @@ where
         return Err(MessageError::InvalidLength(length));
     }
 
-    // Read the message data
     let message_bytes = read_exact(stream, length as usize).await?;
 
     deserialize_message(message_bytes)
