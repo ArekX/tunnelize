@@ -31,7 +31,13 @@ pub enum ServerType {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TunnelConfiguration {
     pub server_address: String,
-    pub hostname: String,
+    pub hostnames: Vec<HostnameConfiguration>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct HostnameConfiguration {
+    pub request_hostname: Option<String>,
+    pub tunnel_address: String,
 }
 
 fn get_configuration_dir() -> Result<std::path::PathBuf, std::io::Error> {
@@ -62,7 +68,10 @@ pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
         }),
         tunnel: Some(TunnelConfiguration {
             server_address: "0.0.0.0:3456".to_string(),
-            hostname: "localhost:3457".to_string(),
+            hostnames: vec![HostnameConfiguration {
+                request_hostname: Some("localhost:3457".to_string()),
+                tunnel_address: "0.0.0.0:8000".to_owned(),
+            }],
         }),
     })
 }
@@ -81,7 +90,10 @@ pub fn write_default_tunnel_config() -> Result<(), std::io::Error> {
         }),
         tunnel: Some(TunnelConfiguration {
             server_address: "0.0.0.0:3456".to_string(),
-            hostname: "localhost:3457".to_string(),
+            hostnames: vec![HostnameConfiguration {
+                request_hostname: Some("localhost:3457".to_string()),
+                tunnel_address: "0.0.0.0:8000".to_owned(),
+            }],
         }),
     })?;
 

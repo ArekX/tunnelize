@@ -32,6 +32,8 @@ impl TunnelList {
     }
 
     pub fn find_by_hostname(&mut self, hostname: String) -> Option<&mut Tunnel> {
+        // create hashmap hostname -> tunnel_id
+        // upon registering a tunnel, add the hostname to the hashmap
         self.tunnels
             .iter_mut()
             .find(|tunnel| tunnel.hostname == hostname)

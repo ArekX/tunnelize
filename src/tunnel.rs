@@ -18,8 +18,6 @@ use crate::{
     messages::{self, write_message, MessageError, ServerMessage, TunnelMessage},
 };
 
-const TUNNEL_FROM_ADDRESS: &str = "0.0.0.0:8000";
-
 pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
     let server_ip = config
         .server_address
@@ -46,13 +44,18 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         }
     };
 
-    match messages::write_message(
-        &mut server,
-        &TunnelMessage::Connect {
-            hostname: config.hostname.clone(),
-        },
-    )
-    .await
+    // fix this
+    let hostname = config
+        .hostnames
+        .get(0)
+        .unwrap()
+        .request_hostname
+        .as_ref()
+        .unwrap()
+        .clone();
+    let tunnel_address = config.hostnames.get(0).unwrap().tunnel_address.clone();
+
+    match messages::write_message(&mut server, &TunnelMessage::Connect { hostname: hostname }).await
     {
         Ok(_) => {}
         Err(e) => {
@@ -83,7 +86,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
             "Connected to server at {} ({})",
             config.server_address, server_ip
         );
-        info!("Proxying from {}", TUNNEL_FROM_ADDRESS);
+        info!("Proxying from {}", tunnel_address);
         info!("Waiting for request.");
         server.readable().await?;
 
@@ -93,7 +96,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
             Ok(message) => message,
             Err(e) => match e {
                 MessageError::ConnectionClosed => {
-                    info!("Server connection closed.");
+                    info!("Server Connection closed.");
                     return Ok(());
                 }
                 _ => {
@@ -107,6 +110,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         let server_address = config.server_address.clone();
 
         let tunnel_id = tunnel_id.clone();
+        let tunnel_address = tunnel_address.clone();
 
         tokio::spawn(async move {
             match message {
@@ -116,7 +120,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                 }
                 ServerMessage::LinkRequest { id } => {
                     let mut tunnel = TcpStream::connect(server_address).await.unwrap();
-                    let mut proxy = TcpStream::connect(TUNNEL_FROM_ADDRESS).await.unwrap();
+                    let mut proxy = TcpStream::connect(tunnel_address).await.unwrap();
 
                     if let Err(e) = write_message(
                         &mut tunnel,
