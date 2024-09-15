@@ -135,7 +135,7 @@ pub async fn start_server(config: ServerConfiguration) -> Result<()> {
                 let client_list = main_client_list.clone();
                 let tunnel_list = main_tunnel_list.clone();
                 server_futures.push(tokio::spawn(async move {
-                    start_http_server(client_list, tunnel_list, config)
+                    start_http_server(config, client_list, tunnel_list)
                         .await
                         .unwrap();
                 }));

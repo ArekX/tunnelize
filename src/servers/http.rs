@@ -60,12 +60,13 @@ async fn end_respond_to_client(stream: &mut TcpStream, message: &str) {
     stream.write_all(message.as_bytes()).await.unwrap();
 }
 
-async fn listen_to_client(
-    client_port: u16,
+pub async fn start_http_server(
+    config: HttpServer,
     client_list: MainClientList,
     tunnel_list: MainTunnelList,
 ) -> Result<()> {
     let mut client_counter: u32 = 0;
+    let client_port = config.port;
 
     let client = TcpListener::bind(format!("0.0.0.0:{}", client_port))
         .await
@@ -169,16 +170,4 @@ async fn listen_to_client(
 pub struct HttpServer {
     pub port: u16,
     pub auth_key: Option<String>,
-}
-
-pub async fn start_http_server(
-    client_list: MainClientList,
-    tunnel_list: MainTunnelList,
-    config: HttpServer,
-) -> Result<()> {
-    listen_to_client(config.port, client_list, tunnel_list)
-        .await
-        .unwrap();
-
-    Ok(())
 }
