@@ -194,8 +194,11 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                         return;
                     }
 
+                    info!("Proxying data...");
                     match io::copy_bidirectional(&mut tunnel, &mut proxy).await {
-                        Ok(_) => {}
+                        Ok(_) => {
+                            info!("Proxying data completed...");
+                        }
                         Err(e) => {
                             debug!("Error while proxying: {:?}", e);
                         }

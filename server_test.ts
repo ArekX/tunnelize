@@ -3,7 +3,7 @@ const port = parseInt(Deno.args[0]) || 8000;
 
 
 const handler = (request: Request): Response => {
-  const body = `Your user-agent is:\n\n${
+  const body = `Proxying from port ${port} | Your user-agent is:\n\n${
     request.headers.get("user-agent") ?? "Unknown"
   }`;
 
