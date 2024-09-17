@@ -120,7 +120,9 @@ async fn listen_to_tunnel(
                     }
 
                     match io::copy_bidirectional(&mut client.stream, &mut stream).await {
-                        _ => {}
+                        _ => {
+                            println!("Client {} tunnel link closed.", id);
+                        }
                     }
                 }
             }
