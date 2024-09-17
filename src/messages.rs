@@ -6,16 +6,42 @@ use serde::{Deserialize, Serialize};
 use tokio::io::AsyncReadExt;
 
 #[derive(Serialize, Deserialize)]
+pub struct TunnelClientRequest {
+    pub name: Option<String>,
+    pub forward_address: String,
+}
+
+#[derive(Serialize, Deserialize)]
 pub enum TunnelMessage {
-    Connect { hostname: String },
-    Disconnect { tunnel_id: u32 },
-    LinkAccept { tunnel_id: u32, id: u32 },
+    Connect {
+        client_requests: Vec<TunnelClientRequest>,
+    },
+    Disconnect {
+        tunnel_id: u32,
+    },
+    LinkAccept {
+        tunnel_id: u32,
+        id: u32,
+    },
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct ResolvedLink {
+    pub forward_address: String,
+    pub client_address: String,
+    pub link_id: u32,
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum ServerMessage {
-    ConnectAccept { tunnel_id: u32 },
-    LinkRequest { id: u32 },
+    ConnectAccept {
+        tunnel_id: u32,
+        resolved_links: Vec<ResolvedLink>,
+    },
+    LinkRequest {
+        id: u32,
+        link_id: u32,
+    },
 }
 
 #[derive(Debug)]

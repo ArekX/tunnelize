@@ -14,9 +14,9 @@ use crate::{
     configuration::{ServerConfiguration, ServerType},
     data::{
         client::{create_client_list, MainClientList},
-        tunnel::{create_tunnel_list, MainTunnelList, Tunnel},
+        tunnel::{create_tunnel_list, MainTunnelList},
     },
-    messages::{read_message, write_message, ServerMessage, TunnelMessage},
+    messages::{read_message, write_message, ResolvedLink, ServerMessage, TunnelMessage},
     servers::http::start_http_server,
 };
 
@@ -51,26 +51,40 @@ async fn listen_to_tunnel(
             };
 
             match message {
-                TunnelMessage::Connect { hostname } => {
+                TunnelMessage::Connect { client_requests } => {
                     let id = tunel_id_counter.fetch_add(1, Ordering::SeqCst);
-                    info!(
-                        "Tunnel connected for hostname '{}' (ID: {}), waiting for client link requests.",
-                        hostname,
-                        id
-                    );
+                    let mut link_id: u32 = 0;
+                    let mut resolved_links: Vec<ResolvedLink> = vec![];
+
+                    for client_request in client_requests {
+                        info!(
+                            "Tunnel connected for hostname '{}' (ID: {}), waiting for client link requests.",
+                            client_request.forward_address,
+                            id
+                        );
+                        resolved_links.push(ResolvedLink {
+                            link_id,
+                            forward_address: client_request.forward_address.clone(),
+                            client_address: format!("client-{}.localhost:3457", link_id), // fix, should be resolved to unique name
+                        });
+
+                        link_id = link_id.wrapping_add(1);
+                    }
 
                     match write_message(
                         &mut stream,
-                        &ServerMessage::ConnectAccept { tunnel_id: id },
+                        &ServerMessage::ConnectAccept {
+                            tunnel_id: id,
+                            resolved_links: resolved_links.clone(),
+                        },
                     )
                     .await
                     {
                         Ok(_) => {
-                            tunnel_list.lock().await.register(Tunnel {
-                                id,
-                                stream,
-                                hostname,
-                            });
+                            tunnel_list
+                                .lock()
+                                .await
+                                .register(id, stream, &resolved_links);
                         }
                         Err(e) => {
                             debug!("Error while sending connect accept: {:?}", e);

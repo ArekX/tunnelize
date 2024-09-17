@@ -80,7 +80,7 @@ pub async fn start_http_server(
         client_counter = client_counter.wrapping_add(1);
         let client_id = client_counter;
 
-        println!(
+        info!(
             "Client connected from {}, assigned ID: {}",
             address, client_id
         );
@@ -100,7 +100,7 @@ pub async fn start_http_server(
             }
         };
         let mut tunnel_value = tunnel_list.lock().await;
-        let tunnel = match tunnel_value.find_by_hostname(hostname.clone()) {
+        let (link_id, tunnel) = match tunnel_value.find_by_client_address(&hostname) {
             Some(tunnel) => tunnel,
             None => {
                 debug!("No tunnel found for hostname: {}", hostname);
@@ -132,7 +132,10 @@ pub async fn start_http_server(
 
         match write_message(
             &mut tunnel.stream,
-            &ServerMessage::LinkRequest { id: client_id },
+            &ServerMessage::LinkRequest {
+                id: client_id,
+                link_id,
+            },
         )
         .await
         {

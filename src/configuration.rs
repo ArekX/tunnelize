@@ -36,8 +36,8 @@ pub struct TunnelConfiguration {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct HostnameConfiguration {
-    pub request_hostname: Option<String>,
-    pub tunnel_address: String,
+    pub name: Option<String>,
+    pub forward_address: String,
 }
 
 fn get_configuration_dir() -> Result<std::path::PathBuf, std::io::Error> {
@@ -68,10 +68,16 @@ pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
         }),
         tunnel: Some(TunnelConfiguration {
             server_address: "0.0.0.0:3456".to_string(),
-            hostnames: vec![HostnameConfiguration {
-                request_hostname: Some("localhost:3457".to_string()),
-                tunnel_address: "0.0.0.0:8000".to_owned(),
-            }],
+            hostnames: vec![
+                HostnameConfiguration {
+                    name: Some("localhost:3457".to_string()),
+                    forward_address: "0.0.0.0:8000".to_owned(),
+                },
+                HostnameConfiguration {
+                    name: Some("localhost:3457".to_string()),
+                    forward_address: "0.0.0.0:3000".to_owned(),
+                },
+            ],
         }),
     })
 }
@@ -90,10 +96,16 @@ pub fn write_default_tunnel_config() -> Result<(), std::io::Error> {
         }),
         tunnel: Some(TunnelConfiguration {
             server_address: "0.0.0.0:3456".to_string(),
-            hostnames: vec![HostnameConfiguration {
-                request_hostname: Some("localhost:3457".to_string()),
-                tunnel_address: "0.0.0.0:8000".to_owned(),
-            }],
+            hostnames: vec![
+                HostnameConfiguration {
+                    name: Some("localhost:3457".to_string()),
+                    forward_address: "0.0.0.0:8000".to_owned(),
+                },
+                HostnameConfiguration {
+                    name: Some("localhost:3457".to_string()),
+                    forward_address: "0.0.0.0:3000".to_owned(),
+                },
+            ],
         }),
     })?;
 
