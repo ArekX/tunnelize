@@ -57,10 +57,10 @@ async fn listen_to_tunnel(
                     let mut resolved_links: Vec<ResolvedLink> = vec![];
 
                     for client_request in client_requests {
+                        let address = format!("client-{}.localhost:3457", link_id);
                         info!(
-                            "Tunnel connected for hostname '{}' (ID: {}), waiting for client link requests.",
-                            client_request.forward_address,
-                            id
+                            "Tunnel (ID: {}) is proxying for hostname '{}'.",
+                            id, address,
                         );
                         resolved_links.push(ResolvedLink {
                             link_id,
