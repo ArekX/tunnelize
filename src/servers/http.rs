@@ -173,4 +173,5 @@ pub async fn start_http_server(
 pub struct HttpServer {
     pub port: u16,
     pub auth_key: Option<String>,
+    pub domain_template: String,
 }

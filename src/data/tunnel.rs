@@ -5,7 +5,7 @@ use tokio::{net::TcpStream, sync::Mutex};
 use crate::messages::ResolvedLink;
 
 pub struct ProxyLink {
-    pub forward_address: String,
+    // pub forward_address: String,
     pub client_address: String,
 }
 
@@ -52,7 +52,7 @@ impl TunnelList {
             tunnel.proxy_map.insert(
                 link_counter,
                 ProxyLink {
-                    forward_address: link.forward_address.clone(), // will be read in monitoring
+                    // forward_address: link.forward_address.clone(), // will be read in monitoring
                     client_address: link.client_address.clone(),
                 },
             );

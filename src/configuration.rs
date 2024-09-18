@@ -1,6 +1,9 @@
 // use std::{fs::File, io::BufReader};
 
-use std::{fs::File, io::Write};
+use std::{
+    fs::File,
+    io::{BufReader, Write},
+};
 
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -50,36 +53,49 @@ fn get_configuration_dir() -> Result<std::path::PathBuf, std::io::Error> {
     Ok(dir.to_owned())
 }
 
-// pub fn configuration_exists() -> bool {
-//     let config_dir = get_configuration_dir().unwrap();
-//     let config_file = config_dir.join("tunnelize.json");
+pub fn configuration_exists() -> bool {
+    let config_dir = get_configuration_dir().unwrap();
+    let config_file = config_dir.join("tunnelize.json");
 
-//     config_file.exists()
-// }
+    config_file.exists()
+}
 
 pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
-    Ok(Configuration {
-        server: Some(ServerConfiguration {
-            tunnel_port: 3456,
-            servers: vec![ServerType::Http(HttpServer {
-                port: 3457,
-                auth_key: None,
-            })],
-        }),
-        tunnel: Some(TunnelConfiguration {
-            server_address: "0.0.0.0:3456".to_string(),
-            hostnames: vec![
-                HostnameConfiguration {
-                    name: Some("localhost:3457".to_string()),
-                    forward_address: "0.0.0.0:8000".to_owned(),
-                },
-                HostnameConfiguration {
-                    name: Some("localhost:3457".to_string()),
-                    forward_address: "0.0.0.0:3000".to_owned(),
-                },
-            ],
-        }),
-    })
+    if !configuration_exists() {
+        return Ok(Configuration {
+            server: Some(ServerConfiguration {
+                tunnel_port: 3456,
+                servers: vec![ServerType::Http(HttpServer {
+                    port: 3457,
+                    auth_key: None,
+                    domain_template: "t-{dynamic}.localhost".to_string(),
+                })],
+            }),
+            tunnel: Some(TunnelConfiguration {
+                server_address: "0.0.0.0:3456".to_string(),
+                hostnames: vec![
+                    HostnameConfiguration {
+                        name: Some("localhost:3457".to_string()),
+                        forward_address: "0.0.0.0:8000".to_owned(),
+                    },
+                    HostnameConfiguration {
+                        name: Some("localhost:3457".to_string()),
+                        forward_address: "0.0.0.0:3000".to_owned(),
+                    },
+                ],
+            }),
+        });
+    }
+
+    let config_dir = get_configuration_dir()?;
+    let config_file = config_dir.join("tunnelize.json");
+
+    let file = File::open(config_file)?;
+    let reader = BufReader::new(file);
+
+    let config: Configuration = serde_json::from_reader(reader)?;
+
+    Ok(config)
 }
 
 pub fn write_default_tunnel_config() -> Result<(), std::io::Error> {
@@ -92,6 +108,7 @@ pub fn write_default_tunnel_config() -> Result<(), std::io::Error> {
             servers: vec![ServerType::Http(HttpServer {
                 port: 3457,
                 auth_key: None,
+                domain_template: "t-{dynamic}.localhost".to_string(),
             })],
         }),
         tunnel: Some(TunnelConfiguration {

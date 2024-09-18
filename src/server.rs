@@ -17,11 +17,16 @@ use crate::{
         tunnel::{create_tunnel_list, MainTunnelList},
     },
     messages::{read_message, write_message, ResolvedLink, ServerMessage, TunnelMessage},
-    servers::http::start_http_server,
+    servers::{
+        domain::{create_registrar_list, RegistrarList},
+        http::start_http_server,
+    },
 };
 
 async fn listen_to_tunnel(
     tunnel_port: u16,
+    client_port: u16,
+    registrar_list: RegistrarList,
     client_list: MainClientList,
     tunnel_list: MainTunnelList,
 ) -> Result<()> {
@@ -42,6 +47,7 @@ async fn listen_to_tunnel(
         let tunnel_list = tunnel_list.clone();
         let client_list = client_list.clone();
         let tunel_id_counter = tunel_id_counter.clone();
+        let registrar = registrar_list.clone();
 
         tokio::spawn(async move {
             let message: TunnelMessage = if let Ok(m) = read_message(&mut stream).await {
@@ -57,7 +63,12 @@ async fn listen_to_tunnel(
                     let mut resolved_links: Vec<ResolvedLink> = vec![];
 
                     for client_request in client_requests {
-                        let address = format!("client-{}.localhost:3457", link_id);
+                        let hostname = {
+                            let mut registrar = registrar.lock().await;
+                            registrar.register_domain(None)
+                        };
+
+                        let address = format!("{}:{}", hostname, client_port);
                         info!(
                             "Tunnel (ID: {}) is proxying for hostname '{}'.",
                             id, address,
@@ -65,7 +76,7 @@ async fn listen_to_tunnel(
                         resolved_links.push(ResolvedLink {
                             link_id,
                             forward_address: client_request.forward_address.clone(),
-                            client_address: format!("client-{}.localhost:3457", link_id), // fix, should be resolved to unique name
+                            client_address: address,
                         });
 
                         link_id = link_id.wrapping_add(1);
@@ -133,15 +144,28 @@ async fn listen_to_tunnel(
 pub async fn start_server(config: ServerConfiguration) -> Result<()> {
     let main_client_list: MainClientList = create_client_list();
     let main_tunnel_list: MainTunnelList = create_tunnel_list();
+    let registrar_list = {
+        if let ServerType::Http(config) = &config.servers[0] {
+            create_registrar_list(config.domain_template.clone())
+        } else {
+            create_registrar_list("t-{dynamic}.localhost".to_string())
+        }
+    };
 
     let mut server_futures: Vec<JoinHandle<()>> = vec![];
 
     let tunnel_client_list = main_client_list.clone();
     let tunnel_list = main_tunnel_list.clone();
     server_futures.push(tokio::spawn(async move {
-        listen_to_tunnel(config.tunnel_port, tunnel_client_list, tunnel_list)
-            .await
-            .unwrap();
+        listen_to_tunnel(
+            config.tunnel_port,
+            3457,
+            registrar_list,
+            tunnel_client_list,
+            tunnel_list,
+        )
+        .await
+        .unwrap();
     }));
 
     for server in config.servers {
