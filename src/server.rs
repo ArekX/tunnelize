@@ -136,6 +136,24 @@ async fn listen_to_tunnel(
                         }
                     }
                 }
+                TunnelMessage::LinkDeny {
+                    tunnel_id,
+                    id,
+                    reason,
+                } => {
+                    let is_registered = { tunnel_list.lock().await.is_registered(tunnel_id) };
+                    if !is_registered {
+                        info!("Link deny for non-existing tunnel ID: {}", tunnel_id);
+                        return;
+                    }
+                    info!("Link denied for client ID: {}. Reason: {}", id, reason);
+                    let mut client_list = client_list.lock().await;
+
+                    if let Some(mut client) = client_list.remove(&id) {
+                        client.stream.write_all(reason.as_bytes()).await.unwrap();
+                        client.stream.shutdown().await.unwrap();
+                    }
+                }
             }
         });
     }

@@ -173,10 +173,23 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                             return;
                         }
                     };
-                    let mut proxy = match TcpStream::connect(forward_from_address).await {
+                    let mut proxy = match TcpStream::connect(forward_from_address.clone()).await {
                         Ok(stream) => stream,
                         Err(e) => {
                             debug!("Error connecting to forward address: {:?}", e);
+                            write_message(
+                                &mut tunnel,
+                                &TunnelMessage::LinkDeny {
+                                    id,
+                                    tunnel_id: tunnel_id.load(Ordering::SeqCst),
+                                    reason: format!(
+                                        "Could not connect to forward from {}",
+                                        forward_from_address
+                                    ),
+                                },
+                            )
+                            .await
+                            .unwrap();
                             return;
                         }
                     };

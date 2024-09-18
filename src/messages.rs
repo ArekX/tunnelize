@@ -19,6 +19,11 @@ pub enum TunnelMessage {
     Disconnect {
         tunnel_id: u32,
     },
+    LinkDeny {
+        tunnel_id: u32,
+        id: u32,
+        reason: String,
+    },
     LinkAccept {
         tunnel_id: u32,
         id: u32,
