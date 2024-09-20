@@ -3,10 +3,7 @@ use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
     net::ToSocketAddrs,
-    sync::{
-        atomic::{AtomicU32, Ordering},
-        Arc,
-    },
+    sync::Arc,
 };
 use tokio::{
     io::{self, Result},
@@ -14,6 +11,7 @@ use tokio::{
     signal,
     sync::Mutex,
 };
+use uuid::Uuid;
 
 use crate::{
     configuration::TunnelConfiguration,
@@ -34,9 +32,9 @@ fn resolve_address(address: String) -> Result<std::net::SocketAddr> {
 pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
     let server_ip = resolve_address(config.server_address.clone())?;
 
-    let tunnel_id = Arc::new(AtomicU32::new(0));
+    let tunnel_id = Arc::new(Mutex::new(Uuid::new_v4()));
 
-    let link_id_forward_map = Arc::new(Mutex::new(HashMap::<u32, String>::new()));
+    let host_id_map = Arc::new(Mutex::new(HashMap::<Uuid, String>::new()));
 
     let mut server = match TcpStream::connect(server_ip.clone()).await {
         Ok(stream) => stream,
@@ -67,7 +65,15 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         })
         .collect();
 
-    match transport::write_message(&mut server, &TunnelMessage::Connect { proxies }).await {
+    match transport::write_message(
+        &mut server,
+        &TunnelMessage::Connect {
+            proxies,
+            auth_key: config.auth_key.clone(),
+        },
+    )
+    .await
+    {
         Ok(_) => {}
         Err(e) => {
             debug!("Error while connecting {:?}", e);
@@ -95,8 +101,10 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         }
 
         let mut server = TcpStream::connect(server_ip).await.unwrap();
-        server.set_nodelay(true).unwrap();
-        let tunnel_id = tunnel_id_handler.load(Ordering::SeqCst);
+        let tunnel_id = {
+            let tunnel_id = tunnel_id_handler.lock().await;
+            tunnel_id.clone()
+        };
 
         if let Err(e) = write_message(&mut server, &TunnelMessage::Disconnect { tunnel_id }).await {
             debug!("Error while disconnecting: {:?}", e);
@@ -126,7 +134,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         let server_address = config.server_address.clone();
 
         let tunnel_id = tunnel_id.clone();
-        let link_id_forward_map = link_id_forward_map.clone();
+        let host_id_map = host_id_map.clone();
 
         tokio::spawn(async move {
             match message {
@@ -137,7 +145,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                     info!("Server connect accepted. Received Tunnel ID: {}", id);
 
                     {
-                        let mut link_id_forward_map = link_id_forward_map.lock().await;
+                        let mut link_id_forward_map = host_id_map.lock().await;
                         for link in resolved_links {
                             info!(
                                 "Proxying {} -> {} (Link ID: {})",
@@ -147,17 +155,40 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                         }
                     }
 
-                    tunnel_id.store(id, Ordering::SeqCst);
+                    {
+                        let mut tunnel_id = tunnel_id.lock().await;
+                        *tunnel_id = id;
+                    }
+                }
+                ServerMessage::TunnelDeny { reason } => {
+                    info!("Server connect denied: {}", reason);
+                    return;
                 }
                 ServerMessage::ClientLinkRequest { client_id, host_id } => {
                     let forward_from_address = {
-                        let link_id_forward_map = link_id_forward_map.lock().await;
-                        match link_id_forward_map.get(&host_id) {
+                        let host_id_map = host_id_map.lock().await;
+                        match host_id_map.get(&host_id) {
                             Some(address) => address.clone(),
                             None => {
-                                debug!("Link ID not found: {}", host_id);
+                                debug!("Host ID not found: {}", host_id);
 
-                                // TODO: Send a message to the server to inform that the link is not found.
+                                send_one_time_message(
+                                    server_address,
+                                    TunnelMessage::ClientLinkDeny {
+                                        client_id,
+                                        tunnel_id: {
+                                            let tunnel_id = tunnel_id.lock().await;
+                                            tunnel_id.clone()
+                                        },
+                                        reason: format!(
+                                            "Host ID not defined for tunnel: {}",
+                                            host_id
+                                        ),
+                                    },
+                                )
+                                .await
+                                .unwrap();
+
                                 return;
                             }
                         }
@@ -183,7 +214,10 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                                 &mut tunnel,
                                 &TunnelMessage::ClientLinkDeny {
                                     client_id,
-                                    tunnel_id: tunnel_id.load(Ordering::SeqCst),
+                                    tunnel_id: {
+                                        let tunnel_id = tunnel_id.lock().await;
+                                        tunnel_id.clone()
+                                    },
                                     reason: format!(
                                         "Could not connect to forward from {}",
                                         forward_from_address
@@ -200,7 +234,10 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                         &mut tunnel,
                         &TunnelMessage::ClientLinkAccept {
                             client_id,
-                            tunnel_id: tunnel_id.load(Ordering::SeqCst),
+                            tunnel_id: {
+                                let tunnel_id = tunnel_id.lock().await;
+                                tunnel_id.clone()
+                            },
                         },
                     )
                     .await
@@ -222,4 +259,10 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
             }
         });
     }
+}
+
+async fn send_one_time_message(server_address: String, message: TunnelMessage) -> Result<()> {
+    let mut server = TcpStream::connect(server_address).await?;
+    write_message(&mut server, &message).await.unwrap();
+    Ok(())
 }

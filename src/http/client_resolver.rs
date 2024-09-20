@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use log::{debug, info};
+use log::debug;
 use tokio::{io, net::TcpStream, time::timeout};
 
 pub struct ResolvedClient {

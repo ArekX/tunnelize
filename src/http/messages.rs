@@ -1,21 +1,23 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Serialize, Deserialize)]
 pub enum TunnelMessage {
     Connect {
         proxies: Vec<Proxy>,
+        auth_key: Option<String>,
     },
     Disconnect {
-        tunnel_id: u32,
+        tunnel_id: Uuid,
     },
     ClientLinkDeny {
-        tunnel_id: u32,
-        client_id: u32,
+        tunnel_id: Uuid,
+        client_id: Uuid,
         reason: String,
     },
     ClientLinkAccept {
-        tunnel_id: u32,
-        client_id: u32,
+        tunnel_id: Uuid,
+        client_id: Uuid,
     },
 }
 
@@ -27,13 +29,16 @@ pub struct Proxy {
 
 #[derive(Serialize, Deserialize)]
 pub enum ServerMessage {
+    TunnelDeny {
+        reason: String,
+    },
     TunnelAccept {
-        tunnel_id: u32,
+        tunnel_id: Uuid,
         resolved_links: Vec<ResolvedLink>,
     },
     ClientLinkRequest {
-        client_id: u32,
-        host_id: u32,
+        client_id: Uuid,
+        host_id: Uuid,
     },
 }
 
@@ -41,5 +46,5 @@ pub enum ServerMessage {
 pub struct ResolvedLink {
     pub forward_address: String,
     pub hostname: String,
-    pub host_id: u32,
+    pub host_id: Uuid,
 }

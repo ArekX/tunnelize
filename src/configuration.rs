@@ -35,6 +35,7 @@ pub enum ServerType {
 pub struct TunnelConfiguration {
     pub server_address: String,
     pub hostnames: Vec<HostnameConfiguration>,
+    pub auth_key: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -84,6 +85,7 @@ pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
                         forward_address: "0.0.0.0:3000".to_owned(),
                     },
                 ],
+                auth_key: None,
             }),
         });
     }
@@ -125,6 +127,7 @@ pub fn write_default_tunnel_config() -> Result<(), std::io::Error> {
                     forward_address: "0.0.0.0:3000".to_owned(),
                 },
             ],
+            auth_key: None,
         }),
     })?;
 

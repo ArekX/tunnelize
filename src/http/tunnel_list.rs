@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use tokio::net::TcpStream;
+use uuid::Uuid;
 
 use super::host_list::ResolvedHost;
 
@@ -10,33 +11,29 @@ pub struct RequestedProxy {
 }
 
 pub struct Tunnel {
-    pub id: u32,
+    pub id: Uuid,
     pub proxy_map: HashMap<String, RequestedProxy>,
     pub stream: TcpStream,
 }
 
 pub struct TunnelList {
-    id_counter: u32,
-    tunnel_map: HashMap<u32, Tunnel>,
+    tunnel_map: HashMap<Uuid, Tunnel>,
 }
 
 impl TunnelList {
     pub fn new() -> Self {
         TunnelList {
-            id_counter: 0,
             tunnel_map: HashMap::new(),
         }
     }
 
-    pub fn issue_tunnel_id(&mut self) -> u32 {
-        let issued_id = self.id_counter;
-        self.id_counter = self.id_counter.wrapping_add(1);
-        issued_id
+    pub fn issue_tunnel_id(&self) -> Uuid {
+        Uuid::new_v4()
     }
 
     pub fn register(
         &mut self,
-        tunnel_id: u32,
+        tunnel_id: Uuid,
         stream: TcpStream,
         requested_proxies: Vec<RequestedProxy>,
     ) {
@@ -56,15 +53,15 @@ impl TunnelList {
         );
     }
 
-    pub fn is_registered(&self, id: u32) -> bool {
+    pub fn is_registered(&self, id: Uuid) -> bool {
         self.tunnel_map.contains_key(&id)
     }
 
-    pub fn remove_tunnel(&mut self, id: u32) {
+    pub fn remove_tunnel(&mut self, id: Uuid) {
         self.tunnel_map.remove(&id);
     }
 
-    pub fn get_by_id(&mut self, id: u32) -> Option<&mut Tunnel> {
+    pub fn get_by_id(&mut self, id: Uuid) -> Option<&mut Tunnel> {
         self.tunnel_map.get_mut(&id)
     }
 }

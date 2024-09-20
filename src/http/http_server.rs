@@ -6,6 +6,7 @@ use tokio::{
     net::{TcpListener, TcpStream},
     time::timeout,
 };
+use uuid::Uuid;
 
 use crate::{
     http::{client_resolver::resolve_http_client, messages::ServerMessage},
@@ -14,7 +15,7 @@ use crate::{
 
 use super::{
     client_list::ClientList, host_list::HostList, tunnel_list::TunnelList, HttpServerConfig,
-    TaskService,
+    TaskData, TaskService,
 };
 
 async fn respond_and_close(stream: &mut TcpStream, message: &str) {
@@ -39,7 +40,7 @@ async fn wait_for_client_readable(stream: &mut TcpStream) -> bool {
 }
 
 pub async fn start_http_server(
-    config: HttpServerConfig,
+    config: TaskData<HttpServerConfig>,
     host_service: TaskService<HostList>,
     tunnel_service: TaskService<TunnelList>,
     client_service: TaskService<ClientList>,
@@ -190,13 +191,13 @@ pub async fn start_http_server(
 async fn end_tunnel(
     host_service: &TaskService<HostList>,
     tunnel_service: &mut TunnelList,
-    tunnel_id: u32,
+    tunnel_id: Uuid,
 ) {
     host_service.lock().await.unregister_by_tunnel(tunnel_id);
     tunnel_service.remove_tunnel(tunnel_id);
 }
 
-async fn end_client(client_service: &TaskService<ClientList>, client_id: u32, reason: &str) {
+async fn end_client(client_service: &TaskService<ClientList>, client_id: Uuid, reason: &str) {
     let mut client = client_service.lock().await.release(client_id).unwrap();
     respond_and_close(&mut client.stream, reason).await;
 }

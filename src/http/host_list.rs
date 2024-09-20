@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use rand::Rng;
+use uuid::Uuid;
 
 const CHARACTER_SET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
 fn generate_random_string() -> String {
@@ -15,19 +16,18 @@ fn generate_random_string() -> String {
 }
 
 pub struct ResolvedHost {
-    pub host_id: u32,
+    pub host_id: Uuid,
     pub hostname: String,
 }
 
 #[derive(Clone)]
 pub struct RegisteredHost {
-    pub tunnel_id: u32,
-    pub host_id: u32,
+    pub tunnel_id: Uuid,
+    pub host_id: Uuid,
     // pub hostname: String,
 }
 
 pub struct HostList {
-    id_counter: u32,
     host_map: HashMap<String, RegisteredHost>,
     host_template: String,
 }
@@ -35,15 +35,9 @@ pub struct HostList {
 impl HostList {
     pub fn new(host_template: String) -> Self {
         HostList {
-            id_counter: 0,
             host_template,
             host_map: HashMap::new(),
         }
-    }
-
-    fn assign_id(&mut self) -> u32 {
-        self.id_counter = self.id_counter.wrapping_add(1);
-        self.id_counter
     }
 
     fn assign_hostname(&self, desired_name: Option<String>) -> String {
@@ -70,9 +64,9 @@ impl HostList {
         hostname
     }
 
-    pub fn register(&mut self, tunnel_id: u32, preferred_name: Option<String>) -> ResolvedHost {
+    pub fn register(&mut self, tunnel_id: Uuid, preferred_name: Option<String>) -> ResolvedHost {
         let hostname = self.assign_hostname(preferred_name);
-        let host_id = self.assign_id();
+        let host_id = Uuid::new_v4();
 
         self.host_map.insert(
             hostname.clone(),
@@ -86,7 +80,7 @@ impl HostList {
         ResolvedHost { host_id, hostname }
     }
 
-    pub fn unregister_by_tunnel(&mut self, tunnel_id: u32) {
+    pub fn unregister_by_tunnel(&mut self, tunnel_id: Uuid) {
         let mut keys_to_remove = Vec::new();
 
         for (key, value) in self.host_map.iter() {
