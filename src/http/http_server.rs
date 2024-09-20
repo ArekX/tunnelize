@@ -89,19 +89,18 @@ pub async fn start_http_server(
             continue;
         }
 
+        let resolved_hostname = resolved_client.resolved_host.clone().unwrap();
+
         info!(
-            "Resolved hostname {} from initial request",
-            resolved_client.resolved_host.clone().unwrap()
+            "Resolved hostname '{}' from initial request",
+            resolved_hostname
         );
         let host = {
             let host_service = host_service.lock().await;
-            match host_service.find_host(&resolved_client.resolved_host.clone().unwrap()) {
+            match host_service.find_host(&resolved_hostname) {
                 Some(host) => host,
                 None => {
-                    error!(
-                        "Failed to find host for hostname {}",
-                        resolved_client.resolved_host.clone().unwrap()
-                    );
+                    error!("Failed to find host for hostname '{}'", resolved_hostname);
                     respond_and_close(
                         &mut stream,
                         "No tunnel connected for this hostname. Closing connection.",
