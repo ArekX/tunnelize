@@ -1,5 +1,7 @@
-use log::debug;
-use tokio::{io, net::TcpStream};
+use std::time::Duration;
+
+use log::{debug, info};
+use tokio::{io, net::TcpStream, time::timeout};
 
 pub struct ResolvedClient {
     pub initial_request: String,
@@ -18,10 +20,18 @@ pub async fn resolve_http_client(stream: &mut TcpStream) -> ResolvedClient {
 
 async fn read_until_block(stream: &mut TcpStream) -> String {
     let mut request_buffer = Vec::new();
+    let duration = Duration::from_secs(5);
     loop {
-        let mut buffer = [0; 100024];
+        debug!("Waiting tcp stream to be readable...");
+        match timeout(duration, stream.readable()).await {
+            Ok(_) => {}
+            Err(_) => {
+                debug!("Timeout while waiting for client stream to be readable.");
+                break;
+            }
+        }
 
-        stream.readable().await.unwrap();
+        let mut buffer = [0; 100024];
 
         match stream.try_read(&mut buffer) {
             Ok(0) => {

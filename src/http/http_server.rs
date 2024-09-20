@@ -1,7 +1,10 @@
-use log::{debug, error, info};
+use std::time::Duration;
+
+use log::{debug, error, info, warn};
 use tokio::{
     io::{self, AsyncWriteExt},
     net::{TcpListener, TcpStream},
+    time::timeout,
 };
 
 use crate::{
@@ -24,7 +27,18 @@ async fn respond_and_close(stream: &mut TcpStream, message: &str) {
     }
 }
 
-pub async fn start_client_server(
+async fn wait_for_client_readable(stream: &mut TcpStream) -> bool {
+    let duration = Duration::from_secs(5);
+    match timeout(duration, stream.readable()).await {
+        Ok(_) => true,
+        Err(_) => {
+            debug!("Timeout while waiting for client stream to be readable.");
+            false
+        }
+    }
+}
+
+pub async fn start_http_server(
     config: HttpServerConfig,
     host_service: TaskService<HostList>,
     tunnel_service: TaskService<TunnelList>,
@@ -52,6 +66,17 @@ pub async fn start_client_server(
             }
         };
 
+        info!("Client connected from {}", address);
+
+        info!("Waiting for client to be readable...");
+        if !wait_for_client_readable(&mut stream).await {
+            warn!("Client stream not readable or pre-connection without sending data, closing connection.");
+            if let Err(e) = stream.shutdown().await {
+                debug!("Error while closing client stream. {:?}", e);
+            }
+            continue;
+        }
+
         let resolved_client = resolve_http_client(&mut stream).await;
 
         if let None = resolved_client.resolved_host {
@@ -63,6 +88,10 @@ pub async fn start_client_server(
             continue;
         }
 
+        info!(
+            "Resolved hostname {} from initial request",
+            resolved_client.resolved_host.clone().unwrap()
+        );
         let host = {
             let host_service = host_service.lock().await;
             match host_service.find_host(&resolved_client.resolved_host.clone().unwrap()) {
@@ -115,6 +144,10 @@ pub async fn start_client_server(
             }
         };
 
+        debug!(
+            "Sending link request to tunnel for client ID {}, host ID: {} -> tunnel ID: {}",
+            client_id, host.host_id, host.tunnel_id
+        );
         match write_message(
             &mut tunnel.stream,
             &ServerMessage::ClientLinkRequest {
@@ -125,7 +158,10 @@ pub async fn start_client_server(
         .await
         {
             Ok(_) => {
-                debug!("Link request sent to tunnel for client ID: {}", client_id);
+                debug!(
+                    "Sent link request to tunnel for client ID {}, host ID: {} -> tunnel ID: {}",
+                    client_id, host.host_id, host.tunnel_id
+                );
             }
             Err(e) => match e {
                 MessageError::IoError(err)

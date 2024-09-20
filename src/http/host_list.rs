@@ -47,26 +47,27 @@ impl HostList {
     }
 
     fn assign_hostname(&self, desired_name: Option<String>) -> String {
-        // TODO: Implement desired_name
-        // if let Some(name) = desired_name {
-        //     let hostname = self.host_template.replace("{dynamic}", &name);
+        if let Some(name) = desired_name {
+            if name.len() >= 1 {
+                let hostname = self.host_template.replace("{dynamic}", &name);
 
-        //     if !self.host_map.contains_key(&hostname) {
-        //         return hostname;
-        //     }
-        // }
+                if !self.host_map.contains_key(&hostname) {
+                    return hostname;
+                }
+            }
+        }
 
-        let mut domain = self
+        let mut hostname = self
             .host_template
             .replace("{dynamic}", &generate_random_string());
 
-        while self.host_map.contains_key(&domain) {
-            domain = self
+        while self.host_map.contains_key(&hostname) {
+            hostname = self
                 .host_template
                 .replace("{dynamic}", &generate_random_string());
         }
 
-        domain
+        hostname
     }
 
     pub fn register(&mut self, tunnel_id: u32, preferred_name: Option<String>) -> ResolvedHost {

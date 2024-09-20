@@ -62,7 +62,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         .hostnames
         .iter()
         .map(|h| Proxy {
-            desired_name: h.name.clone(),
+            desired_name: h.desired_name.clone(),
             forward_address: h.forward_address.clone(),
         })
         .collect();
@@ -95,6 +95,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         }
 
         let mut server = TcpStream::connect(server_ip).await.unwrap();
+        server.set_nodelay(true).unwrap();
         let tunnel_id = tunnel_id_handler.load(Ordering::SeqCst);
 
         if let Err(e) = write_message(&mut server, &TunnelMessage::Disconnect { tunnel_id }).await {

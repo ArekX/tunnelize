@@ -157,6 +157,10 @@ async fn process_tunnel_request(
                 return;
             }
 
+            debug!(
+                "Tunnel link established for client ID: {}, sending data...",
+                client_id
+            );
             match io::copy_bidirectional(&mut client.stream, &mut stream).await {
                 _ => {
                     println!("Client {} tunnel link closed.", client_id);

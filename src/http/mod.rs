@@ -11,8 +11,8 @@ use crate::configuration::TunnelConfiguration;
 
 mod client_list;
 mod client_resolver;
-mod client_server;
 mod host_list;
+mod http_server;
 mod messages;
 mod tunnel_client;
 mod tunnel_helper;
@@ -55,7 +55,7 @@ pub fn start_client_task(
 ) -> tokio::task::JoinHandle<()> {
     info!("Starting client listener");
     tokio::spawn(async move {
-        client_server::start_client_server(
+        http_server::start_http_server(
             config.clone(),
             host_service.clone(),
             tunnel_service.clone(),
