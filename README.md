@@ -18,7 +18,7 @@ To run the tunnel you first need to initialize `tunnelize.json` configuration so
 where to connect to. To do this run `tunnelize init` to create it. You will see the configuration for both
 server and tunnel so configure the part you wish to run. Below is a config for tunnel:
 
-```json
+```js
 {
   "tunnel": {
     "server_address": "example.com:3456", // make sure this port is open for tunnel to connect to
@@ -45,7 +45,7 @@ To start hosting create configuration by running `cargo run init` to create `tun
 
 Then set following for your server:
 
-```json
+```js
 {
   "server": {
     "servers": [
