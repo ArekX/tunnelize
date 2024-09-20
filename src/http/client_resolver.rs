@@ -67,12 +67,12 @@ fn find_hostname(request: &String) -> Option<String> {
         .lines()
         .find(|line| line.to_lowercase().starts_with("host:"))
         .map(|host_header| {
-            host_header
-                .to_lowercase()
-                .trim()
-                .trim_start_matches("host:")
-                .trim()
+            let lowercase_header = host_header.to_lowercase();
+
+            let hostname = lowercase_header.trim_start_matches("host:").trim();
+
+            hostname
                 .split_once(':')
-                .map_or_else(|| host_header.to_string(), |(host, _)| host.to_string())
+                .map_or_else(|| hostname.to_string(), |(host, _)| host.to_string())
         })
 }
