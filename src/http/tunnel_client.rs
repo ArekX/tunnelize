@@ -22,8 +22,15 @@ use crate::{
 fn resolve_address(address: String) -> Result<std::net::SocketAddr> {
     match address.to_socket_addrs() {
         Ok(mut iter) => match iter.next() {
-            Some(addr) => Ok(addr),
-            None => Err(Error::new(ErrorKind::InvalidInput, "Invalid address")),
+            Some(std::net::SocketAddr::V4(addr)) => Ok(std::net::SocketAddr::V4(addr)),
+            Some(_) => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Address is not IPv4",
+            )),
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Invalid address",
+            )),
         },
         Err(e) => Err(e),
     }
@@ -35,6 +42,11 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
     let tunnel_id = Arc::new(Mutex::new(Uuid::new_v4()));
 
     let host_id_map = Arc::new(Mutex::new(HashMap::<Uuid, String>::new()));
+
+    println!(
+        "Connecting to server at {} ({})",
+        config.server_address, server_ip
+    );
 
     let mut server = match TcpStream::connect(server_ip.clone()).await {
         Ok(stream) => stream,
@@ -93,6 +105,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
     );
 
     let tunnel_id_handler = tunnel_id.clone();
+    let signal_server_ip = server_ip.clone();
 
     tokio::spawn(async move {
         if let Err(e) = signal::ctrl_c().await {
@@ -100,7 +113,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
             return;
         }
 
-        let mut server = TcpStream::connect(server_ip).await.unwrap();
+        let mut server = TcpStream::connect(signal_server_ip).await.unwrap();
         let tunnel_id = {
             let tunnel_id = tunnel_id_handler.lock().await;
             tunnel_id.clone()
@@ -131,7 +144,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
             },
         };
 
-        let server_address = config.server_address.clone();
+        let server_ip = server_ip.clone();
 
         let tunnel_id = tunnel_id.clone();
         let host_id_map = host_id_map.clone();
@@ -173,7 +186,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                                 debug!("Host ID not found: {}", host_id);
 
                                 send_one_time_message(
-                                    server_address,
+                                    server_ip.to_string(),
                                     TunnelMessage::ClientLinkDeny {
                                         client_id,
                                         tunnel_id: {
@@ -199,7 +212,9 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                         forward_from_address, host_id
                     );
 
-                    let mut tunnel = match TcpStream::connect(server_address).await {
+                    info!("Connecting to server {} for proxying...", server_ip);
+
+                    let mut tunnel = match TcpStream::connect(server_ip).await {
                         Ok(stream) => stream,
                         Err(e) => {
                             debug!("Error connecting to server for proxying: {:?}", e);

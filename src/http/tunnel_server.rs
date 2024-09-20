@@ -267,6 +267,11 @@ async fn process_tunnel_connect(
     for proxy in proxies {
         let resolved_host = host_service.register(id, proxy.desired_name);
 
+        info!(
+            "Registered host {} for tunnel ID: {}",
+            resolved_host.hostname, id
+        );
+
         resolved_links.push(ResolvedLink {
             host_id: resolved_host.host_id,
             forward_address: proxy.forward_address.clone(),
