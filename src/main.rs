@@ -5,11 +5,9 @@ use log::{error, info};
 use std::error::Error;
 
 mod configuration;
-mod data;
-mod messages;
+mod http;
 mod server;
-mod servers;
-mod tunnel;
+mod transport;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -63,7 +61,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let config = parse_configuration()?;
 
             if let Some(tunnel) = config.tunnel {
-                if let Err(_) = tunnel::start_client(tunnel).await {
+                if let Err(_) = http::start_http_tunnel(tunnel).await {
                     error!("Could not start tunnel client due to error.");
                 }
             } else {

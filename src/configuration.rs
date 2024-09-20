@@ -8,7 +8,7 @@ use std::{
 use log::info;
 use serde::{Deserialize, Serialize};
 
-use crate::servers::http::HttpServer;
+use crate::http::HttpServerConfig;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Configuration {
@@ -25,7 +25,7 @@ pub struct ServerConfiguration {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ServerType {
-    Http(HttpServer),
+    Http(HttpServerConfig),
     Tcp { port_range: (u16, u16) },
     Udp { port_range: (u16, u16) },
     MonitoringApi { port: u16 },
@@ -65,10 +65,11 @@ pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
         return Ok(Configuration {
             server: Some(ServerConfiguration {
                 tunnel_port: 3456,
-                servers: vec![ServerType::Http(HttpServer {
-                    port: 3457,
+                servers: vec![ServerType::Http(HttpServerConfig {
+                    client_port: 3457,
+                    tunnel_port: 3456,
                     auth_key: None,
-                    domain_template: "t-{dynamic}.localhost".to_string(),
+                    host_template: "t-{dynamic}.localhost".to_string(),
                 })],
             }),
             tunnel: Some(TunnelConfiguration {
@@ -105,10 +106,11 @@ pub fn write_default_tunnel_config() -> Result<(), std::io::Error> {
     let initial_config = serde_json::to_string_pretty(&Configuration {
         server: Some(ServerConfiguration {
             tunnel_port: 3456,
-            servers: vec![ServerType::Http(HttpServer {
-                port: 3457,
+            servers: vec![ServerType::Http(HttpServerConfig {
+                client_port: 3457,
+                tunnel_port: 3456,
                 auth_key: None,
-                domain_template: "t-{dynamic}.localhost".to_string(),
+                host_template: "t-{dynamic}.localhost".to_string(),
             })],
         }),
         tunnel: Some(TunnelConfiguration {

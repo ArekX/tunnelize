@@ -17,9 +17,8 @@ use tokio::{
 
 use crate::{
     configuration::TunnelConfiguration,
-    messages::{
-        self, write_message, MessageError, ServerMessage, TunnelClientRequest, TunnelMessage,
-    },
+    http::messages::{Proxy, ServerMessage, TunnelMessage},
+    transport::{self, write_message, MessageError},
 };
 
 fn resolve_address(address: String) -> Result<std::net::SocketAddr> {
@@ -59,16 +58,16 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         config.server_address, server_ip
     );
 
-    let client_requests = config
+    let proxies = config
         .hostnames
         .iter()
-        .map(|h| TunnelClientRequest {
-            name: h.name.clone(),
+        .map(|h| Proxy {
+            desired_name: h.name.clone(),
             forward_address: h.forward_address.clone(),
         })
         .collect();
 
-    match messages::write_message(&mut server, &TunnelMessage::Connect { client_requests }).await {
+    match transport::write_message(&mut server, &TunnelMessage::Connect { proxies }).await {
         Ok(_) => {}
         Err(e) => {
             debug!("Error while connecting {:?}", e);
@@ -108,7 +107,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         server.readable().await?;
         info!("Message received, processing.");
 
-        let message: ServerMessage = match messages::read_message(&mut server).await {
+        let message: ServerMessage = match transport::read_message(&mut server).await {
             Ok(message) => message,
             Err(e) => match e {
                 MessageError::ConnectionClosed => {
@@ -130,7 +129,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
 
         tokio::spawn(async move {
             match message {
-                ServerMessage::ConnectAccept {
+                ServerMessage::TunnelAccept {
                     tunnel_id: id,
                     resolved_links,
                 } => {
@@ -141,21 +140,23 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                         for link in resolved_links {
                             info!(
                                 "Proxying {} -> {} (Link ID: {})",
-                                link.forward_address, link.client_address, link.link_id
+                                link.forward_address, link.hostname, link.host_id
                             );
-                            link_id_forward_map.insert(link.link_id, link.forward_address);
+                            link_id_forward_map.insert(link.host_id, link.forward_address);
                         }
                     }
 
                     tunnel_id.store(id, Ordering::SeqCst);
                 }
-                ServerMessage::LinkRequest { id, link_id } => {
+                ServerMessage::ClientLinkRequest { client_id, host_id } => {
                     let forward_from_address = {
                         let link_id_forward_map = link_id_forward_map.lock().await;
-                        match link_id_forward_map.get(&link_id) {
+                        match link_id_forward_map.get(&host_id) {
                             Some(address) => address.clone(),
                             None => {
-                                debug!("Link ID not found: {}", link_id);
+                                debug!("Link ID not found: {}", host_id);
+
+                                // TODO: Send a message to the server to inform that the link is not found.
                                 return;
                             }
                         }
@@ -163,7 +164,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
 
                     info!(
                         "Link request received. Forwarding {} -> {}",
-                        forward_from_address, link_id
+                        forward_from_address, host_id
                     );
 
                     let mut tunnel = match TcpStream::connect(server_address).await {
@@ -179,8 +180,8 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                             debug!("Error connecting to forward address: {:?}", e);
                             write_message(
                                 &mut tunnel,
-                                &TunnelMessage::LinkDeny {
-                                    id,
+                                &TunnelMessage::ClientLinkDeny {
+                                    client_id,
                                     tunnel_id: tunnel_id.load(Ordering::SeqCst),
                                     reason: format!(
                                         "Could not connect to forward from {}",
@@ -196,8 +197,8 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
 
                     if let Err(e) = write_message(
                         &mut tunnel,
-                        &TunnelMessage::LinkAccept {
-                            id,
+                        &TunnelMessage::ClientLinkAccept {
+                            client_id,
                             tunnel_id: tunnel_id.load(Ordering::SeqCst),
                         },
                     )
