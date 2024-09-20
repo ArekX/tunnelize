@@ -65,7 +65,7 @@ async fn read_until_block(stream: &mut TcpStream) -> String {
 fn find_hostname(request: &String) -> Option<String> {
     request
         .lines()
-        .find(|line| line.to_lowercase().starts_with("Host:"))
+        .find(|line| line.to_lowercase().starts_with("host:"))
         .map(|host_header| {
             host_header
                 .to_lowercase()
