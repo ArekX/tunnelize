@@ -5,10 +5,7 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::{
-    http::tunnel_helper::disconnect_tunnel,
-    transport::{read_message, write_message},
-};
+use crate::transport::{read_message, write_message};
 
 use super::{
     client_list::ClientList,
@@ -123,13 +120,28 @@ async fn process_tunnel_request(
     };
 }
 
+async fn validate_tunnel_id(tunnel_service: &TaskService<TunnelList>, tunnel_id: Uuid) -> bool {
+    let is_valid = tunnel_service.lock().await.is_registered(tunnel_id);
+
+    if !is_valid {
+        info!("Invalid tunnel ID: {}", tunnel_id);
+    }
+
+    is_valid
+}
+
 async fn process_disconnect_tunnel(
     host_service: &TaskService<HostList>,
     tunnel_service: &TaskService<TunnelList>,
     tunnel_id: Uuid,
 ) {
+    if !validate_tunnel_id(tunnel_service, tunnel_id).await {
+        return;
+    }
+
     info!("Tunnel disconnected for ID: {}", tunnel_id);
-    disconnect_tunnel(&host_service, tunnel_service, tunnel_id).await;
+    host_service.lock().await.unregister_by_tunnel(tunnel_id);
+    tunnel_service.lock().await.remove_tunnel(tunnel_id);
 }
 
 async fn process_client_deny(
@@ -139,11 +151,10 @@ async fn process_client_deny(
     client_id: Uuid,
     reason: String,
 ) {
-    let is_registered = { tunnel_service.lock().await.is_registered(tunnel_id) };
-    if !is_registered {
-        info!("Link deny for non-existing tunnel ID: {}", tunnel_id);
+    if !validate_tunnel_id(tunnel_service, tunnel_id).await {
         return;
     }
+
     info!(
         "Link denied for client ID: {}. Reason: {}",
         client_id, reason
@@ -180,11 +191,10 @@ async fn process_client_accept(
     client_id: Uuid,
     mut stream: TcpStream,
 ) {
-    let is_registered = { tunnel_service.lock().await.is_registered(tunnel_id) };
-    if !is_registered {
-        info!("Link request for non-existing tunnel ID: {}", tunnel_id);
+    if !validate_tunnel_id(tunnel_service, tunnel_id).await {
         return;
     }
+
     info!("Link accepted for client ID: {}", client_id);
     let mut client = {
         let mut client_service = client_service.lock().await;
@@ -263,10 +273,7 @@ async fn process_tunnel_connect(
             hostname: resolved_host.hostname.clone(),
         });
 
-        requested_proxies.push(RequestedProxy {
-            resolved_host,
-            forward_address: proxy.forward_address,
-        });
+        requested_proxies.push(RequestedProxy { resolved_host });
     }
 
     match write_message(

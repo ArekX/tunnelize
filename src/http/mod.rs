@@ -15,7 +15,6 @@ mod host_list;
 mod http_server;
 mod messages;
 mod tunnel_client;
-mod tunnel_helper;
 mod tunnel_list;
 mod tunnel_server;
 
@@ -28,6 +27,7 @@ pub struct HttpServerConfig {
     pub tunnel_port: u16,
     pub auth_key: Option<String>,
     pub host_template: String,
+    pub allow_custom_hostnames: bool,
 }
 
 pub fn start_tunnel_task(
@@ -62,8 +62,10 @@ pub fn start_client_task(
 }
 
 pub async fn start_http_server(config: HttpServerConfig) -> Result<(), std::io::Error> {
-    let host_service: TaskService<HostList> =
-        Arc::new(Mutex::new(HostList::new(config.host_template.clone())));
+    let host_service: TaskService<HostList> = Arc::new(Mutex::new(HostList::new(
+        config.host_template.clone(),
+        config.allow_custom_hostnames,
+    )));
     let config_service: TaskData<HttpServerConfig> = Arc::new(config);
     let client_service: TaskService<ClientList> = Arc::new(Mutex::new(ClientList::new()));
 

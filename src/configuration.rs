@@ -71,6 +71,7 @@ pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
                     tunnel_port: 3456,
                     auth_key: None,
                     host_template: "t-{dynamic}.localhost".to_string(),
+                    allow_custom_hostnames: true,
                 })],
             }),
             tunnel: Some(TunnelConfiguration {
@@ -113,6 +114,7 @@ pub fn write_default_tunnel_config() -> Result<(), std::io::Error> {
                 tunnel_port: 3456,
                 auth_key: None,
                 host_template: "t-{dynamic}.localhost".to_string(),
+                allow_custom_hostnames: true,
             })],
         }),
         tunnel: Some(TunnelConfiguration {

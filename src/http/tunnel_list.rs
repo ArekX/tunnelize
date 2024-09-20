@@ -7,12 +7,9 @@ use super::host_list::ResolvedHost;
 
 pub struct RequestedProxy {
     pub resolved_host: ResolvedHost,
-    pub forward_address: String,
 }
 
 pub struct Tunnel {
-    pub id: Uuid,
-    pub proxy_map: HashMap<String, RequestedProxy>,
     pub stream: TcpStream,
 }
 
@@ -43,14 +40,7 @@ impl TunnelList {
             proxy_map.insert(proxy.resolved_host.hostname.clone(), proxy);
         }
 
-        self.tunnel_map.insert(
-            tunnel_id,
-            Tunnel {
-                id: tunnel_id,
-                proxy_map,
-                stream,
-            },
-        );
+        self.tunnel_map.insert(tunnel_id, Tunnel { stream });
     }
 
     pub fn is_registered(&self, id: Uuid) -> bool {

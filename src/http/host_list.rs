@@ -29,24 +29,28 @@ pub struct RegisteredHost {
 
 pub struct HostList {
     host_map: HashMap<String, RegisteredHost>,
+    allow_custom_hostnames: bool,
     host_template: String,
 }
 
 impl HostList {
-    pub fn new(host_template: String) -> Self {
+    pub fn new(host_template: String, allow_custom_hostnames: bool) -> Self {
         HostList {
             host_template,
+            allow_custom_hostnames,
             host_map: HashMap::new(),
         }
     }
 
     fn assign_hostname(&self, desired_name: Option<String>) -> String {
-        if let Some(name) = desired_name {
-            if name.len() >= 1 {
-                let hostname = self.host_template.replace("{dynamic}", &name);
+        if self.allow_custom_hostnames {
+            if let Some(name) = desired_name {
+                if name.len() >= 1 {
+                    let hostname = self.host_template.replace("{dynamic}", &name);
 
-                if !self.host_map.contains_key(&hostname) {
-                    return hostname;
+                    if !self.host_map.contains_key(&hostname) {
+                        return hostname;
+                    }
                 }
             }
         }
