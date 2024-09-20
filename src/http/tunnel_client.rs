@@ -20,20 +20,18 @@ use crate::{
 };
 
 fn resolve_address(address: String) -> Result<std::net::SocketAddr> {
-    match address.to_socket_addrs() {
-        Ok(mut iter) => match iter.next() {
-            Some(std::net::SocketAddr::V4(addr)) => Ok(std::net::SocketAddr::V4(addr)),
-            Some(_) => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Address is not IPv4",
-            )),
-            None => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Invalid address",
-            )),
-        },
-        Err(e) => Err(e),
+    let addreses = address.to_socket_addrs()?;
+
+    for addr in addreses {
+        if addr.is_ipv4() {
+            return Ok(addr);
+        }
     }
+
+    Err(std::io::Error::new(
+        std::io::ErrorKind::InvalidInput,
+        "Address is not IPv4",
+    ))
 }
 
 pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
@@ -160,10 +158,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
                     {
                         let mut link_id_forward_map = host_id_map.lock().await;
                         for link in resolved_links {
-                            info!(
-                                "Proxying {} -> {} (Link ID: {})",
-                                link.forward_address, link.hostname, link.host_id
-                            );
+                            info!("{} -> https://{}", link.forward_address, link.hostname);
                             link_id_forward_map.insert(link.host_id, link.forward_address);
                         }
                     }

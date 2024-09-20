@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use configuration::parse_configuration;
 use env_logger::Env;
-use log::{error, info};
+use log::{debug, error, info};
 use std::error::Error;
 
 mod configuration;
@@ -61,7 +61,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let config = parse_configuration()?;
 
             if let Some(tunnel) = config.tunnel {
-                if let Err(_) = http::start_http_tunnel(tunnel).await {
+                if let Err(e) = http::start_http_tunnel(tunnel).await {
+                    debug!("Error starting tunnel client: {:?}", e);
                     error!("Could not start tunnel client due to error.");
                 }
             } else {

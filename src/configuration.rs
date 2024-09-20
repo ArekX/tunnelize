@@ -18,7 +18,6 @@ pub struct Configuration {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerConfiguration {
-    pub tunnel_port: u16,
     pub servers: Vec<ServerType>,
 }
 
@@ -65,7 +64,6 @@ pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
     if !configuration_exists() {
         return Ok(Configuration {
             server: Some(ServerConfiguration {
-                tunnel_port: 3456,
                 servers: vec![ServerType::Http(HttpServerConfig {
                     client_port: 3457,
                     tunnel_port: 3456,
@@ -108,7 +106,6 @@ pub fn write_default_tunnel_config() -> Result<(), std::io::Error> {
 
     let initial_config = serde_json::to_string_pretty(&Configuration {
         server: Some(ServerConfiguration {
-            tunnel_port: 3456,
             servers: vec![ServerType::Http(HttpServerConfig {
                 client_port: 3457,
                 tunnel_port: 3456,
