@@ -21,17 +21,22 @@ use super::{
 async fn respond_and_close(stream: &mut TcpStream, message: &str) {
     let duration = Duration::from_secs(5);
 
+    debug!("Writing error response to client...");
     if let Err(e) = timeout(duration, stream.write_all(message.as_bytes())).await {
         error!("Failed to respond to client: {}", e);
     }
 
+    debug!("Flushing error response to client...");
     if let Err(e) = stream.flush().await {
         error!("Failed to flush stream: {}", e);
     }
 
+    debug!("Shutting down client stream...");
     if let Err(e) = stream.shutdown().await {
         error!("Failed to close client connection: {}", e);
     }
+
+    debug!("Client connection closed.");
 }
 
 async fn wait_for_client_readable(stream: &mut TcpStream) -> bool {
