@@ -20,9 +20,14 @@ use super::{
 
 async fn respond_and_close(stream: &mut TcpStream, message: &str) {
     let duration = Duration::from_secs(5);
+    let response = format!(
+        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n{}",
+        message.len(),
+        message
+    );
 
     debug!("Writing error response to client...");
-    if let Err(e) = timeout(duration, stream.write_all(message.as_bytes())).await {
+    if let Err(e) = timeout(duration, stream.write_all(response.as_bytes())).await {
         error!("Failed to respond to client: {}", e);
     }
 
