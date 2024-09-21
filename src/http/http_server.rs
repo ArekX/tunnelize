@@ -1,3 +1,4 @@
+use core::time;
 use std::time::Duration;
 
 use log::{debug, error, info, warn};
@@ -19,9 +20,18 @@ use super::{
 };
 
 async fn respond_and_close(stream: &mut TcpStream, message: &str) {
-    if let Err(e) = stream.write_all(message.as_bytes()).await {
-        error!("Failed to respond to client: {}", e);
-    }
+    let duration = Duration::from_secs(5);
+
+    timeout(duration, async move {
+        if let Err(e) = stream.write_all(message.as_bytes()).await {
+            error!("Failed to respond to client: {}", e);
+        }
+
+        if let Err(e) = stream.flush().await {
+            error!("Failed to flush stream: {}", e);
+        }
+    }).await;
+
 
     if let Err(e) = stream.shutdown().await {
         error!("Failed to close client connection: {}", e);
