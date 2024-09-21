@@ -12,7 +12,9 @@ use crate::http::HttpServerConfig;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Configuration {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub server: Option<ServerConfiguration>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tunnel: Option<TunnelConfiguration>,
 }
 
@@ -60,32 +62,34 @@ pub fn configuration_exists() -> bool {
     config_file.exists()
 }
 
+pub fn get_default_server_config() -> ServerConfiguration {
+    ServerConfiguration {
+        servers: vec![ServerType::Http(HttpServerConfig {
+            client_port: 3457,
+            tunnel_port: 3456,
+            auth_key: None,
+            host_template: "t-{dynamic}.localhost".to_string(),
+            allow_custom_hostnames: true,
+        })],
+    }
+}
+
+pub fn get_default_tunnel_config() -> TunnelConfiguration {
+    TunnelConfiguration {
+        server_address: "0.0.0.0:3456".to_string(),
+        hostnames: vec![HostnameConfiguration {
+            desired_name: Some("8000".to_string()),
+            forward_address: "0.0.0.0:8000".to_owned(),
+        }],
+        auth_key: None,
+    }
+}
+
 pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
     if !configuration_exists() {
         return Ok(Configuration {
-            server: Some(ServerConfiguration {
-                servers: vec![ServerType::Http(HttpServerConfig {
-                    client_port: 3457,
-                    tunnel_port: 3456,
-                    auth_key: None,
-                    host_template: "t-{dynamic}.localhost".to_string(),
-                    allow_custom_hostnames: true,
-                })],
-            }),
-            tunnel: Some(TunnelConfiguration {
-                server_address: "0.0.0.0:3456".to_string(),
-                hostnames: vec![
-                    HostnameConfiguration {
-                        desired_name: Some("localhost:3457".to_string()),
-                        forward_address: "0.0.0.0:8000".to_owned(),
-                    },
-                    HostnameConfiguration {
-                        desired_name: Some("localhost:3457".to_string()),
-                        forward_address: "0.0.0.0:3000".to_owned(),
-                    },
-                ],
-                auth_key: None,
-            }),
+            server: Some(get_default_server_config()),
+            tunnel: Some(get_default_tunnel_config()),
         });
     }
 
@@ -100,35 +104,11 @@ pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
     Ok(config)
 }
 
-pub fn write_default_tunnel_config() -> Result<(), std::io::Error> {
+pub fn write_tunnel_config(config: Configuration) -> Result<(), std::io::Error> {
     let config_dir = get_configuration_dir()?;
     let config_file = config_dir.join("tunnelize.json");
 
-    let initial_config = serde_json::to_string_pretty(&Configuration {
-        server: Some(ServerConfiguration {
-            servers: vec![ServerType::Http(HttpServerConfig {
-                client_port: 3457,
-                tunnel_port: 3456,
-                auth_key: None,
-                host_template: "t-{dynamic}.localhost".to_string(),
-                allow_custom_hostnames: true,
-            })],
-        }),
-        tunnel: Some(TunnelConfiguration {
-            server_address: "0.0.0.0:3456".to_string(),
-            hostnames: vec![
-                HostnameConfiguration {
-                    desired_name: Some("8000".to_string()),
-                    forward_address: "0.0.0.0:8000".to_owned(),
-                },
-                HostnameConfiguration {
-                    desired_name: Some("3000".to_string()),
-                    forward_address: "0.0.0.0:3000".to_owned(),
-                },
-            ],
-            auth_key: None,
-        }),
-    })?;
+    let initial_config = serde_json::to_string_pretty(&config)?;
 
     let mut file = File::create(config_file.clone())?;
     file.write_all(initial_config.as_bytes())?;

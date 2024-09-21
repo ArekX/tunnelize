@@ -1,5 +1,8 @@
 use clap::{Parser, Subcommand};
-use configuration::parse_configuration;
+use configuration::{
+    get_default_server_config, get_default_tunnel_config, parse_configuration, write_tunnel_config,
+    Configuration,
+};
 use env_logger::Env;
 use log::{debug, error, info};
 use std::error::Error;
@@ -23,16 +26,21 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    Init,
-    Server,
-    Proxy,
+    Server {
+        #[arg(long, default_value_t = true)]
+        init: bool,
+    },
+    Tunnel {
+        #[arg(long, default_value_t = true)]
+        init: bool,
+    },
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
 
-    let command = args.command.unwrap_or(Commands::Proxy);
+    let command = args.command.unwrap_or(Commands::Tunnel { init: false });
 
     let env = Env::default()
         .filter_or("LOG_LEVEL", "trace")
@@ -41,10 +49,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init_from_env(env);
 
     match command {
-        Commands::Init => {
-            configuration::write_default_tunnel_config()?;
-        }
-        Commands::Server => {
+        Commands::Server { init } => {
+            if init {
+                write_tunnel_config(Configuration {
+                    server: Some(get_default_server_config()),
+                    tunnel: None,
+                })?;
+                return Ok(());
+            }
+
             info!("Starting server...");
 
             let config = parse_configuration()?;
@@ -55,7 +68,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 error!("No server configuration found. Exiting...");
             }
         }
-        Commands::Proxy => {
+        Commands::Tunnel { init } => {
+            if init {
+                write_tunnel_config(Configuration {
+                    server: None,
+                    tunnel: Some(get_default_tunnel_config()),
+                })?;
+                return Ok(());
+            }
+
             info!("Starting client...");
 
             let config = parse_configuration()?;
