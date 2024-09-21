@@ -21,7 +21,7 @@ use super::{
 async fn respond_and_close(stream: &mut TcpStream, message: &str) {
     let duration = Duration::from_secs(5);
     let response = format!(
-        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n{}",
+        "HTTP/1.1 502 OK\r\nContent-Length: {}\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n{}",
         message.len(),
         message
     );
