@@ -26,6 +26,7 @@ struct Args {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
+    Init,
     Server {
         #[arg(long, default_value_t = true)]
         init: bool,
@@ -49,6 +50,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init_from_env(env);
 
     match command {
+        Commands::Init => {
+            write_tunnel_config(Configuration {
+                server: Some(get_default_server_config()),
+                tunnel: Some(get_default_tunnel_config()),
+            })?;
+            return Ok(());
+        }
         Commands::Server { init } => {
             if init {
                 write_tunnel_config(Configuration {
