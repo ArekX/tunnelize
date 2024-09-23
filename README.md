@@ -15,7 +15,7 @@ Run `cargo build --release` to build the release version of tunnelize, built app
 # Running
 
 To run the tunnel you first need to initialize `tunnelize.json` configuration so that tunnel knows
-where to connect to. To do this run `tunnelize init` to create it. You will see the configuration for both
+where to connect to. To do this run `tunnelize tunnel --init` to create it. You will see the configuration for both
 server and tunnel so configure the part you wish to run. Below is a config for tunnel:
 
 ```js
@@ -41,7 +41,7 @@ server and tunnel so configure the part you wish to run. Below is a config for t
 
 ## Setting up tunnelize server
 
-To start hosting create configuration by running `cargo run init` to create `tunnelize.json` configuration.
+To start hosting create configuration by running `tunnelize server --init` to create `tunnelize.json` configuration.
 
 Then set following for your server:
 
@@ -118,7 +118,7 @@ map $http_upgrade $connection_upgrade {
 
 ## With SSL
 
-Certbot is required and access to your DNS zone.
+Certbot is required and access to your DNS zone if you are using Let's Encrypt.
 
 First run certbot with following settings (replace `example.com` with your domain):
 
