@@ -91,8 +91,12 @@ server {
     location / {
         proxy_pass http://0.0.0.0:3457; # Set port to tunnelize server
 
-        # Preserve the original host header
+        # This is required for tunnelize to figure out where to route to.
         proxy_set_header Host $host;
+
+        # Pass WebSocket headers only when the connection is upgrading
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
 
         # Other proxy settings (optional)
         proxy_set_header X-Real-IP $remote_addr;
@@ -101,9 +105,14 @@ server {
 
         proxy_buffering off;
 
-        # Disable proxying of temporary files
         proxy_max_temp_file_size 0;
     }
+}
+
+# This is mapping for websocket support
+map $http_upgrade $connection_upgrade {
+    default "close";
+    websocket "upgrade";
 }
 ``` 
 
@@ -119,46 +128,20 @@ sudo certbot certonly --manual --preferred-challenges=dns --server https://acme-
 
 You will get an acme challenge and set that as TXT record in your DNS zone then press enter to verify.
 
-After verification check the path to your certificate and apply them to the following nginx config:
+After verification check the path to your certificate and add following changes to nginx config defined above:
 
 ```
 server {
-    listen 80; # Remove this if you only want HTTPS connections
-    listen 443 ssl;
-    server_name ~^tunnel-(?<subdomain>\w+)\.example\.com$; # Set prefixed subdomain so that you can allow for any kind of tunnels
-    
+    # ...
+    listen 443 ssl; # change listen to this
+
+    # Add SSL certificates 
     ssl_certificate /etc/letsencrypt/live/example.com-0001/fullchain.pem; # make sure this path matches to the certificate for certbot
     ssl_certificate_key /etc/letsencrypt/live/example.com-0001/privkey.pem; # make sure this path matches to the certificate for certbot
     include /etc/letsencrypt/options-ssl-nginx.conf; 
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
-    # Increase the client request timeout
-    client_body_timeout 60s;
-    client_header_timeout 60s;
-
-    # Increase proxy timeouts for connecting to the backend
-    proxy_connect_timeout 60s;
-    proxy_send_timeout 60s;
-    proxy_read_timeout 60s;
-
-    # Keep connections alive for a longer time
-    keepalive_timeout 65s;
-    location / {
-         proxy_pass http://0.0.0.0:3457; # Set port to tunnelize server
-
-        # Preserve the original host header
-        proxy_set_header Host $host;
-
-        # Other proxy settings (optional)
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        proxy_buffering off;
-
-        # Disable proxying of temporary files
-        proxy_max_temp_file_size 0;
-    }
+    #...
 }
 ```
 
