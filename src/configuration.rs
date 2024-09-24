@@ -5,7 +5,8 @@ use std::{
     io::{BufReader, Write},
 };
 
-use log::info;
+use log::{error, info};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::http::HttpServerConfig;
@@ -101,7 +102,83 @@ pub fn parse_configuration() -> Result<Configuration, std::io::Error> {
 
     let config: Configuration = serde_json::from_reader(reader)?;
 
+    if let Err(errors) = validate_configuration(&config) {
+        for config_error in errors {
+            error!("{}", config_error);
+        }
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Configuration file contains errors.",
+        ));
+    }
+
     Ok(config)
+}
+
+pub fn validate_configuration(config: &Configuration) -> Result<(), Vec<String>> {
+    let mut results: Vec<String> = vec![];
+
+    let desired_name_regex = Regex::new(r"^[a-z0-9-]+$").unwrap();
+    let ip_port_regex = Regex::new(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5}$").unwrap();
+    let hostname_port_regex = Regex::new(r"^[a-z0-9-]+:[0-9]{1,5}$").unwrap();
+
+    if let Some(server) = &config.server {
+        for server in server.servers.iter() {
+            match server {
+                ServerType::Http(http_config) => {
+                    if http_config.client_port == http_config.tunnel_port {
+                        results.push(
+                            "Servers - HttpServer: Client and tunnel port cannot be the same."
+                                .to_string(),
+                        );
+                    }
+
+                    if http_config.host_template.is_empty()
+                        || http_config.host_template.contains("{dynamic}")
+                    {
+                        results.push("Servers - HttpServer: Host template cannot be empty or contain {dynamic}.".to_string());
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    if let Some(tunnel) = &config.tunnel {
+        if tunnel.server_address.is_empty()
+            || (!ip_port_regex.is_match(&tunnel.server_address)
+                && !hostname_port_regex.is_match(&tunnel.server_address))
+        {
+            results
+                .push("Tunnel: Server address must be in the format '<ip>:<port>' or '<hostname>:<port>'.".to_string());
+        }
+
+        for hostname in &tunnel.hostnames {
+            if hostname.forward_address.is_empty()
+                || !ip_port_regex.is_match(&hostname.forward_address)
+            {
+                results.push(
+                    "Tunnel - Hostnames: Forward address must be set and in the format '<ip>:<port>'."
+                        .to_string(),
+                );
+            }
+
+            if let Some(desired_name) = &hostname.desired_name {
+                if desired_name.is_empty() || !desired_name_regex.is_match(desired_name) {
+                    results.push(
+                        "Tunnel - Hostnames: Desired name must be set and only contain lowercase alphanumeric characters and hyphens."
+                            .to_string(),
+                    );
+                }
+            }
+        }
+    }
+
+    if results.is_empty() {
+        return Ok(());
+    }
+
+    Err(results)
 }
 
 pub fn write_tunnel_config(config: Configuration) -> Result<(), std::io::Error> {

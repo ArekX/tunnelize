@@ -5,7 +5,6 @@ use configuration::{
 };
 use env_logger::Env;
 use log::{debug, error, info};
-use std::error::Error;
 
 mod configuration;
 mod http;
@@ -38,16 +37,33 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
 
     let command = args.command.unwrap_or(Commands::Tunnel { init: false });
 
+    #[cfg(debug_assertions)]
     let env = Env::default()
         .filter_or("LOG_LEVEL", "trace")
         .write_style_or("LOG_STYLE", "always");
 
+    #[cfg(not(debug_assertions))]
+    let env = Env::default()
+        .filter_or("LOG_LEVEL", "info")
+        .write_style_or("LOG_STYLE", "always");
+
     env_logger::init_from_env(env);
+
+    let config;
+
+    match parse_configuration() {
+        Ok(valid_config) => config = valid_config,
+        Err(e) => {
+            debug!("Error parsing configuration: {:?}", e);
+            error!("Could not parse configuration file. Exiting...");
+            std::process::exit(1);
+        }
+    };
 
     match command {
         Commands::Init => {
@@ -68,12 +84,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             info!("Starting server...");
 
-            let config = parse_configuration()?;
-
             if let Some(server) = config.server {
                 server::start_server(server).await?;
             } else {
-                error!("No server configuration found. Exiting...");
+                error!("No server configuration found, cannot start a server. Exiting...");
             }
         }
         Commands::Tunnel { init } => {
@@ -87,15 +101,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             info!("Starting client...");
 
-            let config = parse_configuration()?;
-
             if let Some(tunnel) = config.tunnel {
                 if let Err(e) = http::start_http_tunnel(tunnel).await {
                     debug!("Error starting tunnel client: {:?}", e);
                     error!("Could not start tunnel client due to error.");
                 }
             } else {
-                error!("No tunel configuration found. Exiting...");
+                error!("No tunel configuration found, cannot start a tunnel. Exiting...");
             }
         }
     }
