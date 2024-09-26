@@ -55,7 +55,8 @@ Then set following for your server:
         "tunnel_port": 3456, // this is the port for tunnels to connect to
         "auth_key": null, // set password for authorization
         "host_template": "tunnel-{dynamic}.example", // set this to your domain, {dynamic} part will be replaced by generated names
-        "allow_custom_hostnames": true // set to true to allow tunnels to specify their own names for domains
+        "allow_custom_hostnames": true // set to true to allow tunnels to specify their own names for domains,
+        "client_authorize_user": null // require client auth to use tunnel, set to  { "username": "admin", "password": "admin" } to define which credentials to use, add "realm": "name" to specify the realm for credentials
       }
     ]
   }
