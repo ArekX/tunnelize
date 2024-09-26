@@ -28,6 +28,15 @@ pub struct HttpServerConfig {
     pub auth_key: Option<String>,
     pub host_template: String,
     pub allow_custom_hostnames: bool,
+    pub client_authorize_user: Option<ClientAuthorizeUser>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClientAuthorizeUser {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub realm: Option<String>,
+    pub username: String,
+    pub password: String,
 }
 
 pub fn start_tunnel_task(

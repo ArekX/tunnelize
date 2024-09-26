@@ -27,11 +27,11 @@ struct Args {
 enum Commands {
     Init,
     Server {
-        #[arg(long, default_value_t = true)]
+        #[arg(long, default_value_t = false)]
         init: bool,
     },
     Tunnel {
-        #[arg(long, default_value_t = true)]
+        #[arg(long, default_value_t = false)]
         init: bool,
     },
 }

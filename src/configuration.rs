@@ -71,6 +71,7 @@ pub fn get_default_server_config() -> ServerConfiguration {
             auth_key: None,
             host_template: "t-{dynamic}.localhost".to_string(),
             allow_custom_hostnames: true,
+            client_authorize_user: None,
         })],
     }
 }
@@ -134,9 +135,9 @@ pub fn validate_configuration(config: &Configuration) -> Result<(), Vec<String>>
                     }
 
                     if http_config.host_template.is_empty()
-                        || http_config.host_template.contains("{dynamic}")
+                        || !http_config.host_template.contains("{dynamic}")
                     {
-                        results.push("Servers - HttpServer: Host template cannot be empty or contain {dynamic}.".to_string());
+                        results.push("Servers - HttpServer: Host template cannot be empty and must contain {dynamic}.".to_string());
                     }
                 }
                 _ => {}
