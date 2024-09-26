@@ -10,7 +10,7 @@ use tunnel_list::TunnelList;
 use crate::configuration::TunnelConfiguration;
 
 mod client_list;
-mod client_resolver;
+mod http_handler;
 mod host_list;
 mod http_server;
 mod messages;

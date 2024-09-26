@@ -9,7 +9,12 @@ use tokio::{
 use uuid::Uuid;
 
 use crate::{
-    http::{client_resolver::resolve_http_client, messages::ServerMessage},
+    http::{
+        http_handler::{
+            find_request_host, get_error_response, get_unauthorized_response, is_authorized,
+        },
+        messages::ServerMessage,
+    },
     transport::{write_message, MessageError},
 };
 
@@ -18,13 +23,52 @@ use super::{
     TaskData, TaskService,
 };
 
-async fn respond_and_close(stream: &mut TcpStream, message: &str) {
+async fn read_http_request_string(stream: &mut TcpStream) -> String {
+    let mut request_buffer = Vec::new();
     let duration = Duration::from_secs(5);
-    let response = format!(
-        "HTTP/1.1 502 OK\r\nContent-Length: {}\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n{}",
-        message.len(),
-        message
-    );
+    loop {
+        debug!("Waiting tcp stream to be readable...");
+        match timeout(duration, stream.readable()).await {
+            Ok(_) => {}
+            Err(_) => {
+                debug!("Timeout while waiting for client stream to be readable.");
+                break;
+            }
+        }
+
+        let mut buffer = [0; 100024];
+
+        match stream.try_read(&mut buffer) {
+            Ok(0) => {
+                break;
+            }
+            Ok(read) => {
+                request_buffer.extend_from_slice(&buffer[..read]);
+                if read < buffer.len() {
+                    break;
+                }
+            }
+            Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                break;
+            }
+            Err(e) => {
+                debug!("Error while reading until block: {:?}", e);
+                break;
+            }
+        }
+    }
+
+    match String::from_utf8(request_buffer) {
+        Ok(result) => result,
+        Err(e) => {
+            debug!("Error while converting buffer to string: {:?}", e);
+            String::new()
+        }
+    }
+}
+
+async fn respond_and_close(stream: &mut TcpStream, response: &String) {
+    let duration = Duration::from_secs(5);
 
     debug!("Writing error response to client...");
     if let Err(e) = timeout(duration, stream.write_all(response.as_bytes())).await {
@@ -94,32 +138,47 @@ pub async fn start_http_server(
             continue;
         }
 
-        let resolved_client = resolve_http_client(&mut stream).await;
+        let http_request = read_http_request_string(&mut stream).await;
 
-        if let None = resolved_client.resolved_host {
+        if let Some(user) = config.client_authorize_user.as_ref() {
+            if !is_authorized(&http_request, &user.username, &user.password) {
+                info!(
+                    "Unauthorized client connection from {}, closing connection.",
+                    address
+                );
+                respond_and_close(
+                    &mut stream,
+                    &get_unauthorized_response(&http_request, &user.realm),
+                )
+                .await;
+                continue;
+            }
+        }
+
+        let hostname = if let Some(hostname) = find_request_host(&http_request) {
+            hostname
+        } else {
             info!("No hostname found in initial request, closing connection.");
             respond_and_close(
                 &mut stream,
-                "No hostname found for this request. Cannot resolve to a tunnel. Closing connection.",
+                &get_error_response(&http_request, "No hostname found for this request. Cannot resolve to a tunnel. Closing connection.".to_owned())
             ).await;
             continue;
-        }
+        };
 
-        let resolved_hostname = resolved_client.resolved_host.clone().unwrap();
-
-        info!(
-            "Resolved hostname '{}' from initial request",
-            resolved_hostname
-        );
+        info!("Resolved hostname '{}' from initial request", hostname);
         let host = {
             let host_service = host_service.lock().await;
-            match host_service.find_host(&resolved_hostname) {
+            match host_service.find_host(&hostname) {
                 Some(host) => host,
                 None => {
-                    error!("Failed to find host for hostname '{}'", resolved_hostname);
+                    error!("Failed to find host for hostname '{}'", hostname);
                     respond_and_close(
                         &mut stream,
-                        "No tunnel connected for this hostname. Closing connection.",
+                        &get_error_response(
+                            &http_request,
+                            "No tunnel connected for this hostname. Closing connection.".to_owned(),
+                        ),
                     )
                     .await;
                     continue;
@@ -137,11 +196,10 @@ pub async fn start_http_server(
                 "Client connected from {}, assigned ID: {}",
                 address, client_id
             );
-            client_service.lock().await.register(
-                client_id,
-                stream,
-                resolved_client.initial_request,
-            );
+            client_service
+                .lock()
+                .await
+                .register(client_id, stream, http_request.clone());
         }
 
         let mut tunnel_service = tunnel_service.lock().await;
@@ -153,7 +211,10 @@ pub async fn start_http_server(
                 end_client(
                     &client_service,
                     client_id,
-                    "No tunnel connected for this hostname. Closing connection.",
+                    &get_error_response(
+                        &http_request,
+                        "No tunnel connected for this hostname. Closing connection.".to_owned(),
+                    ),
                 )
                 .await;
                 continue;
@@ -189,14 +250,25 @@ pub async fn start_http_server(
                     end_client(
                         &client_service,
                         client_id,
-                        "Tunnel disconnected while sending link request.",
+                        &get_error_response(
+                            &http_request,
+                            "Tunnel disconnected while sending link request.".to_owned(),
+                        ),
                     )
                     .await;
                 }
                 _ => {
                     debug!("Error while sending link request: {:?}", e);
                     end_tunnel(&host_service, &mut tunnel_service, host.tunnel_id).await;
-                    end_client(&client_service, client_id, "Could not connect to tunnel.").await;
+                    end_client(
+                        &client_service,
+                        client_id,
+                        &get_error_response(
+                            &http_request,
+                            "Could not connect to tunnel.".to_owned(),
+                        ),
+                    )
+                    .await;
                 }
             },
         }
@@ -212,7 +284,7 @@ async fn end_tunnel(
     tunnel_service.remove_tunnel(tunnel_id);
 }
 
-async fn end_client(client_service: &TaskService<ClientList>, client_id: Uuid, reason: &str) {
+async fn end_client(client_service: &TaskService<ClientList>, client_id: Uuid, response: &String) {
     let mut client = client_service.lock().await.release(client_id).unwrap();
-    respond_and_close(&mut client.stream, reason).await;
+    respond_and_close(&mut client.stream, response).await;
 }
