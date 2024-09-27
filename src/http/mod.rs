@@ -7,11 +7,9 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use tunnel_list::TunnelList;
 
-use crate::configuration::TunnelConfiguration;
-
 mod client_list;
-mod http_handler;
 mod host_list;
+mod http_handler;
 mod http_server;
 mod messages;
 mod tunnel_client;
@@ -25,15 +23,26 @@ pub type TaskData<T> = Arc<T>;
 pub struct HttpServerConfig {
     pub client_port: u16,
     pub tunnel_port: u16,
-    pub auth_key: Option<String>,
+    pub tunnel_auth_key: Option<String>,
     pub host_template: String,
     pub allow_custom_hostnames: bool,
-    pub client_authorize_user: Option<ClientAuthorizeUser>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct HttpTunnelConfig {
+    pub proxies: Vec<TunnelProxy>,
+    pub tunnel_auth_key: Option<String>,
+    pub client_authorization: Option<ClientAuthorizeUser>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TunnelProxy {
+    pub desired_name: Option<String>,
+    pub forward_address: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClientAuthorizeUser {
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub realm: Option<String>,
     pub username: String,
     pub password: String,
@@ -98,7 +107,10 @@ pub async fn start_http_server(config: HttpServerConfig) -> Result<(), std::io::
     Ok(())
 }
 
-pub async fn start_http_tunnel(config: TunnelConfiguration) -> Result<(), std::io::Error> {
-    tunnel_client::start_client(config).await?;
+pub async fn start_http_tunnel(
+    server_address: String,
+    config: HttpTunnelConfig,
+) -> Result<(), std::io::Error> {
+    tunnel_client::start_client(server_address, config).await?;
     Ok(())
 }

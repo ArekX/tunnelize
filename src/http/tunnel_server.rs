@@ -12,7 +12,7 @@ use super::{
     host_list::HostList,
     messages::{Proxy, ResolvedLink, ServerMessage, TunnelMessage},
     tunnel_list::{RequestedProxy, TunnelList},
-    HttpServerConfig, TaskData, TaskService,
+    ClientAuthorizeUser, HttpServerConfig, TaskData, TaskService,
 };
 
 pub async fn start_tunnel_server(
@@ -69,20 +69,31 @@ async fn process_tunnel_request(
     tunnel_service: TaskService<TunnelList>,
     client_service: TaskService<ClientList>,
 ) {
-    let message: TunnelMessage = if let Ok(m) = read_message(&mut stream).await {
-        m
-    } else {
-        return;
+    let message: TunnelMessage = match read_message(&mut stream).await {
+        Ok(message) => message,
+        Err(e) => {
+            debug!("Error while reading tunnel message: {:?}", e);
+            return;
+        }
     };
 
     match message {
-        TunnelMessage::Connect { proxies, auth_key } => {
+        TunnelMessage::Connect {
+            proxies,
+            tunnel_auth_key,
+            client_authorization,
+        } => {
+            debug!(
+                "Received tunnel connect request. {:?}",
+                client_authorization
+            );
             process_tunnel_connect(
                 &config,
                 &host_service,
                 &tunnel_service,
                 proxies,
-                auth_key,
+                tunnel_auth_key,
+                client_authorization,
                 stream,
             )
             .await
@@ -234,9 +245,10 @@ async fn process_tunnel_connect(
     tunnel_service: &TaskService<TunnelList>,
     proxies: Vec<Proxy>,
     auth_key: Option<String>,
+    client_authorization: Option<ClientAuthorizeUser>,
     mut stream: TcpStream,
 ) {
-    if let Some(key) = &config.auth_key {
+    if let Some(key) = &config.tunnel_auth_key {
         let tunnel_key = match auth_key {
             Some(key) => key,
             None => String::new(),
@@ -292,7 +304,7 @@ async fn process_tunnel_connect(
     {
         Ok(_) => {
             let mut tunnel_service = tunnel_service.lock().await;
-            tunnel_service.register(id, stream, requested_proxies);
+            tunnel_service.register(id, stream, requested_proxies, client_authorization);
         }
         Err(e) => {
             debug!("Error while sending connect accept: {:?}", e);

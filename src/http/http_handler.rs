@@ -1,7 +1,17 @@
 use base64::{engine::general_purpose, Engine as _};
 
 pub fn find_request_host(request: &String) -> Option<String> {
-    find_header_value(request, "Host")
+    let host = find_header_value(request, "Host");
+
+    if let Some(host) = host {
+        if let Some((host, _)) = host.split_once(':') {
+            return Some(host.to_string());
+        }
+
+        return Some(host);
+    }
+
+    None
 }
 
 pub fn is_authorized(request: &String, username: &String, password: &String) -> bool {
@@ -28,7 +38,7 @@ pub fn get_http_version(request: &String) -> String {
 
             version
         }) {
-        Some(http_version) => http_version.split_whitespace().next().unwrap().to_string(),
+        Some(http_version) => http_version.to_string(),
         None => "HTTP/1.1".to_string(),
     }
 }

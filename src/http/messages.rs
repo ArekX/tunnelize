@@ -1,11 +1,14 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::ClientAuthorizeUser;
+
 #[derive(Serialize, Deserialize)]
 pub enum TunnelMessage {
     Connect {
         proxies: Vec<Proxy>,
-        auth_key: Option<String>,
+        tunnel_auth_key: Option<String>,
+        client_authorization: Option<ClientAuthorizeUser>,
     },
     Disconnect {
         tunnel_id: Uuid,

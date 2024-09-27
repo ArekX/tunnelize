@@ -9,7 +9,7 @@ use log::{error, info};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::http::HttpServerConfig;
+use crate::http::{HttpServerConfig, HttpTunnelConfig, TunnelProxy};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Configuration {
@@ -36,14 +36,13 @@ pub enum ServerType {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TunnelConfiguration {
     pub server_address: String,
-    pub hostnames: Vec<HostnameConfiguration>,
-    pub auth_key: Option<String>,
+    pub tunnels: Vec<TunnelType>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct HostnameConfiguration {
-    pub desired_name: Option<String>,
-    pub forward_address: String,
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum TunnelType {
+    Http(HttpTunnelConfig),
 }
 
 fn get_configuration_dir() -> Result<std::path::PathBuf, std::io::Error> {
@@ -68,10 +67,9 @@ pub fn get_default_server_config() -> ServerConfiguration {
         servers: vec![ServerType::Http(HttpServerConfig {
             client_port: 3457,
             tunnel_port: 3456,
-            auth_key: None,
+            tunnel_auth_key: None,
             host_template: "t-{dynamic}.localhost".to_string(),
             allow_custom_hostnames: true,
-            client_authorize_user: None,
         })],
     }
 }
@@ -79,11 +77,14 @@ pub fn get_default_server_config() -> ServerConfiguration {
 pub fn get_default_tunnel_config() -> TunnelConfiguration {
     TunnelConfiguration {
         server_address: "0.0.0.0:3456".to_string(),
-        hostnames: vec![HostnameConfiguration {
-            desired_name: Some("8000".to_string()),
-            forward_address: "0.0.0.0:8000".to_owned(),
-        }],
-        auth_key: None,
+        tunnels: vec![TunnelType::Http(HttpTunnelConfig {
+            proxies: vec![TunnelProxy {
+                desired_name: Some("8000".to_string()),
+                forward_address: "0.0.0.0:8000".to_owned(),
+            }],
+            tunnel_auth_key: None,
+            client_authorization: None,
+        })],
     }
 }
 
@@ -121,7 +122,7 @@ pub fn validate_configuration(config: &Configuration) -> Result<(), Vec<String>>
 
     let desired_name_regex = Regex::new(r"^[a-z0-9-]+$").unwrap();
     let ip_port_regex = Regex::new(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5}$").unwrap();
-    let hostname_port_regex = Regex::new(r"^[a-z0-9-]+:[0-9]{1,5}$").unwrap();
+    let hostname_port_regex = Regex::new(r"^[a-z0-9-.]+:[0-9]{1,5}$").unwrap();
 
     if let Some(server) = &config.server {
         for server in server.servers.iter() {
@@ -154,22 +155,29 @@ pub fn validate_configuration(config: &Configuration) -> Result<(), Vec<String>>
                 .push("Tunnel: Server address must be in the format '<ip>:<port>' or '<hostname>:<port>'.".to_string());
         }
 
-        for hostname in &tunnel.hostnames {
-            if hostname.forward_address.is_empty()
-                || !ip_port_regex.is_match(&hostname.forward_address)
-            {
-                results.push(
-                    "Tunnel - Hostnames: Forward address must be set and in the format '<ip>:<port>'."
-                        .to_string(),
-                );
-            }
+        for tunnel in &tunnel.tunnels {
+            match tunnel {
+                TunnelType::Http(http_tunnel) => {
+                    for proxy in http_tunnel.proxies.iter() {
+                        if proxy.forward_address.is_empty()
+                            || !ip_port_regex.is_match(&proxy.forward_address)
+                        {
+                            results.push(
+                                "Tunnel - Hostnames: Forward address must be set and in the format '<ip>:<port>'."
+                                .to_string(),
+                            );
+                        }
 
-            if let Some(desired_name) = &hostname.desired_name {
-                if desired_name.is_empty() || !desired_name_regex.is_match(desired_name) {
-                    results.push(
-                        "Tunnel - Hostnames: Desired name must be set and only contain lowercase alphanumeric characters and hyphens."
-                            .to_string(),
-                    );
+                        if let Some(desired_name) = &proxy.desired_name {
+                            if desired_name.is_empty() || !desired_name_regex.is_match(desired_name)
+                            {
+                                results.push(
+                                    "Tunnel - Hostnames: Desired name must be set and only contain lowercase alphanumeric characters and hyphens."
+                                    .to_string(),
+                                );
+                            }
+                        }
+                    }
                 }
             }
         }

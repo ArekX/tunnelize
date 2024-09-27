@@ -140,21 +140,6 @@ pub async fn start_http_server(
 
         let http_request = read_http_request_string(&mut stream).await;
 
-        if let Some(user) = config.client_authorize_user.as_ref() {
-            if !is_authorized(&http_request, &user.username, &user.password) {
-                info!(
-                    "Unauthorized client connection from {}, closing connection.",
-                    address
-                );
-                respond_and_close(
-                    &mut stream,
-                    &get_unauthorized_response(&http_request, &user.realm),
-                )
-                .await;
-                continue;
-            }
-        }
-
         let hostname = if let Some(hostname) = find_request_host(&http_request) {
             hostname
         } else {
@@ -220,6 +205,23 @@ pub async fn start_http_server(
                 continue;
             }
         };
+
+        if let Some(user) = tunnel.client_authorization.as_ref() {
+            debug!("Checking client authorization for client ID {}", client_id);
+            if !is_authorized(&http_request, &user.username, &user.password) {
+                info!(
+                    "Unauthorized client connection from {}, closing connection.",
+                    address
+                );
+                end_client(
+                    &client_service,
+                    client_id,
+                    &get_unauthorized_response(&http_request, &user.realm),
+                )
+                .await;
+                continue;
+            }
+        }
 
         debug!(
             "Sending link request to tunnel for client ID {}, host ID: {} -> tunnel ID: {}",

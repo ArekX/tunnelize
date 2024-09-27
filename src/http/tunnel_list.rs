@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use tokio::net::TcpStream;
 use uuid::Uuid;
 
-use super::host_list::ResolvedHost;
+use super::{host_list::ResolvedHost, ClientAuthorizeUser};
 
 pub struct RequestedProxy {
     pub resolved_host: ResolvedHost,
@@ -11,6 +11,7 @@ pub struct RequestedProxy {
 
 pub struct Tunnel {
     pub stream: TcpStream,
+    pub client_authorization: Option<ClientAuthorizeUser>,
 }
 
 pub struct TunnelList {
@@ -33,6 +34,7 @@ impl TunnelList {
         tunnel_id: Uuid,
         stream: TcpStream,
         requested_proxies: Vec<RequestedProxy>,
+        client_authorization: Option<ClientAuthorizeUser>,
     ) {
         let mut proxy_map = HashMap::new();
 
@@ -40,7 +42,13 @@ impl TunnelList {
             proxy_map.insert(proxy.resolved_host.hostname.clone(), proxy);
         }
 
-        self.tunnel_map.insert(tunnel_id, Tunnel { stream });
+        self.tunnel_map.insert(
+            tunnel_id,
+            Tunnel {
+                stream,
+                client_authorization,
+            },
+        );
     }
 
     pub fn is_registered(&self, id: Uuid) -> bool {

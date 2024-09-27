@@ -6,6 +6,7 @@ use configuration::{
 use env_logger::Env;
 use log::{debug, error, info};
 
+mod client;
 mod configuration;
 mod http;
 mod server;
@@ -36,6 +37,17 @@ enum Commands {
     },
 }
 
+fn get_configuration() -> Configuration {
+    match parse_configuration() {
+        Ok(valid_config) => valid_config,
+        Err(e) => {
+            debug!("Error parsing configuration: {:?}", e);
+            error!("Could not parse configuration file. Exiting...");
+            std::process::exit(1);
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
     let args = Args::parse();
@@ -54,17 +66,6 @@ async fn main() -> Result<(), std::io::Error> {
 
     env_logger::init_from_env(env);
 
-    let config;
-
-    match parse_configuration() {
-        Ok(valid_config) => config = valid_config,
-        Err(e) => {
-            debug!("Error parsing configuration: {:?}", e);
-            error!("Could not parse configuration file. Exiting...");
-            std::process::exit(1);
-        }
-    };
-
     match command {
         Commands::Init => {
             write_tunnel_config(Configuration {
@@ -81,6 +82,8 @@ async fn main() -> Result<(), std::io::Error> {
                 })?;
                 return Ok(());
             }
+
+            let config = get_configuration();
 
             info!("Starting server...");
 
@@ -99,10 +102,12 @@ async fn main() -> Result<(), std::io::Error> {
                 return Ok(());
             }
 
+            let config = get_configuration();
+
             info!("Starting client...");
 
             if let Some(tunnel) = config.tunnel {
-                if let Err(e) = http::start_http_tunnel(tunnel).await {
+                if let Err(e) = client::start_server(tunnel).await {
                     debug!("Error starting tunnel client: {:?}", e);
                     error!("Could not start tunnel client due to error.");
                 }

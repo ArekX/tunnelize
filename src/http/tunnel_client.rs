@@ -14,10 +14,11 @@ use tokio::{
 use uuid::Uuid;
 
 use crate::{
-    configuration::TunnelConfiguration,
     http::messages::{Proxy, ServerMessage, TunnelMessage},
     transport::{self, write_message, MessageError},
 };
+
+use super::HttpTunnelConfig;
 
 fn resolve_address(address: String) -> Result<std::net::SocketAddr> {
     let addreses = address.to_socket_addrs()?;
@@ -34,24 +35,21 @@ fn resolve_address(address: String) -> Result<std::net::SocketAddr> {
     ))
 }
 
-pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
-    let server_ip = resolve_address(config.server_address.clone())?;
+pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> Result<()> {
+    let server_ip = resolve_address(server_address.clone())?;
 
     let tunnel_id = Arc::new(Mutex::new(Uuid::new_v4()));
 
     let host_id_map = Arc::new(Mutex::new(HashMap::<Uuid, String>::new()));
 
-    println!(
-        "Connecting to server at {} ({})",
-        config.server_address, server_ip
-    );
+    println!("Connecting to server at {} ({})", server_address, server_ip);
 
     let mut server = match TcpStream::connect(server_ip.clone()).await {
         Ok(stream) => stream,
         Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
             info!(
                 "Connection refused by server at {} ({})",
-                config.server_address, server_ip
+                server_address, server_ip
             );
             return Err(e);
         }
@@ -61,13 +59,10 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         }
     };
 
-    info!(
-        "Connected to server at {} ({})",
-        config.server_address, server_ip
-    );
+    info!("Connected to server at {} ({})", server_address, server_ip);
 
     let proxies = config
-        .hostnames
+        .proxies
         .iter()
         .map(|h| Proxy {
             desired_name: h.desired_name.clone(),
@@ -79,7 +74,8 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
         &mut server,
         &TunnelMessage::Connect {
             proxies,
-            auth_key: config.auth_key.clone(),
+            tunnel_auth_key: config.tunnel_auth_key.clone(),
+            client_authorization: config.client_authorization.clone(),
         },
     )
     .await
@@ -95,7 +91,7 @@ pub async fn start_client(config: TunnelConfiguration) -> Result<()> {
     println!(
         "Proxying addresses: {}",
         config
-            .hostnames
+            .proxies
             .iter()
             .map(|h| h.forward_address.clone())
             .collect::<Vec<String>>()

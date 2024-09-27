@@ -1,52 +1,9 @@
 use std::fmt;
 
-use bincode;
+use bincode::{self};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use log::debug;
 use tokio::io::AsyncReadExt;
-
-// #[derive(Serialize, Deserialize)]
-// pub struct TunnelClientRequest {
-//     pub name: Option<String>,
-//     pub forward_address: String,
-// }
-
-// #[derive(Serialize, Deserialize)]
-// pub enum TunnelMessage {
-//     Connect {
-//         client_requests: Vec<TunnelClientRequest>,
-//     },
-//     Disconnect {
-//         tunnel_id: u32,
-//     },
-//     LinkDeny {
-//         tunnel_id: u32,
-//         id: u32,
-//         reason: String,
-//     },
-//     LinkAccept {
-//         tunnel_id: u32,
-//         id: u32,
-//     },
-// }
-
-// #[derive(Serialize, Deserialize, Clone)]
-// pub struct ResolvedLink {
-//     pub forward_address: String,
-//     pub client_address: String,
-//     pub link_id: u32,
-// }
-
-// #[derive(Serialize, Deserialize)]
-// pub enum ServerMessage {
-//     ConnectAccept {
-//         tunnel_id: u32,
-//         resolved_links: Vec<ResolvedLink>,
-//     },
-//     LinkRequest {
-//         id: u32,
-//         link_id: u32,
-//     },
-// }
 
 #[derive(Debug)]
 pub enum MessageError {
@@ -115,6 +72,7 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
     stream: &mut T,
     length: usize,
 ) -> Result<Bytes, MessageError> {
+    debug!("Reading {} bytes from stream.", length);
     let mut buffer = BytesMut::with_capacity(length);
     buffer.resize(length, 0);
     match stream.read_exact(&mut buffer).await {
@@ -123,6 +81,7 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
         }
         Ok(_) => return Ok(buffer.freeze()),
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+            debug!("Unexpected EOF while reading message. {:?}", e);
             return Err(MessageError::ConnectionClosed);
         }
         Err(e) => {
@@ -155,7 +114,7 @@ where
     M: ?Sized + serde::Serialize,
 {
     let message_bytes = serialize_message(message)?;
-    let length = message_bytes.len() as u32;
+    let length: u32 = message_bytes.len() as u32;
 
     if length > MAX_MESSAGE_LENGTH {
         return Err(MessageError::InvalidLength(length));
