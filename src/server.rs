@@ -6,12 +6,14 @@ use crate::{
     http::start_http_server,
 };
 
-pub async fn start_server(config: ServerConfiguration) -> Result<()> {
+pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
     let mut server_futures = Vec::new();
 
-    for server in config.servers {
+    for server in server_config.servers {
         match server {
-            ServerType::Http(config) => server_futures.push(start_http_server(config)),
+            ServerType::Http(config) => {
+                server_futures.push(start_http_server(server_config.tunnel_server_port, config))
+            }
             _ => {
                 info!("Unsupported server type, skipping.");
                 continue;

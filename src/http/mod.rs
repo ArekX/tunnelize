@@ -22,7 +22,6 @@ pub type TaskData<T> = Arc<T>;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpServerConfig {
     pub client_port: u16,
-    pub tunnel_port: u16,
     pub tunnel_auth_key: Option<String>,
     pub host_template: String,
     pub allow_custom_hostnames: bool,
@@ -53,11 +52,18 @@ pub fn start_tunnel_task(
     tunnel_service: TaskService<TunnelList>,
     client_service: TaskService<ClientList>,
     config: TaskData<HttpServerConfig>,
+    tunnel_port: u16,
 ) -> tokio::task::JoinHandle<()> {
     info!("Starting tunnel listener");
     tokio::spawn(async move {
-        tunnel_server::start_tunnel_server(config, host_service, tunnel_service, client_service)
-            .await;
+        tunnel_server::start_tunnel_server(
+            tunnel_port,
+            config,
+            host_service,
+            tunnel_service,
+            client_service,
+        )
+        .await;
     })
 }
 
@@ -79,7 +85,10 @@ pub fn start_client_task(
     })
 }
 
-pub async fn start_http_server(config: HttpServerConfig) -> Result<(), std::io::Error> {
+pub async fn start_http_server(
+    tunnel_port: u16,
+    config: HttpServerConfig,
+) -> Result<(), std::io::Error> {
     let host_service: TaskService<HostList> = Arc::new(Mutex::new(HostList::new(
         config.host_template.clone(),
         config.allow_custom_hostnames,
@@ -94,6 +103,7 @@ pub async fn start_http_server(config: HttpServerConfig) -> Result<(), std::io::
         tunnel_service.clone(),
         client_service.clone(),
         config_service.clone(),
+        tunnel_port,
     );
     let client_task = start_client_task(
         host_service.clone(),

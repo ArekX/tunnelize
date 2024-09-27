@@ -21,6 +21,7 @@ pub struct Configuration {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerConfiguration {
+    pub tunnel_server_port: u16,
     pub servers: Vec<ServerType>,
 }
 
@@ -35,7 +36,7 @@ pub enum ServerType {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TunnelConfiguration {
-    pub server_address: String,
+    pub tunnel_server_address: String,
     pub tunnels: Vec<TunnelType>,
 }
 
@@ -64,9 +65,9 @@ pub fn configuration_exists() -> bool {
 
 pub fn get_default_server_config() -> ServerConfiguration {
     ServerConfiguration {
+        tunnel_server_port: 3456,
         servers: vec![ServerType::Http(HttpServerConfig {
             client_port: 3457,
-            tunnel_port: 3456,
             tunnel_auth_key: None,
             host_template: "t-{dynamic}.localhost".to_string(),
             allow_custom_hostnames: true,
@@ -76,7 +77,7 @@ pub fn get_default_server_config() -> ServerConfiguration {
 
 pub fn get_default_tunnel_config() -> TunnelConfiguration {
     TunnelConfiguration {
-        server_address: "0.0.0.0:3456".to_string(),
+        tunnel_server_address: "0.0.0.0:3456".to_string(),
         tunnels: vec![TunnelType::Http(HttpTunnelConfig {
             proxies: vec![TunnelProxy {
                 desired_name: Some("8000".to_string()),
@@ -124,11 +125,11 @@ pub fn validate_configuration(config: &Configuration) -> Result<(), Vec<String>>
     let ip_port_regex = Regex::new(r"^(?:[0-9]{1,3}\.){3}[0-9]{1,3}:[0-9]{1,5}$").unwrap();
     let hostname_port_regex = Regex::new(r"^[a-z0-9-.]+:[0-9]{1,5}$").unwrap();
 
-    if let Some(server) = &config.server {
-        for server in server.servers.iter() {
+    if let Some(server_config) = &config.server {
+        for server in server_config.servers.iter() {
             match server {
                 ServerType::Http(http_config) => {
-                    if http_config.client_port == http_config.tunnel_port {
+                    if http_config.client_port == server_config.tunnel_server_port {
                         results.push(
                             "Servers - HttpServer: Client and tunnel port cannot be the same."
                                 .to_string(),
@@ -147,9 +148,9 @@ pub fn validate_configuration(config: &Configuration) -> Result<(), Vec<String>>
     }
 
     if let Some(tunnel) = &config.tunnel {
-        if tunnel.server_address.is_empty()
-            || (!ip_port_regex.is_match(&tunnel.server_address)
-                && !hostname_port_regex.is_match(&tunnel.server_address))
+        if tunnel.tunnel_server_address.is_empty()
+            || (!ip_port_regex.is_match(&tunnel.tunnel_server_address)
+                && !hostname_port_regex.is_match(&tunnel.tunnel_server_address))
         {
             results
                 .push("Tunnel: Server address must be in the format '<ip>:<port>' or '<hostname>:<port>'.".to_string());

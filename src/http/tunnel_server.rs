@@ -16,12 +16,13 @@ use super::{
 };
 
 pub async fn start_tunnel_server(
+    tunnel_port: u16,
     config: TaskData<HttpServerConfig>,
     host_service: TaskService<HostList>,
     tunnel_service: TaskService<TunnelList>,
     client_service: TaskService<ClientList>,
 ) {
-    let tunnel_listener = match TcpListener::bind(format!("0.0.0.0:{}", config.tunnel_port)).await {
+    let tunnel_listener = match TcpListener::bind(format!("0.0.0.0:{}", tunnel_port)).await {
         Ok(listener) => listener,
         Err(e) => {
             error!("Failed to bind tunnel listener: {}", e);
@@ -29,10 +30,7 @@ pub async fn start_tunnel_server(
         }
     };
 
-    info!(
-        "Listening to tunnel connections on 0.0.0.0:{}",
-        config.tunnel_port
-    );
+    info!("Listening to tunnel connections on 0.0.0.0:{}", tunnel_port);
 
     loop {
         let (stream, address) = match tunnel_listener.accept().await {

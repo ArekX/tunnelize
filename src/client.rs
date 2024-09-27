@@ -12,7 +12,7 @@ pub async fn start_server(config: TunnelConfiguration) -> Result<()> {
     for server in config.tunnels {
         match server {
             TunnelType::Http(tunnel_config) => futures.push(start_http_tunnel(
-                config.server_address.clone(),
+                config.tunnel_server_address.clone(),
                 tunnel_config,
             )),
         }
