@@ -1,5 +1,3 @@
-// use std::{fs::File, io::BufReader};
-
 use std::{
     fs::File,
     io::{BufReader, Write},
@@ -69,7 +67,8 @@ pub fn get_default_server_config() -> ServerConfiguration {
         servers: vec![ServerType::Http(HttpServerConfig {
             client_port: 3457,
             tunnel_auth_key: None,
-            host_template: "t-{dynamic}.localhost".to_string(),
+            tunnel_url_template: "http://{hostname}:3457".to_string(),
+            host_template: "t-{name}.localhost".to_string(),
             allow_custom_hostnames: true,
         })],
     }
@@ -137,9 +136,9 @@ pub fn validate_configuration(config: &Configuration) -> Result<(), Vec<String>>
                     }
 
                     if http_config.host_template.is_empty()
-                        || !http_config.host_template.contains("{dynamic}")
+                        || !http_config.host_template.contains("{name}")
                     {
-                        results.push("Servers - HttpServer: Host template cannot be empty and must contain {dynamic}.".to_string());
+                        results.push("Servers - HttpServer: Host template cannot be empty and must contain {name}.".to_string());
                     }
                 }
                 _ => {}

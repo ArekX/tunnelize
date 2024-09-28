@@ -1,4 +1,4 @@
-use log::info;
+use log::{error, info};
 use tokio::io::Result;
 
 use crate::{
@@ -23,8 +23,20 @@ pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
 
     info!("Tunnelize servers initialized and running.");
 
+    let mut has_error = false;
+
     for server_future in server_futures {
-        server_future.await.unwrap();
+        if let Err(e) = server_future.await {
+            error!("Error procesing tunnel server: {}", e);
+            has_error = true;
+        }
+    }
+
+    if has_error {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "One or more servers failed.",
+        ));
     }
 
     Ok(())

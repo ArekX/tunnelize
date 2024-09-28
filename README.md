@@ -24,7 +24,7 @@ server and tunnel so configure the part you wish to run. Below is a config for t
     "server_address": "example.com:3456", // make sure this port is open for tunnel to connect to
     "hostnames": [
       {
-        "desired_name": "testapp", // this name will be used for {dynamic} part (check below)
+        "desired_name": "testapp", // this name will be used for {name} part (check below)
         "forward_address": "0.0.0.0:8000" // Port from your local to forward
       },
       {
@@ -54,7 +54,7 @@ Then set following for your server:
         "client_port": 3457, // this is the port for nginx for proxying
         "tunnel_port": 3456, // this is the port for tunnels to connect to
         "auth_key": null, // set password for authorization
-        "host_template": "tunnel-{dynamic}.example", // set this to your domain, {dynamic} part will be replaced by generated names
+        "host_template": "tunnel-{name}.example", // set this to your domain, {name} part will be replaced by generated names
         "allow_custom_hostnames": true // set to true to allow tunnels to specify their own names for domains,
         "client_authorize_user": null // require client auth to use tunnel, set to  { "username": "admin", "password": "admin" } to define which credentials to use, add "realm": "name" to specify the realm for credentials
       }

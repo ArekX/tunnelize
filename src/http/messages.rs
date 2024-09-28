@@ -49,5 +49,6 @@ pub enum ServerMessage {
 pub struct ResolvedLink {
     pub forward_address: String,
     pub hostname: String,
+    pub url: String,
     pub host_id: Uuid,
 }

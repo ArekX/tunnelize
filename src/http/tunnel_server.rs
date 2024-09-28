@@ -81,10 +81,6 @@ async fn process_tunnel_request(
             tunnel_auth_key,
             client_authorization,
         } => {
-            debug!(
-                "Received tunnel connect request. {:?}",
-                client_authorization
-            );
             process_tunnel_connect(
                 &config,
                 &host_service,
@@ -282,10 +278,15 @@ async fn process_tunnel_connect(
             resolved_host.hostname, id
         );
 
+        let url = config
+            .tunnel_url_template
+            .replace("{hostname}", &resolved_host.hostname);
+
         resolved_links.push(ResolvedLink {
             host_id: resolved_host.host_id,
             forward_address: proxy.forward_address.clone(),
             hostname: resolved_host.hostname.clone(),
+            url,
         });
 
         requested_proxies.push(RequestedProxy { resolved_host });

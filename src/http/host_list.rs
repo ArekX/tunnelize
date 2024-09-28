@@ -46,7 +46,7 @@ impl HostList {
         if self.allow_custom_hostnames {
             if let Some(name) = desired_name {
                 if name.len() >= 1 {
-                    let hostname = self.host_template.replace("{dynamic}", &name);
+                    let hostname = self.host_template.replace("{name}", &name);
 
                     if !self.host_map.contains_key(&hostname) {
                         return hostname;
@@ -57,12 +57,12 @@ impl HostList {
 
         let mut hostname = self
             .host_template
-            .replace("{dynamic}", &generate_random_string());
+            .replace("{name}", &generate_random_string());
 
         while self.host_map.contains_key(&hostname) {
             hostname = self
                 .host_template
-                .replace("{dynamic}", &generate_random_string());
+                .replace("{name}", &generate_random_string());
         }
 
         hostname

@@ -1,4 +1,4 @@
-use log::info;
+use log::{error, info};
 use tokio::io::Result;
 
 use crate::{
@@ -20,8 +20,20 @@ pub async fn start_server(config: TunnelConfiguration) -> Result<()> {
 
     info!("Tunnelize client initialized and running.");
 
+    let mut has_error = false;
+
     for server_future in futures {
-        server_future.await.unwrap();
+        if let Err(e) = server_future.await {
+            error!("Error starting tunnel client: {}", e);
+            has_error = true;
+        }
+    }
+
+    if has_error {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "One or more tunnel clients failed.",
+        ));
     }
 
     Ok(())

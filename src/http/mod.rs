@@ -24,6 +24,7 @@ pub struct HttpServerConfig {
     pub client_port: u16,
     pub tunnel_auth_key: Option<String>,
     pub host_template: String,
+    pub tunnel_url_template: String,
     pub allow_custom_hostnames: bool,
 }
 

@@ -34,6 +34,8 @@ enum Commands {
     Tunnel {
         #[arg(long, default_value_t = false)]
         init: bool,
+        #[arg(long, default_value_t = false)]
+        verbose: bool,
     },
 }
 
@@ -48,24 +50,26 @@ fn get_configuration() -> Configuration {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), std::io::Error> {
-    let args = Args::parse();
+#[cfg(debug_assertions)]
+const VERBOSE_LOG_LEVEL: &str = "trace";
 
-    let command = args.command.unwrap_or(Commands::Tunnel { init: false });
+#[cfg(not(debug_assertions))]
+const VERBOSE_LOG_LEVEL: &str = "info";
 
-    #[cfg(debug_assertions)]
-    let env = Env::default()
-        .filter_or("LOG_LEVEL", "trace")
-        .write_style_or("LOG_STYLE", "always");
+fn resolve_log_level(command: &Commands) -> &'static str {
+    let verbose = match command {
+        Commands::Tunnel { verbose, .. } => *verbose,
+        _ => true,
+    };
 
-    #[cfg(not(debug_assertions))]
-    let env = Env::default()
-        .filter_or("LOG_LEVEL", "info")
-        .write_style_or("LOG_STYLE", "always");
+    if verbose {
+        VERBOSE_LOG_LEVEL
+    } else {
+        "error"
+    }
+}
 
-    env_logger::init_from_env(env);
-
+async fn run_command(command: Commands) -> Result<(), std::io::Error> {
     match command {
         Commands::Init => {
             write_tunnel_config(Configuration {
@@ -93,7 +97,7 @@ async fn main() -> Result<(), std::io::Error> {
                 error!("No server configuration found, cannot start a server. Exiting...");
             }
         }
-        Commands::Tunnel { init } => {
+        Commands::Tunnel { init, .. } => {
             if init {
                 write_tunnel_config(Configuration {
                     server: None,
@@ -107,14 +111,34 @@ async fn main() -> Result<(), std::io::Error> {
             info!("Starting client...");
 
             if let Some(tunnel) = config.tunnel {
-                if let Err(e) = client::start_server(tunnel).await {
-                    debug!("Error starting tunnel client: {:?}", e);
-                    error!("Could not start tunnel client due to error.");
-                }
+                client::start_server(tunnel).await?;
             } else {
                 error!("No tunel configuration found, cannot start a tunnel. Exiting...");
             }
         }
+    }
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), std::io::Error> {
+    let args = Args::parse();
+
+    let command = args.command.unwrap_or(Commands::Tunnel {
+        init: false,
+        verbose: false,
+    });
+
+    let env = Env::default()
+        .filter_or("LOG_LEVEL", resolve_log_level(&command))
+        .write_style_or("LOG_STYLE", "always");
+
+    env_logger::init_from_env(env);
+
+    if let Err(e) = run_command(command).await {
+        error!("Error running command: {:?}", e.to_string());
+        std::process::exit(1);
     }
 
     Ok(())

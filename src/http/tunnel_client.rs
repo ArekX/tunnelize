@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::{debug, error, info};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
@@ -42,8 +42,6 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
 
     let host_id_map = Arc::new(Mutex::new(HashMap::<Uuid, String>::new()));
 
-    println!("Connecting to server at {} ({})", server_address, server_ip);
-
     let mut server = match TcpStream::connect(server_ip.clone()).await {
         Ok(stream) => stream,
         Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
@@ -59,6 +57,7 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
         }
     };
 
+    println!("Connected to tunnel server - {}", server_address);
     info!("Connected to server at {} ({})", server_address, server_ip);
 
     let proxies = config
@@ -88,16 +87,6 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
         }
     }
 
-    println!(
-        "Proxying addresses: {}",
-        config
-            .proxies
-            .iter()
-            .map(|h| h.forward_address.clone())
-            .collect::<Vec<String>>()
-            .join(", ")
-    );
-
     let tunnel_id_handler = tunnel_id.clone();
     let signal_server_ip = server_ip.clone();
 
@@ -107,7 +96,17 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
             return;
         }
 
-        let mut server = TcpStream::connect(signal_server_ip).await.unwrap();
+        let mut server = match TcpStream::connect(signal_server_ip).await {
+            Ok(stream) => stream,
+            Err(e) => {
+                error!(
+                    "Error connecting to tunnel server for shutdown signal: {:?}",
+                    e
+                );
+                return;
+            }
+        };
+
         let tunnel_id = {
             let tunnel_id = tunnel_id_handler.lock().await;
             tunnel_id.clone()
@@ -149,12 +148,13 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
                     tunnel_id: id,
                     resolved_links,
                 } => {
-                    info!("Server connect accepted. Received Tunnel ID: {}", id);
+                    println!("Server accepted connection. Configuring tunnel...");
+                    info!("Assigned unique Tunnel ID: {}", id);
 
                     {
                         let mut link_id_forward_map = host_id_map.lock().await;
                         for link in resolved_links {
-                            info!("{} -> https://{}", link.forward_address, link.hostname);
+                            println!("Forwarding: {} -> {}", link.forward_address, link.url);
                             link_id_forward_map.insert(link.host_id, link.forward_address);
                         }
                     }
@@ -165,7 +165,7 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
                     }
                 }
                 ServerMessage::TunnelDeny { reason } => {
-                    info!("Server connect denied: {}", reason);
+                    println!("Could not connect to server. Reason: {}", reason);
                     return;
                 }
                 ServerMessage::ClientLinkRequest { client_id, host_id } => {
