@@ -1,7 +1,10 @@
+use std::time::Duration;
+
 use log::{debug, error, info};
 use tokio::{
     io::{self, AsyncWriteExt},
     net::{TcpListener, TcpStream},
+    time::timeout,
 };
 use uuid::Uuid;
 
@@ -33,7 +36,7 @@ pub async fn start_tunnel_server(
     info!("Listening to tunnel connections on 0.0.0.0:{}", tunnel_port);
 
     loop {
-        let (stream, address) = match tunnel_listener.accept().await {
+        let (mut stream, address) = match tunnel_listener.accept().await {
             Ok(stream_pair) => stream_pair,
             Err(e) => {
                 error!("Failed to accept tunnel connection: {}", e);
@@ -41,10 +44,9 @@ pub async fn start_tunnel_server(
             }
         };
 
-        info!("Link established with {}", address);
+        info!("Tunnel connected at: {}", address);
 
-        if let Err(e) = stream.readable().await {
-            error!("Failed to read from tunnel connection: {}", e);
+        if !wait_for_tunnel_readable(&mut stream, config.max_tunnel_input_wait).await {
             continue;
         }
 
@@ -57,6 +59,17 @@ pub async fn start_tunnel_server(
             process_tunnel_request(stream, config, host_service, tunnel_service, client_service)
                 .await;
         });
+    }
+}
+
+async fn wait_for_tunnel_readable(stream: &mut TcpStream, wait_seconds: u16) -> bool {
+    let duration = Duration::from_secs(wait_seconds.into());
+    match timeout(duration, stream.readable()).await {
+        Ok(_) => true,
+        Err(_) => {
+            debug!("Timeout while waiting for tunnel stream to be readable.");
+            false
+        }
     }
 }
 

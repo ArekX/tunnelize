@@ -137,7 +137,7 @@ async fn main() -> Result<(), std::io::Error> {
     env_logger::init_from_env(env);
 
     if let Err(e) = run_command(command).await {
-        error!("Error running command: {:?}", e.to_string());
+        debug!("Error running command: {:?}", e.to_string());
         std::process::exit(1);
     }
 

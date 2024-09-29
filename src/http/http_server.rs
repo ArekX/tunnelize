@@ -88,8 +88,8 @@ async fn respond_and_close(stream: &mut TcpStream, response: &String) {
     debug!("Client connection closed.");
 }
 
-async fn wait_for_client_readable(stream: &mut TcpStream) -> bool {
-    let duration = Duration::from_secs(5);
+async fn wait_for_client_readable(stream: &mut TcpStream, wait_seconds: u16) -> bool {
+    let duration = Duration::from_secs(wait_seconds.into());
     match timeout(duration, stream.readable()).await {
         Ok(_) => true,
         Err(_) => {
@@ -130,7 +130,7 @@ pub async fn start_http_server(
         info!("Client connected from {}", address);
 
         info!("Waiting for client to be readable...");
-        if !wait_for_client_readable(&mut stream).await {
+        if !wait_for_client_readable(&mut stream, config.max_client_input_wait).await {
             warn!("Client stream not readable or pre-connection without sending data, closing connection.");
             if let Err(e) = stream.shutdown().await {
                 debug!("Error while closing client stream. {:?}", e);

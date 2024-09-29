@@ -3,7 +3,7 @@ use std::{
     io::{BufReader, Write},
 };
 
-use log::{error, info};
+use log::error;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -66,6 +66,8 @@ pub fn get_default_server_config() -> ServerConfiguration {
         tunnel_server_port: 3456,
         servers: vec![ServerType::Http(HttpServerConfig {
             client_port: 3457,
+            max_client_input_wait: 10,
+            max_tunnel_input_wait: 10,
             tunnel_auth_key: None,
             tunnel_url_template: "http://{hostname}:3457".to_string(),
             host_template: "t-{name}.localhost".to_string(),
@@ -199,7 +201,7 @@ pub fn write_tunnel_config(config: Configuration) -> Result<(), std::io::Error> 
     let mut file = File::create(config_file.clone())?;
     file.write_all(initial_config.as_bytes())?;
 
-    info!("Default configuration written to {}", config_file.display());
+    println!("Initialized configuration to {}", config_file.display());
 
     Ok(())
 }

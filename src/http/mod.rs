@@ -22,6 +22,8 @@ pub type TaskData<T> = Arc<T>;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpServerConfig {
     pub client_port: u16,
+    pub max_client_input_wait: u16,
+    pub max_tunnel_input_wait: u16,
     pub tunnel_auth_key: Option<String>,
     pub host_template: String,
     pub tunnel_url_template: String,

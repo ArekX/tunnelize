@@ -3,7 +3,10 @@ use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
     net::ToSocketAddrs,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 use tokio::{
     io::{self, Result},
@@ -82,7 +85,7 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
         Ok(_) => {}
         Err(e) => {
             debug!("Error while connecting {:?}", e);
-            info!("Error connecting to server.");
+            error!("Error connecting to server.");
             return Err(Error::new(ErrorKind::Other, "Error connecting to server"));
         }
     }
@@ -90,11 +93,17 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
     let tunnel_id_handler = tunnel_id.clone();
     let signal_server_ip = server_ip.clone();
 
+    let is_graceful_close = Arc::new(AtomicBool::new(false));
+
+    let signal_graceful_close = is_graceful_close.clone();
+
     tokio::spawn(async move {
         if let Err(e) = signal::ctrl_c().await {
             debug!("Error while waiting for ctrl+c signal: {:?}", e);
             return;
         }
+
+        signal_graceful_close.store(true, Ordering::SeqCst);
 
         let mut server = match TcpStream::connect(signal_server_ip).await {
             Ok(stream) => stream,
@@ -126,8 +135,16 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
             Ok(message) => message,
             Err(e) => match e {
                 MessageError::ConnectionClosed => {
-                    info!("Server Connection closed.");
-                    return Ok(());
+                    if is_graceful_close.load(Ordering::SeqCst) {
+                        info!("Server Connection closed gracefully.");
+                        return Ok(());
+                    }
+
+                    error!("Server closed connection.");
+                    return Err(Error::new(
+                        ErrorKind::ConnectionAborted,
+                        "Server closed connection",
+                    ));
                 }
                 _ => {
                     debug!("Error while parsing {:?}", e);
@@ -154,7 +171,10 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
                     {
                         let mut link_id_forward_map = host_id_map.lock().await;
                         for link in resolved_links {
-                            println!("Forwarding: {} -> {}", link.forward_address, link.url);
+                            println!(
+                                "Configuring forwarding: {} -> {}",
+                                link.forward_address, link.url
+                            );
                             link_id_forward_map.insert(link.host_id, link.forward_address);
                         }
                     }
@@ -163,6 +183,8 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
                         let mut tunnel_id = tunnel_id.lock().await;
                         *tunnel_id = id;
                     }
+
+                    println!("Tunnel configured and ready.");
                 }
                 ServerMessage::TunnelDeny { reason } => {
                     println!("Could not connect to server. Reason: {}", reason);

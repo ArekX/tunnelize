@@ -1,4 +1,4 @@
-use log::{error, info};
+use log::{debug, info};
 use tokio::io::Result;
 
 use crate::{
@@ -24,7 +24,7 @@ pub async fn start_server(config: TunnelConfiguration) -> Result<()> {
 
     for server_future in futures {
         if let Err(e) = server_future.await {
-            error!("Error starting tunnel client: {}", e);
+            debug!("Error starting tunnel client: {}", e);
             has_error = true;
         }
     }
