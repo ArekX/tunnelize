@@ -4,7 +4,7 @@ use uuid::Uuid;
 use super::ClientAuthorizeUser;
 
 #[derive(Serialize, Deserialize)]
-pub enum TunnelMessage {
+pub enum HttpTunnelMessage {
     Connect {
         proxies: Vec<Proxy>,
         tunnel_auth_key: Option<String>,

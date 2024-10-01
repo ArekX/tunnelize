@@ -17,7 +17,7 @@ use tokio::{
 use uuid::Uuid;
 
 use crate::{
-    http::messages::{Proxy, ServerMessage, TunnelMessage},
+    http::messages::{HttpTunnelMessage, Proxy, ServerMessage},
     transport::{self, write_message, MessageError},
 };
 
@@ -74,7 +74,7 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
 
     match transport::write_message(
         &mut server,
-        &TunnelMessage::Connect {
+        &HttpTunnelMessage::Connect {
             proxies,
             tunnel_auth_key: config.tunnel_auth_key.clone(),
             client_authorization: config.client_authorization.clone(),
@@ -121,7 +121,9 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
             tunnel_id.clone()
         };
 
-        if let Err(e) = write_message(&mut server, &TunnelMessage::Disconnect { tunnel_id }).await {
+        if let Err(e) =
+            write_message(&mut server, &HttpTunnelMessage::Disconnect { tunnel_id }).await
+        {
             debug!("Error while disconnecting: {:?}", e);
         }
     });
@@ -200,7 +202,7 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
 
                                 send_one_time_message(
                                     server_ip.to_string(),
-                                    TunnelMessage::ClientLinkDeny {
+                                    HttpTunnelMessage::ClientLinkDeny {
                                         client_id,
                                         tunnel_id: {
                                             let tunnel_id = tunnel_id.lock().await;
@@ -240,7 +242,7 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
                             debug!("Error connecting to forward address: {:?}", e);
                             write_message(
                                 &mut tunnel,
-                                &TunnelMessage::ClientLinkDeny {
+                                &HttpTunnelMessage::ClientLinkDeny {
                                     client_id,
                                     tunnel_id: {
                                         let tunnel_id = tunnel_id.lock().await;
@@ -260,7 +262,7 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
 
                     if let Err(e) = write_message(
                         &mut tunnel,
-                        &TunnelMessage::ClientLinkAccept {
+                        &HttpTunnelMessage::ClientLinkAccept {
                             client_id,
                             tunnel_id: {
                                 let tunnel_id = tunnel_id.lock().await;
@@ -289,7 +291,7 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
     }
 }
 
-async fn send_one_time_message(server_address: String, message: TunnelMessage) -> Result<()> {
+async fn send_one_time_message(server_address: String, message: HttpTunnelMessage) -> Result<()> {
     let mut server = TcpStream::connect(server_address).await?;
     write_message(&mut server, &message).await.unwrap();
     Ok(())

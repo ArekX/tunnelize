@@ -11,7 +11,7 @@ mod client_list;
 mod host_list;
 mod http_handler;
 mod http_server;
-mod messages;
+pub mod messages;
 mod tunnel_client;
 mod tunnel_list;
 mod tunnel_server;
@@ -23,11 +23,23 @@ pub type TaskData<T> = Arc<T>;
 pub struct HttpServerConfig {
     pub client_port: u16,
     pub max_client_input_wait: u16,
-    pub max_tunnel_input_wait: u16,
     pub tunnel_auth_key: Option<String>,
     pub host_template: String,
     pub tunnel_url_template: String,
     pub allow_custom_hostnames: bool,
+}
+
+impl Default for HttpServerConfig {
+    fn default() -> Self {
+        HttpServerConfig {
+            client_port: 3457,
+            max_client_input_wait: 10,
+            tunnel_auth_key: None,
+            tunnel_url_template: "http://{hostname}:3457".to_string(),
+            host_template: "t-{name}.localhost".to_string(),
+            allow_custom_hostnames: true,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -35,6 +47,19 @@ pub struct HttpTunnelConfig {
     pub proxies: Vec<TunnelProxy>,
     pub tunnel_auth_key: Option<String>,
     pub client_authorization: Option<ClientAuthorizeUser>,
+}
+
+impl Default for HttpTunnelConfig {
+    fn default() -> Self {
+        Self {
+            proxies: vec![TunnelProxy {
+                desired_name: Some("8000".to_string()),
+                forward_address: "0.0.0.0:8000".to_owned(),
+            }],
+            tunnel_auth_key: None,
+            client_authorization: None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]

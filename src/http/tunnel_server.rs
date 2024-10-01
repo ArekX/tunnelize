@@ -13,7 +13,7 @@ use crate::transport::{read_message, write_message};
 use super::{
     client_list::ClientList,
     host_list::HostList,
-    messages::{Proxy, ResolvedLink, ServerMessage, TunnelMessage},
+    messages::{HttpTunnelMessage, Proxy, ResolvedLink, ServerMessage},
     tunnel_list::{RequestedProxy, TunnelList},
     ClientAuthorizeUser, HttpServerConfig, TaskData, TaskService,
 };
@@ -46,7 +46,7 @@ pub async fn start_tunnel_server(
 
         info!("Tunnel connected at: {}", address);
 
-        if !wait_for_tunnel_readable(&mut stream, config.max_tunnel_input_wait).await {
+        if !wait_for_tunnel_readable(&mut stream, 10).await {
             continue;
         }
 
@@ -80,7 +80,7 @@ async fn process_tunnel_request(
     tunnel_service: TaskService<TunnelList>,
     client_service: TaskService<ClientList>,
 ) {
-    let message: TunnelMessage = match read_message(&mut stream).await {
+    let message: HttpTunnelMessage = match read_message(&mut stream).await {
         Ok(message) => message,
         Err(e) => {
             debug!("Error while reading tunnel message: {:?}", e);
@@ -89,7 +89,7 @@ async fn process_tunnel_request(
     };
 
     match message {
-        TunnelMessage::Connect {
+        HttpTunnelMessage::Connect {
             proxies,
             tunnel_auth_key,
             client_authorization,
@@ -105,10 +105,10 @@ async fn process_tunnel_request(
             )
             .await
         }
-        TunnelMessage::Disconnect { tunnel_id } => {
+        HttpTunnelMessage::Disconnect { tunnel_id } => {
             process_disconnect_tunnel(&host_service, &tunnel_service, tunnel_id).await
         }
-        TunnelMessage::ClientLinkAccept {
+        HttpTunnelMessage::ClientLinkAccept {
             client_id,
             tunnel_id,
         } => {
@@ -121,7 +121,7 @@ async fn process_tunnel_request(
             )
             .await
         }
-        TunnelMessage::ClientLinkDeny {
+        HttpTunnelMessage::ClientLinkDeny {
             tunnel_id,
             client_id,
             reason,

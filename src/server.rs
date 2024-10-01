@@ -2,18 +2,18 @@ use log::{error, info};
 use tokio::io::Result;
 
 use crate::{
-    configuration::{ServerConfiguration, ServerType},
+    configuration::{ServerConfiguration, ServiceType},
     http::start_http_server,
 };
 
 pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
-    let mut server_futures = Vec::new();
+    let mut services = Vec::new();
 
-    for server in server_config.servers {
+    for (_, server) in server_config.services {
         match server {
-            ServerType::Http(config) => {
-                server_futures.push(start_http_server(server_config.tunnel_server_port, config))
-            }
+            ServiceType::Http(config) => services.push(tokio::spawn(async move {
+                start_http_server(server_config.hub_server_port, config).await
+            })),
             _ => {
                 info!("Unsupported server type, skipping.");
                 continue;
@@ -25,8 +25,8 @@ pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
 
     let mut has_error = false;
 
-    for server_future in server_futures {
-        if let Err(e) = server_future.await {
+    for service in services {
+        if let Err(e) = service.await {
             error!("Error procesing tunnel server: {}", e);
             has_error = true;
         }

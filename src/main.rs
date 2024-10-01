@@ -6,6 +6,7 @@ use configuration::{
 use env_logger::Env;
 use log::{debug, error, info};
 
+mod hub;
 mod client;
 mod configuration;
 mod http;
@@ -55,6 +56,29 @@ const VERBOSE_LOG_LEVEL: &str = "trace";
 
 #[cfg(not(debug_assertions))]
 const VERBOSE_LOG_LEVEL: &str = "info";
+
+#[tokio::main]
+async fn main() -> Result<(), std::io::Error> {
+    let args = Args::parse();
+
+    let command = args.command.unwrap_or(Commands::Tunnel {
+        init: false,
+        verbose: false,
+    });
+
+    let env = Env::default()
+        .filter_or("LOG_LEVEL", resolve_log_level(&command))
+        .write_style_or("LOG_STYLE", "always");
+
+    env_logger::init_from_env(env);
+
+    if let Err(e) = run_command(command).await {
+        debug!("Error running command: {:?}", e.to_string());
+        std::process::exit(1);
+    }
+
+    Ok(())
+}
 
 fn resolve_log_level(command: &Commands) -> &'static str {
     let verbose = match command {
@@ -116,29 +140,6 @@ async fn run_command(command: Commands) -> Result<(), std::io::Error> {
                 error!("No tunel configuration found, cannot start a tunnel. Exiting...");
             }
         }
-    }
-
-    Ok(())
-}
-
-#[tokio::main]
-async fn main() -> Result<(), std::io::Error> {
-    let args = Args::parse();
-
-    let command = args.command.unwrap_or(Commands::Tunnel {
-        init: false,
-        verbose: false,
-    });
-
-    let env = Env::default()
-        .filter_or("LOG_LEVEL", resolve_log_level(&command))
-        .write_style_or("LOG_STYLE", "always");
-
-    env_logger::init_from_env(env);
-
-    if let Err(e) = run_command(command).await {
-        debug!("Error running command: {:?}", e.to_string());
-        std::process::exit(1);
     }
 
     Ok(())

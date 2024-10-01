@@ -7,14 +7,16 @@ use crate::{
 };
 
 pub async fn start_server(config: TunnelConfiguration) -> Result<()> {
-    let mut futures = Vec::new();
+    let mut services = Vec::new();
 
-    for server in config.tunnels {
-        match server {
-            TunnelType::Http(tunnel_config) => futures.push(start_http_tunnel(
-                config.tunnel_server_address.clone(),
-                tunnel_config,
-            )),
+    for tunnel_definition in config.tunnels {
+        match tunnel_definition.tunnel {
+            TunnelType::Http(tunnel_config) => {
+                let tunnel_server_address = config.hub_server_address.clone();
+                services.push(tokio::spawn(async move {
+                    start_http_tunnel(tunnel_server_address, tunnel_config).await
+                }))
+            }
         }
     }
 
@@ -22,7 +24,7 @@ pub async fn start_server(config: TunnelConfiguration) -> Result<()> {
 
     let mut has_error = false;
 
-    for server_future in futures {
+    for server_future in services {
         if let Err(e) = server_future.await {
             debug!("Error starting tunnel client: {}", e);
             has_error = true;
