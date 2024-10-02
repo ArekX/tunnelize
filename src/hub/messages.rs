@@ -1,17 +1,24 @@
-use crate::http::messages::HttpTunnelMessage;
 use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot;
 
 #[derive(Serialize, Deserialize)]
-pub enum TunnelMessage {
-    Cli(CliMessage),
-    Http(HttpTunnelMessage),
+pub enum HubTcpMessage {
+    Monitor(MonitorMessage),
+    Tunnel(TunnelMessage),
+}
+
+//tunnel -> hub -> service -> hub -> tunnel
+
+#[derive(Serialize, Deserialize)]
+pub struct TunnelMessage {
+    pub service_name: String,
 }
 
 #[derive(Serialize, Deserialize)]
-pub enum CliMessage {
+pub enum MonitorMessage {
     ListServices,
 }
 
 pub enum HubMessage {
-    Name(String),
+    Test(String),
 }
