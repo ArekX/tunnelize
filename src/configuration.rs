@@ -8,7 +8,10 @@ use log::error;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::http::{HttpServerConfig, HttpTunnelConfig};
+use crate::{
+    http::{HttpServerConfig, HttpTunnelConfig},
+    hub::HubConfiguration,
+};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Configuration {
@@ -20,14 +23,13 @@ pub struct Configuration {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ServerConfiguration {
-    pub hub_server_port: u16,
-    pub max_tunnel_input_wait: u16,
-    pub services: HashMap<String, ServiceType>,
+    pub hub: HubConfiguration,
+    pub services: HashMap<String, ServiceDefinition>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum ServiceType {
+pub enum ServiceDefinition {
     Http(HttpServerConfig),
     Tcp { port_range: (u16, u16) },
     Udp { port_range: (u16, u16) },
@@ -63,7 +65,10 @@ fn get_configuration_dir() -> Result<std::path::PathBuf, std::io::Error> {
 }
 
 pub fn configuration_exists() -> bool {
-    let config_dir = get_configuration_dir().unwrap();
+    let config_dir = match get_configuration_dir() {
+        Ok(dir) => dir,
+        Err(_) => return false,
+    };
     let config_file = config_dir.join("tunnelize.json");
 
     config_file.exists()
@@ -71,13 +76,15 @@ pub fn configuration_exists() -> bool {
 
 pub fn get_default_server_config() -> ServerConfiguration {
     ServerConfiguration {
-        hub_server_port: 3456,
-        max_tunnel_input_wait: 10,
+        hub: HubConfiguration {
+            server_port: 3456,
+            max_tunnel_input_wait: 10,
+        },
         services: {
             let mut services = HashMap::new();
             services.insert(
                 "http".to_string(),
-                ServiceType::Http(HttpServerConfig::default()),
+                ServiceDefinition::Http(HttpServerConfig::default()),
             );
             services
         },

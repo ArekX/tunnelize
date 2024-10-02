@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use log::{debug, error, info};
 use tokio::{
@@ -11,20 +11,14 @@ use uuid::Uuid;
 use crate::transport::{read_message, write_message};
 
 use super::{
-    client_list::ClientList,
-    host_list::HostList,
     messages::{HttpTunnelMessage, Proxy, ResolvedLink, ServerMessage},
-    tunnel_list::{RequestedProxy, TunnelList},
-    ClientAuthorizeUser, HttpServerConfig, TaskData, TaskService,
+    services::Services,
+    tunnel_list::RequestedProxy,
+    ClientAuthorizeUser,
 };
 
-pub async fn start_tunnel_server(
-    tunnel_port: u16,
-    config: TaskData<HttpServerConfig>,
-    host_service: TaskService<HostList>,
-    tunnel_service: TaskService<TunnelList>,
-    client_service: TaskService<ClientList>,
-) {
+pub async fn start_tunnel_server(services: Arc<Services>) {
+    let tunnel_port: u16 = 3456; // TODO: This will be in hub anyway.
     let tunnel_listener = match TcpListener::bind(format!("0.0.0.0:{}", tunnel_port)).await {
         Ok(listener) => listener,
         Err(e) => {
@@ -50,14 +44,10 @@ pub async fn start_tunnel_server(
             continue;
         }
 
-        let tunnel_service = tunnel_service.clone();
-        let client_service = client_service.clone();
-        let host_service = host_service.clone();
-        let config = config.clone();
+        let services = services.clone();
 
         tokio::spawn(async move {
-            process_tunnel_request(stream, config, host_service, tunnel_service, client_service)
-                .await;
+            process_tunnel_request(stream, services).await;
         });
     }
 }
@@ -73,13 +63,7 @@ async fn wait_for_tunnel_readable(stream: &mut TcpStream, wait_seconds: u16) -> 
     }
 }
 
-async fn process_tunnel_request(
-    mut stream: TcpStream,
-    config: TaskData<HttpServerConfig>,
-    host_service: TaskService<HostList>,
-    tunnel_service: TaskService<TunnelList>,
-    client_service: TaskService<ClientList>,
-) {
+async fn process_tunnel_request(mut stream: TcpStream, services: Arc<Services>) {
     let message: HttpTunnelMessage = match read_message(&mut stream).await {
         Ok(message) => message,
         Err(e) => {
@@ -95,9 +79,7 @@ async fn process_tunnel_request(
             client_authorization,
         } => {
             process_tunnel_connect(
-                &config,
-                &host_service,
-                &tunnel_service,
+                &services,
                 proxies,
                 tunnel_auth_key,
                 client_authorization,
@@ -106,40 +88,22 @@ async fn process_tunnel_request(
             .await
         }
         HttpTunnelMessage::Disconnect { tunnel_id } => {
-            process_disconnect_tunnel(&host_service, &tunnel_service, tunnel_id).await
+            process_disconnect_tunnel(&services, tunnel_id).await
         }
         HttpTunnelMessage::ClientLinkAccept {
             client_id,
             tunnel_id,
-        } => {
-            process_client_accept(
-                &tunnel_service,
-                &client_service,
-                tunnel_id,
-                client_id,
-                stream,
-            )
-            .await
-        }
+        } => process_client_accept(&services, tunnel_id, client_id, stream).await,
         HttpTunnelMessage::ClientLinkDeny {
             tunnel_id,
             client_id,
             reason,
-        } => {
-            process_client_deny(
-                &tunnel_service,
-                &client_service,
-                tunnel_id,
-                client_id,
-                reason,
-            )
-            .await
-        }
+        } => process_client_deny(&services, tunnel_id, client_id, reason).await,
     };
 }
 
-async fn validate_tunnel_id(tunnel_service: &TaskService<TunnelList>, tunnel_id: Uuid) -> bool {
-    let is_valid = tunnel_service.lock().await.is_registered(tunnel_id);
+async fn validate_tunnel_id(services: &Arc<Services>, tunnel_id: Uuid) -> bool {
+    let is_valid = services.get_tunnel_service().await.is_registered(tunnel_id);
 
     if !is_valid {
         info!("Invalid tunnel ID: {}", tunnel_id);
@@ -148,28 +112,26 @@ async fn validate_tunnel_id(tunnel_service: &TaskService<TunnelList>, tunnel_id:
     is_valid
 }
 
-async fn process_disconnect_tunnel(
-    host_service: &TaskService<HostList>,
-    tunnel_service: &TaskService<TunnelList>,
-    tunnel_id: Uuid,
-) {
-    if !validate_tunnel_id(tunnel_service, tunnel_id).await {
+async fn process_disconnect_tunnel(services: &Arc<Services>, tunnel_id: Uuid) {
+    if !validate_tunnel_id(services, tunnel_id).await {
         return;
     }
 
     info!("Tunnel disconnected for ID: {}", tunnel_id);
-    host_service.lock().await.unregister_by_tunnel(tunnel_id);
-    tunnel_service.lock().await.remove_tunnel(tunnel_id);
+    services
+        .get_host_service()
+        .await
+        .unregister_by_tunnel(tunnel_id);
+    services.get_tunnel_service().await.remove_tunnel(tunnel_id);
 }
 
 async fn process_client_deny(
-    tunnel_service: &TaskService<TunnelList>,
-    client_service: &TaskService<ClientList>,
+    services: &Arc<Services>,
     tunnel_id: Uuid,
     client_id: Uuid,
     reason: String,
 ) {
-    if !validate_tunnel_id(tunnel_service, tunnel_id).await {
+    if !validate_tunnel_id(services, tunnel_id).await {
         return;
     }
 
@@ -178,7 +140,7 @@ async fn process_client_deny(
         client_id, reason
     );
     let mut client = {
-        let mut client_service = client_service.lock().await;
+        let mut client_service = services.get_client_service().await;
 
         if !client_service.is_registered(client_id) {
             debug!("Client ID is not registered: {}", client_id);
@@ -203,19 +165,18 @@ async fn process_client_deny(
 }
 
 async fn process_client_accept(
-    tunnel_service: &TaskService<TunnelList>,
-    client_service: &TaskService<ClientList>,
+    services: &Arc<Services>,
     tunnel_id: Uuid,
     client_id: Uuid,
     mut stream: TcpStream,
 ) {
-    if !validate_tunnel_id(tunnel_service, tunnel_id).await {
+    if !validate_tunnel_id(services, tunnel_id).await {
         return;
     }
 
     info!("Link accepted for client ID: {}", client_id);
     let mut client = {
-        let mut client_service = client_service.lock().await;
+        let mut client_service = services.get_client_service().await;
 
         if !client_service.is_registered(client_id) {
             debug!("Client ID is not registered: {}", client_id);
@@ -247,14 +208,14 @@ async fn process_client_accept(
 }
 
 async fn process_tunnel_connect(
-    config: &TaskData<HttpServerConfig>,
-    host_service: &TaskService<HostList>,
-    tunnel_service: &TaskService<TunnelList>,
+    services: &Arc<Services>,
     proxies: Vec<Proxy>,
     auth_key: Option<String>,
     client_authorization: Option<ClientAuthorizeUser>,
     mut stream: TcpStream,
 ) {
+    let config = services.get_config();
+
     if let Some(key) = &config.tunnel_auth_key {
         let tunnel_key = match auth_key {
             Some(key) => key,
@@ -276,9 +237,9 @@ async fn process_tunnel_connect(
         }
     }
 
-    let mut host_service = host_service.lock().await;
+    let mut host_service = services.get_host_service().await;
     let id = {
-        let tunnel_service = tunnel_service.lock().await;
+        let tunnel_service = services.get_tunnel_service().await;
         tunnel_service.issue_tunnel_id()
     };
     let mut requested_proxies: Vec<RequestedProxy> = vec![];
@@ -315,7 +276,7 @@ async fn process_tunnel_connect(
     .await
     {
         Ok(_) => {
-            let mut tunnel_service = tunnel_service.lock().await;
+            let mut tunnel_service = services.get_tunnel_service().await;
             tunnel_service.register(id, stream, requested_proxies, client_authorization);
         }
         Err(e) => {

@@ -1,13 +1,16 @@
+use std::collections::HashMap;
+
 use log::{error, info};
 use tokio::{
     io::Result,
-    sync::mpsc::{channel, Sender}, task::JoinHandle,
+    sync::mpsc::{channel, Sender},
+    task::JoinHandle,
 };
 
 use crate::{
-    configuration::{ServerConfiguration, ServiceType},
+    configuration::{ServerConfiguration, ServiceDefinition},
     http::start_http_server,
-    hub::{messages::HubMessage, requests::ServiceRequest, start_hub_server, Service},
+    hub::{messages::HubMessage, requests::ServiceRequest, start_hub_server, HubService},
 };
 
 pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
@@ -15,17 +18,19 @@ pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
 
     let (hub_tx, hub_rx) = channel::<HubMessage>(100);
 
-    let mut hub_services: Vec<Service> = Vec::new();
+    let mut hub_services: HashMap<String, HubService> = HashMap::new();
 
-    for (name, server) in server_config.services {
-        let (service, handle) = start_service(name, server, hub_tx.clone())?;
+    for (name, server_def) in server_config.services {
+        let (service, handle) = start_service(server_def, hub_tx.clone())?;
 
         services.push(handle);
-        hub_services.push(service);
+        hub_services.insert(name, service);
     }
 
+    let hub_config = server_config.hub.clone();
+
     services.push(tokio::spawn(async move {
-        start_hub_server(hub_rx, hub_services).await;
+        start_hub_server(hub_tx, hub_rx, hub_services, hub_config).await
     }));
 
     info!("Tunnelize servers initialized and running.");
@@ -49,20 +54,21 @@ pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
     Ok(())
 }
 
-type ServiceHandle = JoinHandle<()>;
+type ServiceHandle = JoinHandle<Result<()>>;
 
 fn start_service(
-    service_name: String,
-    config: ServiceType,
+    service_def: ServiceDefinition,
     hub_tx: Sender<HubMessage>,
-) -> Result<(Service, ServiceHandle)> {
-    let (service_tx, mut service_rx) = channel::<ServiceRequest>(100);
+) -> Result<(HubService, ServiceHandle)> {
+    let (service_tx, service_rx) = channel::<ServiceRequest>(100);
 
-    let handle: ServiceHandle = match config {
-        ServiceType::Http(config) => {
-                tokio::spawn(async move {
-                    // start_http_server(server_config.hub_server_port, config).await
-                })
+    let hub_tx = hub_tx.clone();
+
+    let hub_service = HubService::new(service_tx.clone(), service_def.clone());
+
+    let handle: ServiceHandle = match service_def {
+        ServiceDefinition::Http(config) => {
+            tokio::spawn(async move { start_http_server(config, service_rx, hub_tx).await })
         }
         _ => {
             info!("Unsupported server type, skipping.");
@@ -71,10 +77,7 @@ fn start_service(
                 "Unsupported server type.",
             ));
         }
-    }
+    };
 
-    Ok((Service {
-        name: service_name,
-        service_tx: service_tx.clone(),
-    }, handle))
+    Ok((hub_service, handle))
 }

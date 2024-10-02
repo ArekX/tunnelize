@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use log::{debug, error, info, warn};
 use tokio::{
@@ -18,10 +18,7 @@ use crate::{
     transport::{write_message, MessageError},
 };
 
-use super::{
-    client_list::ClientList, host_list::HostList, tunnel_list::TunnelList, HttpServerConfig,
-    TaskData, TaskService,
-};
+use super::services::Services;
 
 async fn read_http_request_string(stream: &mut TcpStream) -> String {
     let mut request_buffer = Vec::new();
@@ -99,12 +96,8 @@ async fn wait_for_client_readable(stream: &mut TcpStream, wait_seconds: u16) -> 
     }
 }
 
-pub async fn start_http_server(
-    config: TaskData<HttpServerConfig>,
-    host_service: TaskService<HostList>,
-    tunnel_service: TaskService<TunnelList>,
-    client_service: TaskService<ClientList>,
-) {
+pub async fn start_http_server(services: Arc<Services>) {
+    let config = services.get_config();
     let client = match TcpListener::bind(format!("0.0.0.0:{}", config.client_port)).await {
         Ok(listener) => listener,
         Err(e) => {
@@ -153,7 +146,7 @@ pub async fn start_http_server(
 
         info!("Resolved hostname '{}' from initial request", hostname);
         let host = {
-            let host_service = host_service.lock().await;
+            let host_service = services.get_host_service().await;
             match host_service.find_host(&hostname) {
                 Some(host) => host,
                 None => {
@@ -172,7 +165,7 @@ pub async fn start_http_server(
         };
 
         let client_id = {
-            let mut client_service = client_service.lock().await;
+            let mut client_service = services.get_client_service().await;
             client_service.issue_client_id()
         };
 
@@ -181,20 +174,20 @@ pub async fn start_http_server(
                 "Client connected from {}, assigned ID: {}",
                 address, client_id
             );
-            client_service
-                .lock()
+            services
+                .get_client_service()
                 .await
                 .register(client_id, stream, http_request.clone());
         }
 
-        let mut tunnel_service = tunnel_service.lock().await;
+        let mut tunnel_service = services.get_tunnel_service().await;
 
         let tunnel = match tunnel_service.get_by_id(host.tunnel_id) {
             Some(tunnel) => tunnel,
             None => {
                 error!("Failed to find tunnel for ID: {}", host.tunnel_id);
                 end_client(
-                    &client_service,
+                    &services,
                     client_id,
                     &get_error_response(
                         &http_request,
@@ -214,7 +207,7 @@ pub async fn start_http_server(
                     address
                 );
                 end_client(
-                    &client_service,
+                    &services,
                     client_id,
                     &get_unauthorized_response(&http_request, &user.realm),
                 )
@@ -248,9 +241,9 @@ pub async fn start_http_server(
                         || err.kind() == io::ErrorKind::ConnectionReset =>
                 {
                     debug!("Tunnel disconnected while sending link request.");
-                    end_tunnel(&host_service, &mut tunnel_service, host.tunnel_id).await;
+                    end_tunnel(&services, host.tunnel_id).await;
                     end_client(
-                        &client_service,
+                        &services,
                         client_id,
                         &get_error_response(
                             &http_request,
@@ -261,9 +254,9 @@ pub async fn start_http_server(
                 }
                 _ => {
                     debug!("Error while sending link request: {:?}", e);
-                    end_tunnel(&host_service, &mut tunnel_service, host.tunnel_id).await;
+                    end_tunnel(&services, host.tunnel_id).await;
                     end_client(
-                        &client_service,
+                        &services,
                         client_id,
                         &get_error_response(
                             &http_request,
@@ -277,16 +270,19 @@ pub async fn start_http_server(
     }
 }
 
-async fn end_tunnel(
-    host_service: &TaskService<HostList>,
-    tunnel_service: &mut TunnelList,
-    tunnel_id: Uuid,
-) {
-    host_service.lock().await.unregister_by_tunnel(tunnel_id);
-    tunnel_service.remove_tunnel(tunnel_id);
+async fn end_tunnel(services: &Arc<Services>, tunnel_id: Uuid) {
+    services
+        .get_host_service()
+        .await
+        .unregister_by_tunnel(tunnel_id);
+    services.get_tunnel_service().await.remove_tunnel(tunnel_id);
 }
 
-async fn end_client(client_service: &TaskService<ClientList>, client_id: Uuid, response: &String) {
-    let mut client = client_service.lock().await.release(client_id).unwrap();
+async fn end_client(services: &Arc<Services>, client_id: Uuid, response: &String) {
+    let mut client = services
+        .get_client_service()
+        .await
+        .release(client_id)
+        .unwrap();
     respond_and_close(&mut client.stream, response).await;
 }

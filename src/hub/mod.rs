@@ -1,32 +1,44 @@
-use log::{error, info};
+use std::collections::HashMap;
+
 use messages::HubMessage;
-use requests::ServiceRequest;
+use serde::{Deserialize, Serialize};
+use services::Services;
 use tokio::io::Result;
-use tokio::net::TcpListener;
-use tokio::sync::mpsc::{self, Receiver};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 pub mod messages;
 pub mod requests;
 
-pub struct Service {
-    pub name: String,
-    pub service_tx: mpsc::Sender<ServiceRequest>,
+mod hub_channel;
+mod services;
+mod tunnel_server;
+
+pub use services::HubService;
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct HubConfiguration {
+    pub server_port: u16,
+    pub max_tunnel_input_wait: u16,
 }
 
 pub async fn start_hub_server(
-    mut hub_receiver: Receiver<HubMessage>,
-    services: Vec<Service>,
+    hub_tx: Sender<HubMessage>,
+    hub_rx: Receiver<HubMessage>,
+    service_defs: HashMap<String, HubService>,
+    config: HubConfiguration,
 ) -> Result<()> {
-    let tunnel_port = 3456;
+    let services = Services::create(service_defs, config, hub_tx);
 
+    let hub_server_services = services.clone();
     let hub_server = tokio::spawn(async move {
-        start_tcp_server(tunnel_port)
+        tunnel_server::start(hub_server_services)
             .await
             .expect("Tcp Server Failed");
     });
 
+    let channel_services = services.clone();
     let channel_listener = tokio::spawn(async move {
-        start_channel_listener(hub_receiver)
+        hub_channel::start(channel_services, hub_rx)
             .await
             .expect("Channel listener failed");
     });
@@ -34,47 +46,4 @@ pub async fn start_hub_server(
     tokio::try_join!(hub_server, channel_listener)?;
 
     Ok(())
-}
-
-pub async fn start_channel_listener(mut hub_receiver: Receiver<HubMessage>) -> Result<()> {
-    loop {
-        let response = match hub_receiver.recv().await {
-            Some(response) => response,
-            None => {
-                break;
-            }
-        };
-
-        match response {
-            HubMessage::Test(name) => {
-                println!("Received name: {}", name);
-            }
-        }
-    }
-
-    Ok(())
-}
-
-pub async fn start_tcp_server(tunnel_port: u16) -> Result<()> {
-    let tunnel_listener = match TcpListener::bind(format!("0.0.0.0:{}", tunnel_port)).await {
-        Ok(listener) => listener,
-        Err(e) => {
-            error!("Failed to bind tunnel listener: {}", e);
-            return Ok(());
-        }
-    };
-
-    info!("Listening to tunnel connections on 0.0.0.0:{}", tunnel_port);
-
-    loop {
-        let (mut stream, address) = match tunnel_listener.accept().await {
-            Ok(stream_pair) => stream_pair,
-            Err(e) => {
-                error!("Failed to accept tunnel connection: {}", e);
-                continue;
-            }
-        };
-
-        info!("Tunnel connected at: {}", address);
-    }
 }
