@@ -5,7 +5,7 @@ pub mod http_tunnel;
 
 use crate::configuration::{TunnelConfiguration, TunnelType};
 
-pub async fn start_server(config: TunnelConfiguration) -> Result<()> {
+pub async fn start(config: TunnelConfiguration) -> Result<()> {
     let mut services = Vec::new();
 
     for tunnel_definition in config.tunnels {

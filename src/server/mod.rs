@@ -15,7 +15,7 @@ use hub::HubService;
 
 use crate::configuration::{ServerConfiguration, ServiceDefinition};
 
-pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
+pub async fn start(server_config: ServerConfiguration) -> Result<()> {
     let mut services = Vec::new();
 
     let (hub_tx, hub_rx) = channel::<HubChannelMessage>(100);

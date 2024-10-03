@@ -114,7 +114,7 @@ async fn run_command(command: Commands) -> Result<(), std::io::Error> {
             info!("Starting server...");
 
             if let Some(server) = config.server {
-                server::start_server(server).await?;
+                server::start(server).await?;
             } else {
                 error!("No server configuration found, cannot start a server. Exiting...");
             }
@@ -133,7 +133,7 @@ async fn run_command(command: Commands) -> Result<(), std::io::Error> {
             info!("Starting client...");
 
             if let Some(tunnel) = config.tunnel {
-                tunnel::start_server(tunnel).await?;
+                tunnel::start(tunnel).await?;
             } else {
                 error!("No tunel configuration found, cannot start a tunnel. Exiting...");
             }
