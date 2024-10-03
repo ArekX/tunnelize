@@ -4,13 +4,13 @@ use axum::http::response;
 use tokio::io::Result;
 use tokio::sync::{mpsc, oneshot};
 
-use super::messages::{HubMessage, TunnelMessageData};
+use super::messages::{HubChannelMessage, TunnelMessageData};
 use super::requests::{ServiceRequest, ServiceRequestData, ServiceResponse};
 use super::services::Services;
 
 pub async fn start(
     services: Arc<Services>,
-    mut hub_receiver: mpsc::Receiver<HubMessage>,
+    mut hub_receiver: mpsc::Receiver<HubChannelMessage>,
 ) -> Result<()> {
     loop {
         let response = match hub_receiver.recv().await {
@@ -21,10 +21,10 @@ pub async fn start(
         };
 
         match response {
-            HubMessage::Test(name) => {
+            HubChannelMessage::Test(name) => {
                 println!("Received name: {}", name);
             }
-            HubMessage::Tunnel(tunnel_mesage) => {
+            HubChannelMessage::Tunnel(tunnel_mesage) => {
                 if let Some(service) = services.get_service(tunnel_mesage.service_name.as_str()) {
                     let service_tx = service.get_service_tx();
 

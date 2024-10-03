@@ -4,7 +4,7 @@ use tokio::sync::mpsc::{self, Sender};
 
 use crate::configuration::ServiceDefinition;
 
-use super::{messages::HubMessage, requests::ServiceRequest, HubConfiguration};
+use super::{messages::HubChannelMessage, requests::ServiceRequest, HubConfiguration};
 
 pub struct HubService {
     definition: ServiceDefinition,
@@ -26,7 +26,7 @@ impl HubService {
 
 pub struct Services {
     services: HashMap<String, HubService>,
-    hub_tx: Sender<HubMessage>,
+    hub_tx: Sender<HubChannelMessage>,
     config: Arc<HubConfiguration>,
 }
 
@@ -34,7 +34,7 @@ impl Services {
     pub fn create(
         services: HashMap<String, HubService>,
         config: HubConfiguration,
-        hub_tx: mpsc::Sender<HubMessage>,
+        hub_tx: mpsc::Sender<HubChannelMessage>,
     ) -> Arc<Self> {
         Arc::new(Self {
             services,
@@ -47,7 +47,7 @@ impl Services {
         self.services.get(name)
     }
 
-    pub fn get_hub_tx(&self) -> mpsc::Sender<HubMessage> {
+    pub fn get_hub_tx(&self) -> mpsc::Sender<HubChannelMessage> {
         self.hub_tx.clone()
     }
 

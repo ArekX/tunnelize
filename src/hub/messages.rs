@@ -3,14 +3,14 @@ use serde::{Deserialize, Serialize};
 use crate::http::messages::HttpTunnelMessage;
 
 #[derive(Serialize, Deserialize)]
-pub enum TunnelServerMessage {
+pub enum HubServerMessage {
     Monitor(MonitorMessage),
     Tunnel(TunnelMessage),
 }
 
 //tunnel -> hub -> service -> hub -> tunnel
 
-pub enum HubMessage {
+pub enum HubChannelMessage {
     Test(String),
     Tunnel(TunnelMessage),
 }

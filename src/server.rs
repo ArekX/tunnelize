@@ -9,14 +9,14 @@ use tokio::{
 
 use crate::{
     configuration::{ServerConfiguration, ServiceDefinition},
-    http::start_http_server,
-    hub::{messages::HubMessage, requests::ServiceRequest, start_hub_server, HubService},
+    http::start_http_service,
+    hub::{messages::HubChannelMessage, requests::ServiceRequest, start_hub_server, HubService},
 };
 
 pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
     let mut services = Vec::new();
 
-    let (hub_tx, hub_rx) = channel::<HubMessage>(100);
+    let (hub_tx, hub_rx) = channel::<HubChannelMessage>(100);
 
     let mut hub_services: HashMap<String, HubService> = HashMap::new();
 
@@ -58,7 +58,7 @@ type ServiceHandle = JoinHandle<Result<()>>;
 
 fn start_service(
     service_def: ServiceDefinition,
-    hub_tx: Sender<HubMessage>,
+    hub_tx: Sender<HubChannelMessage>,
 ) -> Result<(HubService, ServiceHandle)> {
     let (service_tx, service_rx) = channel::<ServiceRequest>(100);
 
@@ -68,7 +68,7 @@ fn start_service(
 
     let handle: ServiceHandle = match service_def {
         ServiceDefinition::Http(config) => {
-            tokio::spawn(async move { start_http_server(config, service_rx, hub_tx).await })
+            tokio::spawn(async move { start_http_service(config, service_rx, hub_tx).await })
         }
         _ => {
             info!("Unsupported server type, skipping.");

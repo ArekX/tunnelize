@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     http::{
-        http_handler::{
+        http_protocol::{
             find_request_host, get_error_response, get_unauthorized_response, is_authorized,
         },
         messages::ServerMessage,
@@ -96,7 +96,7 @@ async fn wait_for_client_readable(stream: &mut TcpStream, wait_seconds: u16) -> 
     }
 }
 
-pub async fn start_http_server(services: Arc<Services>) {
+pub async fn start(services: Arc<Services>) {
     let config = services.get_config();
     let client = match TcpListener::bind(format!("0.0.0.0:{}", config.client_port)).await {
         Ok(listener) => listener,

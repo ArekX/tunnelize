@@ -36,6 +36,7 @@ pub enum ServerMessage {
         reason: String,
     },
     TunnelAccept {
+        // TODO: Make sure that if this is already accepted it cannot be accepted twice
         tunnel_id: Uuid,
         resolved_links: Vec<ResolvedLink>,
     },

@@ -9,7 +9,7 @@ use tokio::time::timeout;
 
 use crate::transport::read_message;
 
-use super::messages::{HubMessage, TunnelServerMessage};
+use super::messages::{HubChannelMessage, HubServerMessage};
 use super::services::Services;
 
 pub async fn start(services: Arc<Services>) -> Result<()> {
@@ -64,8 +64,8 @@ async fn wait_for_tunnel_readable(stream: &mut TcpStream, wait_seconds: u16) -> 
     }
 }
 
-async fn process_request(mut stream: TcpStream, hub_tx: Sender<HubMessage>) {
-    let message: TunnelServerMessage = match read_message(&mut stream).await {
+async fn process_request(mut stream: TcpStream, hub_tx: Sender<HubChannelMessage>) {
+    let message: HubServerMessage = match read_message(&mut stream).await {
         Ok(message) => message,
         Err(e) => {
             debug!("Error while reading tunnel message: {:?}", e);
@@ -74,8 +74,8 @@ async fn process_request(mut stream: TcpStream, hub_tx: Sender<HubMessage>) {
     };
 
     match message {
-        TunnelServerMessage::Tunnel(tunnel_message) => {
-            if let Err(e) = hub_tx.send(HubMessage::Tunnel(tunnel_message)).await {
+        HubServerMessage::Tunnel(tunnel_message) => {
+            if let Err(e) = hub_tx.send(HubChannelMessage::Tunnel(tunnel_message)).await {
                 debug!("Error sending tunnel message to hub: {:?}", e);
             }
         }

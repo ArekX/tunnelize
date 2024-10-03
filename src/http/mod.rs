@@ -8,11 +8,12 @@ use tokio::sync::Mutex;
 use tokio::{io::Result, sync::mpsc::Receiver, sync::mpsc::Sender};
 
 use crate::hub::requests::{ServiceRequestData, ServiceResponse};
-use crate::hub::{messages::HubMessage, requests::ServiceRequest};
+use crate::hub::{messages::HubChannelMessage, requests::ServiceRequest};
 
 mod client_list;
 mod host_list;
-mod http_handler;
+mod http_channel;
+mod http_protocol;
 mod http_server;
 pub mod messages;
 mod services;
@@ -76,67 +77,34 @@ pub struct ClientAuthorizeUser {
     pub password: String,
 }
 
-pub fn start_tunnel_task(services: Arc<Services>) -> tokio::task::JoinHandle<()> {
-    info!("Starting tunnel listener");
-
-    tokio::spawn(async move {
-        tunnel_server::start_tunnel_server(services).await;
-    })
-}
-
-pub fn start_client_task(services: Arc<Services>) -> tokio::task::JoinHandle<()> {
-    info!("Starting client listener");
-    tokio::spawn(async move {
-        http_server::start_http_server(services).await;
-    })
-}
-
-pub async fn start_http_server(
+pub async fn start_http_service(
     config: HttpServerConfig,
-    mut service_rx: Receiver<ServiceRequest>,
-    hub_tx: Sender<HubMessage>,
+    service_rx: Receiver<ServiceRequest>,
+    hub_tx: Sender<HubChannelMessage>,
 ) -> Result<()> {
-    let services = Services::create(config.clone());
+    let services = Services::create(config.clone(), hub_tx);
 
-    // let tunnel_task = start_tunnel_task(services.clone());
-    let client_task = start_client_task(services.clone());
+    let client_task = {
+        let services = services.clone();
+
+        tokio::spawn(async move {
+            http_server::start(services).await;
+        })
+    };
 
     let channel_task = tokio::spawn(async move {
-        loop {
-            let request = match service_rx.recv().await {
-                Some(request) => request,
-                None => {
-                    break;
-                }
-            };
-
-            match request.data {
-                ServiceRequestData::Http(_) => {
-                    if let Err(_) = request
-                        .response_tx
-                        .send(ServiceResponse::Name("Works!".to_string()))
-                    {
-                        debug!("Failed to send response.");
-                    }
-                }
-                _ => {
-                    if let Err(_) = request
-                        .response_tx
-                        .send(ServiceResponse::Name("Unknown".to_string()))
-                    {
-                        debug!("Failed to send response.");
-                    }
-                }
-            }
-        }
+        http_channel::start(services, service_rx).await;
     });
 
-    tokio::try_join!(channel_task, client_task).unwrap();
+    tokio::try_join!(channel_task, client_task)?;
 
     Ok(())
 }
 
-pub async fn start_http_tunnel(server_address: String, config: HttpTunnelConfig) -> Result<()> {
+pub async fn start_http_tunnel_service(
+    server_address: String,
+    config: HttpTunnelConfig,
+) -> Result<()> {
     tunnel_client::start_client(server_address, config).await?;
     Ok(())
 }

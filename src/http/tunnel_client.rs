@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::{
     http::messages::{HttpTunnelMessage, Proxy, ServerMessage},
-    hub::messages::{TunnelMessage, TunnelMessageData, TunnelServerMessage},
+    hub::messages::{HubServerMessage, TunnelMessage, TunnelMessageData},
     transport::{self, write_message, MessageError},
 };
 
@@ -75,7 +75,7 @@ pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> R
 
     match transport::write_message(
         &mut server,
-        &TunnelServerMessage::Tunnel(TunnelMessage {
+        &HubServerMessage::Tunnel(TunnelMessage {
             service_name: "http".to_owned(),
             data: TunnelMessageData::Http(HttpTunnelMessage::Connect {
                 proxies,
