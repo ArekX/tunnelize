@@ -9,8 +9,8 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    http::{HttpServerConfig, HttpTunnelConfig},
-    hub::HubConfiguration,
+    server::{http::HttpServerConfig, hub::HubConfiguration},
+    tunnel::http_tunnel::HttpTunnelConfig,
 };
 
 #[derive(Debug, Deserialize, Serialize)]

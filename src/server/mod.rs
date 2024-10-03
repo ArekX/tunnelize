@@ -1,5 +1,9 @@
+pub mod http;
+pub mod hub;
+
 use std::collections::HashMap;
 
+use hub::{messages::HubChannelMessage, requests::ServiceRequest};
 use log::{error, info};
 use tokio::{
     io::Result,
@@ -7,11 +11,9 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::{
-    configuration::{ServerConfiguration, ServiceDefinition},
-    http::start_http_service,
-    hub::{messages::HubChannelMessage, requests::ServiceRequest, start_hub_server, HubService},
-};
+use hub::HubService;
+
+use crate::configuration::{ServerConfiguration, ServiceDefinition};
 
 pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
     let mut services = Vec::new();
@@ -30,7 +32,7 @@ pub async fn start_server(server_config: ServerConfiguration) -> Result<()> {
     let hub_config = server_config.hub.clone();
 
     services.push(tokio::spawn(async move {
-        start_hub_server(hub_tx, hub_rx, hub_services, hub_config).await
+        hub::start_hub_server(hub_tx, hub_rx, hub_services, hub_config).await
     }));
 
     info!("Tunnelize servers initialized and running.");
@@ -68,7 +70,7 @@ fn start_service(
 
     let handle: ServiceHandle = match service_def {
         ServiceDefinition::Http(config) => {
-            tokio::spawn(async move { start_http_service(config, service_rx, hub_tx).await })
+            tokio::spawn(async move { http::start_http_service(config, service_rx, hub_tx).await })
         }
         _ => {
             info!("Unsupported server type, skipping.");

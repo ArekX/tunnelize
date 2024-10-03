@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::http::messages::HttpTunnelMessage;
+use super::super::http::messages::HttpTunnelMessage;
 
 #[derive(Serialize, Deserialize)]
 pub enum HubServerMessage {

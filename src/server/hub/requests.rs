@@ -1,6 +1,6 @@
 use tokio::sync::oneshot;
 
-use crate::http::messages::HttpTunnelMessage;
+use super::super::http::messages::HttpTunnelMessage;
 
 pub struct ServiceRequest {
     pub response_tx: oneshot::Sender<ServiceResponse>,
@@ -8,7 +8,7 @@ pub struct ServiceRequest {
 }
 pub enum ServiceRequestData {
     GetName,
-    Http(HttpTunnelMessage)
+    Http(HttpTunnelMessage),
 }
 
 pub enum ServiceResponse {

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use tokio::sync::{mpsc::Sender, Mutex, MutexGuard};
 
-use crate::hub::messages::HubChannelMessage;
+use crate::server::hub::messages::HubChannelMessage;
 
 use super::{
     client_list::ClientList, host_list::HostList, tunnel_list::TunnelList, HttpServerConfig,

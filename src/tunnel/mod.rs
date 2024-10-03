@@ -1,10 +1,9 @@
 use log::{debug, info};
 use tokio::io::Result;
 
-use crate::{
-    configuration::{TunnelConfiguration, TunnelType},
-    http::start_http_tunnel_service,
-};
+pub mod http_tunnel;
+
+use crate::configuration::{TunnelConfiguration, TunnelType};
 
 pub async fn start_server(config: TunnelConfiguration) -> Result<()> {
     let mut services = Vec::new();
@@ -14,7 +13,7 @@ pub async fn start_server(config: TunnelConfiguration) -> Result<()> {
             TunnelType::Http(tunnel_config) => {
                 let tunnel_server_address = config.hub_server_address.clone();
                 services.push(tokio::spawn(async move {
-                    start_http_tunnel_service(tunnel_server_address, tunnel_config).await
+                    http_tunnel::start(tunnel_server_address, tunnel_config).await
                 }))
             }
         }

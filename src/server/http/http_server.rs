@@ -9,7 +9,7 @@ use tokio::{
 use uuid::Uuid;
 
 use crate::{
-    http::{
+    server::http::{
         http_protocol::{
             find_request_host, get_error_response, get_unauthorized_response, is_authorized,
         },

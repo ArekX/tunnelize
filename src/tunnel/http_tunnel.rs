@@ -1,4 +1,5 @@
 use log::{debug, error, info};
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     io::{Error, ErrorKind},
@@ -17,12 +18,41 @@ use tokio::{
 use uuid::Uuid;
 
 use crate::{
-    http::messages::{HttpTunnelMessage, Proxy, ServerMessage},
-    hub::messages::{HubServerMessage, TunnelMessage, TunnelMessageData},
+    server::{
+        http::{
+            messages::{HttpTunnelMessage, Proxy, ServerMessage},
+            ClientAuthorizeUser,
+        },
+        hub::messages::{HubServerMessage, TunnelMessage, TunnelMessageData},
+    },
     transport::{self, write_message, MessageError},
 };
 
-use super::HttpTunnelConfig;
+#[derive(Debug, Deserialize, Serialize)]
+pub struct HttpTunnelConfig {
+    pub proxies: Vec<TunnelProxy>,
+    pub tunnel_auth_key: Option<String>,
+    pub client_authorization: Option<ClientAuthorizeUser>,
+}
+
+impl Default for HttpTunnelConfig {
+    fn default() -> Self {
+        Self {
+            proxies: vec![TunnelProxy {
+                desired_name: Some("8000".to_string()),
+                forward_address: "0.0.0.0:8000".to_owned(),
+            }],
+            tunnel_auth_key: None,
+            client_authorization: None,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct TunnelProxy {
+    pub desired_name: Option<String>,
+    pub forward_address: String,
+}
 
 fn resolve_address(address: String) -> Result<std::net::SocketAddr> {
     let addreses = address.to_socket_addrs()?;
@@ -39,7 +69,7 @@ fn resolve_address(address: String) -> Result<std::net::SocketAddr> {
     ))
 }
 
-pub async fn start_client(server_address: String, config: HttpTunnelConfig) -> Result<()> {
+pub async fn start(server_address: String, config: HttpTunnelConfig) -> Result<()> {
     let server_ip = resolve_address(server_address.clone())?;
 
     let tunnel_id = Arc::new(Mutex::new(Uuid::new_v4()));

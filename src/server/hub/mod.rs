@@ -1,5 +1,9 @@
 use std::collections::HashMap;
 
+mod hub_channel;
+mod hub_server;
+mod services;
+
 use messages::HubChannelMessage;
 use serde::{Deserialize, Serialize};
 use services::Services;
@@ -8,10 +12,6 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 pub mod messages;
 pub mod requests;
-
-mod hub_channel;
-mod services;
-mod tunnel_server;
 
 pub use services::HubService;
 
@@ -32,7 +32,7 @@ pub async fn start_hub_server(
     let hub_server = {
         let services = services.clone();
         tokio::spawn(async move {
-            tunnel_server::start(services)
+            hub_server::start(services)
                 .await
                 .expect("Tcp Server Failed");
         })

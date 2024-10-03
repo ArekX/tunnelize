@@ -6,12 +6,10 @@ use configuration::{
 use env_logger::Env;
 use log::{debug, error, info};
 
-mod hub;
-mod client;
 mod configuration;
-mod http;
 mod server;
 mod transport;
+mod tunnel;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -135,7 +133,7 @@ async fn run_command(command: Commands) -> Result<(), std::io::Error> {
             info!("Starting client...");
 
             if let Some(tunnel) = config.tunnel {
-                client::start_server(tunnel).await?;
+                tunnel::start_server(tunnel).await?;
             } else {
                 error!("No tunel configuration found, cannot start a tunnel. Exiting...");
             }

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::debug;
 use tokio::sync::mpsc::Receiver;
 
-use crate::hub::requests::{ServiceRequest, ServiceRequestData, ServiceResponse};
+use crate::server::hub::requests::{ServiceRequest, ServiceRequestData, ServiceResponse};
 
 use super::services::Services;
 
