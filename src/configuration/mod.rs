@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     server::{http::HttpServerConfig, hub::HubConfiguration},
-    tunnel::http_tunnel::HttpTunnelConfig,
+    tunnel::http::http_tunnel::HttpTunnelConfig,
 };
 
 #[derive(Debug, Deserialize, Serialize)]

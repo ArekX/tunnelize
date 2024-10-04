@@ -8,10 +8,13 @@ use tokio::{
 };
 use uuid::Uuid;
 
-use crate::transport::{read_message, write_message};
+use crate::{
+    transport::{read_message, write_message},
+    tunnel::http::messages::{HttpTunnelMessage, Proxy},
+};
 
 use super::{
-    messages::{HttpTunnelMessage, Proxy, ResolvedLink, ServerMessage},
+    messages::{ResolvedLink, ServerMessage},
     services::Services,
     tunnel_list::RequestedProxy,
     ClientAuthorizeUser,

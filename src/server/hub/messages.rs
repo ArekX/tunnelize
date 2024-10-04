@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::super::http::messages::HttpTunnelMessage;
+use crate::tunnel::messages::TunnelMessage;
 
 #[derive(Serialize, Deserialize)]
 pub enum HubServerMessage {
@@ -18,15 +18,4 @@ pub enum HubChannelMessage {
 #[derive(Serialize, Deserialize)]
 pub enum MonitorMessage {
     ListServices,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct TunnelMessage {
-    pub service_name: String,
-    pub data: TunnelMessageData,
-}
-
-#[derive(Serialize, Deserialize)]
-pub enum TunnelMessageData {
-    Http(HttpTunnelMessage),
 }

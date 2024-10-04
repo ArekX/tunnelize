@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
-use axum::http::response;
 use tokio::io::Result;
 use tokio::sync::{mpsc, oneshot};
 
-use super::messages::{HubChannelMessage, TunnelMessageData};
+use crate::tunnel::messages::TunnelMessageData;
+
+use super::messages::HubChannelMessage;
 use super::requests::{ServiceRequest, ServiceRequestData, ServiceResponse};
 use super::services::Services;
 

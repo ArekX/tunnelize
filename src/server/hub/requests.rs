@@ -1,6 +1,6 @@
 use tokio::sync::oneshot;
 
-use super::super::http::messages::HttpTunnelMessage;
+use crate::tunnel::http::messages::HttpTunnelMessage;
 
 pub struct ServiceRequest {
     pub response_tx: oneshot::Sender<ServiceResponse>,

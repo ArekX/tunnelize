@@ -1,7 +1,8 @@
 use log::{debug, info};
 use tokio::io::Result;
 
-pub mod http_tunnel;
+pub mod http;
+pub mod messages;
 
 use crate::configuration::{TunnelConfiguration, TunnelType};
 
@@ -13,7 +14,7 @@ pub async fn start(config: TunnelConfiguration) -> Result<()> {
             TunnelType::Http(tunnel_config) => {
                 let tunnel_server_address = config.hub_server_address.clone();
                 services.push(tokio::spawn(async move {
-                    http_tunnel::start(tunnel_server_address, tunnel_config).await
+                   http::http_tunnel::start(tunnel_server_address, tunnel_config).await
                 }))
             }
         }

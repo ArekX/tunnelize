@@ -19,13 +19,14 @@ use uuid::Uuid;
 
 use crate::{
     server::{
-        http::{
-            messages::{HttpTunnelMessage, Proxy, ServerMessage},
-            ClientAuthorizeUser,
-        },
-        hub::messages::{HubServerMessage, TunnelMessage, TunnelMessageData},
+        http::{messages::ServerMessage, ClientAuthorizeUser},
+        hub::messages::HubServerMessage,
     },
     transport::{self, write_message, MessageError},
+    tunnel::{
+        http::messages::{HttpTunnelMessage, Proxy},
+        messages::{TunnelMessage, TunnelMessageData},
+    },
 };
 
 #[derive(Debug, Deserialize, Serialize)]
