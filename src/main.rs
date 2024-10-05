@@ -1,15 +1,6 @@
 use clap::{Parser, Subcommand};
-use configuration::{
-    get_default_server_config, get_default_tunnel_config, parse_configuration, write_tunnel_config,
-    Configuration,
-};
 use env_logger::Env;
-use log::{debug, error, info};
-
-mod configuration;
-mod server;
-mod transport;
-mod tunnel;
+use log::{debug, info};
 
 #[derive(Parser, Debug)]
 #[command(
@@ -38,16 +29,16 @@ enum Commands {
     },
 }
 
-fn get_configuration() -> Configuration {
-    match parse_configuration() {
-        Ok(valid_config) => valid_config,
-        Err(e) => {
-            debug!("Error parsing configuration: {:?}", e);
-            error!("Could not parse configuration file. Exiting...");
-            std::process::exit(1);
-        }
-    }
-}
+// fn get_configuration() -> Configuration {
+//     match parse_configuration() {
+//         Ok(valid_config) => valid_config,
+//         Err(e) => {
+//             debug!("Error parsing configuration: {:?}", e);
+//             error!("Could not parse configuration file. Exiting...");
+//             std::process::exit(1);
+//         }
+//     }
+// }
 
 #[cfg(debug_assertions)]
 const VERBOSE_LOG_LEVEL: &str = "trace";
@@ -94,49 +85,49 @@ fn resolve_log_level(command: &Commands) -> &'static str {
 async fn run_command(command: Commands) -> Result<(), std::io::Error> {
     match command {
         Commands::Init => {
-            write_tunnel_config(Configuration {
-                server: Some(get_default_server_config()),
-                tunnel: Some(get_default_tunnel_config()),
-            })?;
+            // write_tunnel_config(Configuration {
+            //     server: Some(get_default_server_config()),
+            //     tunnel: Some(get_default_tunnel_config()),
+            // })?;
             return Ok(());
         }
         Commands::Server { init } => {
             if init {
-                write_tunnel_config(Configuration {
-                    server: Some(get_default_server_config()),
-                    tunnel: None,
-                })?;
+                // write_tunnel_config(Configuration {
+                //     server: Some(get_default_server_config()),
+                //     tunnel: None,
+                // })?;
                 return Ok(());
             }
 
-            let config = get_configuration();
+            // let config = get_configuration();
 
             info!("Starting server...");
 
-            if let Some(server) = config.server {
-                server::start(server).await?;
-            } else {
-                error!("No server configuration found, cannot start a server. Exiting...");
-            }
+            // if let Some(server) = config.server {
+            //     // server::start(server).await?;
+            // } else {
+            //     error!("No server configuration found, cannot start a server. Exiting...");
+            // }
         }
         Commands::Tunnel { init, .. } => {
             if init {
-                write_tunnel_config(Configuration {
-                    server: None,
-                    tunnel: Some(get_default_tunnel_config()),
-                })?;
+                // write_tunnel_config(Configuration {
+                //     server: None,
+                //     tunnel: Some(get_default_tunnel_config()),
+                // })?;
                 return Ok(());
             }
 
-            let config = get_configuration();
+            // let config = get_configuration();
 
-            info!("Starting client...");
+            // info!("Starting client...");
 
-            if let Some(tunnel) = config.tunnel {
-                tunnel::start(tunnel).await?;
-            } else {
-                error!("No tunel configuration found, cannot start a tunnel. Exiting...");
-            }
+            // if let Some(tunnel) = config.tunnel {
+            //     // tunnel::start(tunnel).await?;
+            // } else {
+            //     error!("No tunel configuration found, cannot start a tunnel. Exiting...");
+            // }
         }
     }
 
