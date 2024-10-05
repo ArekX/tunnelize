@@ -39,11 +39,11 @@ pub enum ServiceDefinition {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct TunnelConfiguration {
     pub hub_server_address: String,
-    pub tunnels: Vec<Tunnel>,
+    pub tunnels: Vec<TunnelDefinition>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Tunnel {
+pub struct TunnelDefinition {
     pub server_service: String,
     pub tunnel: TunnelType,
 }
@@ -94,7 +94,7 @@ pub fn get_default_server_config() -> ServerConfiguration {
 pub fn get_default_tunnel_config() -> TunnelConfiguration {
     TunnelConfiguration {
         hub_server_address: "0.0.0.0:3456".to_string(),
-        tunnels: vec![Tunnel {
+        tunnels: vec![TunnelDefinition {
             server_service: "http".to_string(),
             tunnel: TunnelType::Http(HttpTunnelConfig::default()),
         }],
