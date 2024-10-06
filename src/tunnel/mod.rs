@@ -11,6 +11,8 @@ use messages::ChannelMessage;
 
 use tokio_util::sync::CancellationToken;
 
+use crate::common::tasks::start_cancel_listener;
+
 mod configuration;
 mod hub_channel;
 mod hub_server;
@@ -26,12 +28,7 @@ pub async fn start() -> Result<()> {
         let services = services.clone();
         let cancel_token = cancel_token.clone();
         tokio::spawn(async move {
-            tokio::select! {
-                _ = cancel_token.cancelled() => {
-                    debug!("Tunnel hub channel stopped.");
-                },
-                _ = hub_channel::start(channel_rx, services) => {}
-            }
+            hub_channel::start(channel_rx, services, cancel_token).await;
         })
     };
 
@@ -39,26 +36,11 @@ pub async fn start() -> Result<()> {
         let services = services.clone();
         let cancel_token = cancel_token.clone();
         tokio::spawn(async move {
-            tokio::select! {
-                _ = cancel_token.cancelled() => {
-                    debug!("Tunnel hub stopped.");
-                },
-                _ = hub_server::start(channel_tx, services) => {}
-            }
+            hub_server::start(channel_tx, services, cancel_token).await;
         })
     };
 
-    let cancel_future = {
-        tokio::spawn(async move {
-            if let Err(e) = signal::ctrl_c().await {
-                debug!("Error while waiting for ctrl+c signal: {:?}", e);
-                return;
-            }
-
-            cancel_token.cancel();
-            info!("Tunnel stop initiated.");
-        })
-    };
+    let cancel_future = tokio::spawn(async move { start_cancel_listener(cancel_token) });
 
     match tokio::try_join!(channel_future, server_future, cancel_future) {
         Ok(_) => {

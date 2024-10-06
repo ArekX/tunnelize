@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use env_logger::Env;
 use log::{debug, info};
 
+mod common;
 mod server;
 mod tunnel;
 
