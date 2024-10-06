@@ -1,4 +1,6 @@
+use configuration::ServerConfiguration;
 use log::{debug, info};
+use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use tokio::io::Result;
@@ -19,8 +21,17 @@ mod messages;
 mod services;
 
 pub async fn start() -> Result<()> {
-    let services = Arc::new(Services::new());
+    let configuration = ServerConfiguration {
+        server_port: 3456,
+        admin_auth_key: None,
+        max_tunnel_input_wait: 30,
+        endpoint_auth_key: None,
+        endpoints: HashMap::new(),
+    }; // TODO: This should be a parameter in start
+
     let (channel_tx, channel_rx) = mpsc::channel::<ChannelMessage>(100);
+    let services = Arc::new(Services::new(configuration, channel_tx.clone()));
+
     let cancel_token = CancellationToken::new();
 
     let channel_future = {
