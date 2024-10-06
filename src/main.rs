@@ -2,6 +2,9 @@ use clap::{Parser, Subcommand};
 use env_logger::Env;
 use log::{debug, info};
 
+mod server;
+mod tunnel;
+
 #[derive(Parser, Debug)]
 #[command(
     name = "Tunnelize",
@@ -104,6 +107,8 @@ async fn run_command(command: Commands) -> Result<(), std::io::Error> {
 
             info!("Starting server...");
 
+            server::start().await?;
+
             // if let Some(server) = config.server {
             //     // server::start(server).await?;
             // } else {
@@ -118,6 +123,8 @@ async fn run_command(command: Commands) -> Result<(), std::io::Error> {
                 // })?;
                 return Ok(());
             }
+
+            tunnel::start().await?;
 
             // let config = get_configuration();
 
