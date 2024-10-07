@@ -1,69 +1,18 @@
-use clap::{Parser, Subcommand};
-use env_logger::Env;
+use common::{
+    cli::{parse_command, Commands},
+    logger::initialize_logger,
+};
 use log::{debug, info};
 
 mod common;
 mod server;
 mod tunnel;
 
-#[derive(Parser, Debug)]
-#[command(
-    name = "Tunnelize",
-    author = "Aleksandar Panic",
-    version,
-    long_about = None
-)]
-struct Args {
-    #[command(subcommand)]
-    command: Option<Commands>,
-}
-
-#[derive(Subcommand, Debug)]
-enum Commands {
-    Init,
-    Server {
-        #[arg(long, default_value_t = false)]
-        init: bool,
-    },
-    Tunnel {
-        #[arg(long, default_value_t = false)]
-        init: bool,
-        #[arg(long, default_value_t = false)]
-        verbose: bool,
-    },
-}
-
-// fn get_configuration() -> Configuration {
-//     match parse_configuration() {
-//         Ok(valid_config) => valid_config,
-//         Err(e) => {
-//             debug!("Error parsing configuration: {:?}", e);
-//             error!("Could not parse configuration file. Exiting...");
-//             std::process::exit(1);
-//         }
-//     }
-// }
-
-#[cfg(debug_assertions)]
-const VERBOSE_LOG_LEVEL: &str = "trace";
-
-#[cfg(not(debug_assertions))]
-const VERBOSE_LOG_LEVEL: &str = "info";
-
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
-    let args = Args::parse();
+    let command = parse_command();
 
-    let command = args.command.unwrap_or(Commands::Tunnel {
-        init: false,
-        verbose: false,
-    });
-
-    let env = Env::default()
-        .filter_or("LOG_LEVEL", resolve_log_level(&command))
-        .write_style_or("LOG_STYLE", "always");
-
-    env_logger::init_from_env(env);
+    initialize_logger(&command);
 
     if let Err(e) = run_command(command).await {
         debug!("Error running command: {:?}", e.to_string());
@@ -71,19 +20,6 @@ async fn main() -> Result<(), std::io::Error> {
     }
 
     Ok(())
-}
-
-fn resolve_log_level(command: &Commands) -> &'static str {
-    let verbose = match command {
-        Commands::Tunnel { verbose, .. } => *verbose,
-        _ => true,
-    };
-
-    if verbose {
-        VERBOSE_LOG_LEVEL
-    } else {
-        "error"
-    }
 }
 
 async fn run_command(command: Commands) -> Result<(), std::io::Error> {

@@ -1,27 +1,25 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use log::{debug, error};
-use tokio::{
-    net::{TcpListener, TcpStream},
-    sync::mpsc::Sender,
-};
+use tokio::net::{TcpListener, TcpStream};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
     common::transport::{read_message, write_message},
     server::messages::{ServerRequestMessage, ServerResponseMessage},
 };
+use tokio::io::Result;
 
-use super::{messages::ChannelMessage, services::Services};
+use super::services::Services;
 
-pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) {
+pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> Result<()> {
     let config = services.get_config();
 
     let listener = match TcpListener::bind(format!("0.0.0.0:{}", config.server_port)).await {
         Ok(listener) => listener,
         Err(e) => {
             error!("Failed to bind client listener: {}", e);
-            return;
+            return Ok(());
         }
     };
 
@@ -32,7 +30,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) {
         tokio::select! {
             _ = cancel_token.cancelled() => {
                 debug!("Hub server stopped.");
-                return;
+                return Ok(());
             }
             client = listener.accept() => {
                 (stream, address) = match client {

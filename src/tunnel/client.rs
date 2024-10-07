@@ -54,7 +54,6 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
 
         if is_closed(&mut server).await {
             println!("Server closed the connection.");
-            cancel_token.cancel();
             return Ok(());
         }
 
@@ -79,14 +78,24 @@ async fn authenticate_with_server(
     let auth_response: ServerResponseMessage = send_request(
         server,
         &ServerRequestMessage::AuthTunnelRequest {
-            endpoint_key: None,
-            admin_key: None,
+            endpoint_key: config.endpoint_key.clone(),
+            admin_key: config.admin_key.clone(),
             proxies: vec![],
         },
     )
     .await?;
 
-    println!("Response: {:?}", auth_response);
+    match auth_response {
+        ServerResponseMessage::AuthTunnelAccepted { tunnel_id } => {
+            info!("Tunnel accepted: {}", tunnel_id);
+        }
+        ServerResponseMessage::AuthTunnelRejected { reason } => {
+            return Err(io::Error::new(io::ErrorKind::Other, reason));
+        }
+        _ => {
+            return Err(io::Error::new(io::ErrorKind::Other, "Invalid message."));
+        }
+    }
 
     Ok(())
 }

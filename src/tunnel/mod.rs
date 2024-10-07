@@ -29,9 +29,11 @@ pub async fn start() -> Result<()> {
         let services = services.clone();
         let cancel_token = cancel_token.clone();
         tokio::spawn(async move {
-            if let Err(e) = client::start(services, cancel_token).await {
+            if let Err(e) = client::start(services, cancel_token.clone()).await {
                 debug!("Error starting tunnel client: {:?}", e);
             }
+
+            cancel_token.cancel();
         })
     };
 

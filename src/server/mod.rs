@@ -37,13 +37,25 @@ pub async fn start() -> Result<()> {
     let channel_future = {
         let services = services.clone();
         let cancel_token = cancel_token.clone();
-        tokio::spawn(async move { hub_channel::start(channel_rx, services, cancel_token).await })
+        tokio::spawn(async move {
+            if let Err(e) = hub_channel::start(channel_rx, services, cancel_token.clone()).await {
+                debug!("Error starting hub channel: {:?}", e);
+            }
+
+            cancel_token.cancel();
+        })
     };
 
     let server_future = {
         let services = services.clone();
         let cancel_token = cancel_token.clone();
-        tokio::spawn(async move { hub_server::start(services, cancel_token).await })
+        tokio::spawn(async move {
+            if let Err(e) = hub_server::start(services, cancel_token.clone()).await {
+                debug!("Error starting hub server: {:?}", e);
+            }
+
+            cancel_token.cancel();
+        })
     };
 
     let cancel_future = tokio::spawn(async move { start_cancel_listener(cancel_token).await });
