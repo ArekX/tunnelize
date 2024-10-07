@@ -23,14 +23,14 @@ mod services;
 pub async fn start() -> Result<()> {
     let configuration = ServerConfiguration {
         server_port: 3456,
-        admin_auth_key: None,
+        admin_key: None,
         max_tunnel_input_wait: 30,
-        endpoint_auth_key: None,
+        endpoint_key: None,
         endpoints: HashMap::new(),
     }; // TODO: This should be a parameter in start
 
     let (channel_tx, channel_rx) = mpsc::channel::<ChannelMessage>(100);
-    let services = Arc::new(Services::new(configuration, channel_tx.clone()));
+    let services = Arc::new(Services::new(configuration, channel_tx));
 
     let cancel_token = CancellationToken::new();
 
@@ -43,10 +43,10 @@ pub async fn start() -> Result<()> {
     let server_future = {
         let services = services.clone();
         let cancel_token = cancel_token.clone();
-        tokio::spawn(async move { hub_server::start(channel_tx, services, cancel_token).await })
+        tokio::spawn(async move { hub_server::start(services, cancel_token).await })
     };
 
-    let cancel_future = tokio::spawn(async move { start_cancel_listener(cancel_token) });
+    let cancel_future = tokio::spawn(async move { start_cancel_listener(cancel_token).await });
 
     match tokio::try_join!(channel_future, server_future, cancel_future) {
         Ok(_) => {

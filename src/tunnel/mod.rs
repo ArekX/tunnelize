@@ -1,48 +1,43 @@
+use configuration::TunnelConfiguration;
 use log::{debug, info};
 use services::Services;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use tokio::io::Result;
-use tokio::signal;
-
-use tokio::sync::mpsc;
-
-use messages::ChannelMessage;
 
 use tokio_util::sync::CancellationToken;
 
 use crate::common::tasks::start_cancel_listener;
 
 mod configuration;
-mod hub_channel;
-mod hub_server;
+mod hub_client;
 mod messages;
 mod services;
 
 pub async fn start() -> Result<()> {
-    let services = Arc::new(Services::new());
-    let (channel_tx, channel_rx) = mpsc::channel::<ChannelMessage>(100);
-    let cancel_token = CancellationToken::new();
+    let configuration = TunnelConfiguration {
+        server_host: "0.0.0.0:3456".to_string(),
+        endpoint_key: None,
+        admin_key: None,
+        proxies: vec![],
+    }; // TODO: This should be a parameter in start
 
-    let channel_future = {
-        let services = services.clone();
-        let cancel_token = cancel_token.clone();
-        tokio::spawn(async move {
-            hub_channel::start(channel_rx, services, cancel_token).await;
-        })
-    };
+    let services = Arc::new(Services::new(configuration));
+    let cancel_token = CancellationToken::new();
 
     let server_future = {
         let services = services.clone();
         let cancel_token = cancel_token.clone();
         tokio::spawn(async move {
-            hub_server::start(channel_tx, services, cancel_token).await;
+            if let Err(e) = hub_client::start(services, cancel_token).await {
+                debug!("Error starting tunnel client: {:?}", e);
+            }
         })
     };
 
-    let cancel_future = tokio::spawn(async move { start_cancel_listener(cancel_token) });
+    let cancel_future = tokio::spawn(async move { start_cancel_listener(cancel_token).await });
 
-    match tokio::try_join!(channel_future, server_future, cancel_future) {
+    match tokio::try_join!(server_future, cancel_future) {
         Ok(_) => {
             println!("Tunnel stopped.");
             Ok(())
