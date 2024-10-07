@@ -1,12 +1,16 @@
 use std::sync::Arc;
 
+use bincode::Config;
 use log::{debug, info};
-use tokio::io;
+use tokio::io::{self, AsyncReadExt};
 use tokio::{io::Result, net::TcpStream};
 use tokio_util::sync::CancellationToken;
 
 use crate::common::address::resolve_hostname;
+use crate::common::request::send_request;
+use crate::server::messages::{ServerRequestMessage, ServerResponseMessage};
 
+use super::configuration::TunnelConfiguration;
 use super::services::Services;
 
 pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> Result<()> {
@@ -29,7 +33,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         }
     };
 
-    if let Err(e) = authenticate_with_server(services.clone(), &mut server).await {
+    if let Err(e) = authenticate_with_server(&config, &mut server).await {
         debug!("Error authenticating with server: {:?}", e);
         return Err(e);
     }
@@ -47,9 +51,42 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
                 }
             }
         }
+
+        if is_closed(&mut server).await {
+            println!("Server closed the connection.");
+            cancel_token.cancel();
+            return Ok(());
+        }
+
+        println!("Readable?");
     }
 }
 
-async fn authenticate_with_server(services: Arc<Services>, server: &mut TcpStream) -> Result<()> {
+async fn is_closed(server: &mut TcpStream) -> bool {
+    let mut buf = [0; 1];
+    match server.peek(&mut buf).await {
+        Ok(0) => true,
+        Ok(_) => false,
+        Err(e) if e.kind() == io::ErrorKind::WouldBlock => false,
+        Err(_) => true,
+    }
+}
+
+async fn authenticate_with_server(
+    config: &Arc<TunnelConfiguration>,
+    server: &mut TcpStream,
+) -> Result<()> {
+    let auth_response: ServerResponseMessage = send_request(
+        server,
+        &ServerRequestMessage::AuthTunnelRequest {
+            endpoint_key: None,
+            admin_key: None,
+            proxies: vec![],
+        },
+    )
+    .await?;
+
+    println!("Response: {:?}", auth_response);
+
     Ok(())
 }

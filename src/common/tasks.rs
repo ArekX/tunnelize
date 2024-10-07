@@ -3,10 +3,13 @@ use tokio::signal;
 use tokio_util::sync::CancellationToken;
 
 pub async fn start_cancel_listener(cancel_token: CancellationToken) {
-    if let Err(e) = signal::ctrl_c().await {
-        debug!("Error while waiting for ctrl+c signal: {:?}", e);
-        return;
+    tokio::select! {
+        _ = cancel_token.cancelled() => {
+            debug!("Cancel token triggered.");
+        }
+        _ = signal::ctrl_c() => {
+            debug!("Ctrl+C signal received.");
+            cancel_token.cancel();
+        }
     }
-
-    cancel_token.cancel();
 }

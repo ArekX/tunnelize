@@ -1,5 +1,5 @@
 use configuration::TunnelConfiguration;
-use log::{debug, info};
+use log::debug;
 use services::Services;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
@@ -9,8 +9,8 @@ use tokio_util::sync::CancellationToken;
 
 use crate::common::tasks::start_cancel_listener;
 
-mod configuration;
-mod hub_client;
+mod client;
+pub mod configuration;
 mod messages;
 mod services;
 
@@ -29,7 +29,7 @@ pub async fn start() -> Result<()> {
         let services = services.clone();
         let cancel_token = cancel_token.clone();
         tokio::spawn(async move {
-            if let Err(e) = hub_client::start(services, cancel_token).await {
+            if let Err(e) = client::start(services, cancel_token).await {
                 debug!("Error starting tunnel client: {:?}", e);
             }
         })

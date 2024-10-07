@@ -7,6 +7,11 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
+use crate::{
+    common::transport::{read_message, write_message},
+    server::messages::{ServerRequestMessage, ServerResponseMessage},
+};
+
 use super::{messages::ChannelMessage, services::Services};
 
 pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) {
@@ -40,6 +45,29 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) {
             }
         }
 
-        println!("{:?}, {:?}", stream, address);
+        let message: ServerRequestMessage = match read_message(&mut stream).await {
+            Ok(message) => message,
+            Err(e) => {
+                error!("Failed to read message from client: {}", e);
+                continue;
+            }
+        };
+
+        println!("message: {:?}", message);
+
+        match write_message(
+            &mut stream,
+            &ServerResponseMessage::AuthTunnelAccepted {
+                tunnel_id: "opopop".to_owned(),
+            },
+        )
+        .await
+        {
+            Ok(_) => (),
+            Err(e) => {
+                error!("Failed to write message to client: {}", e);
+                continue;
+            }
+        }
     }
 }

@@ -17,7 +17,7 @@ mod configuration;
 mod endpoints;
 mod hub_channel;
 mod hub_server;
-mod messages;
+pub mod messages;
 mod services;
 
 pub async fn start() -> Result<()> {
