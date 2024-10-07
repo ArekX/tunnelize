@@ -43,6 +43,8 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
             }
         }
 
+        debug!("Accepted connection from client: {}", address);
+
         let message: ServerRequestMessage = match read_message(&mut stream).await {
             Ok(message) => message,
             Err(e) => {

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
-use bincode::Config;
-use log::{debug, info};
-use tokio::io::{self, AsyncReadExt};
+use log::{debug, error, info};
+use tokio::io::{self};
+use tokio::sync::watch::error;
 use tokio::{io::Result, net::TcpStream};
 use tokio_util::sync::CancellationToken;
 
@@ -18,13 +18,12 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
 
     let server_ip = resolve_hostname(&config.server_host)?;
 
+    debug!("Resolved server {} -> {}", config.server_host, server_ip);
+
     let mut server = match TcpStream::connect(server_ip.clone()).await {
         Ok(stream) => stream,
         Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
-            info!(
-                "Connection refused by server at {} ({})",
-                config.server_host, server_ip
-            );
+            error!("Connection refused by server at {}", config.server_host);
             return Err(e);
         }
         Err(e) => {
@@ -33,8 +32,10 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         }
     };
 
+    println!("Connected to server at {}", config.server_host);
+
     if let Err(e) = authenticate_with_server(&config, &mut server).await {
-        debug!("Error authenticating with server: {:?}", e);
+        error!("Failed to authenticate: {:?}", e);
         return Err(e);
     }
 
@@ -93,7 +94,10 @@ async fn authenticate_with_server(
             return Err(io::Error::new(io::ErrorKind::Other, reason));
         }
         _ => {
-            return Err(io::Error::new(io::ErrorKind::Other, "Invalid message."));
+            return Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Invalid message received.",
+            ));
         }
     }
 
