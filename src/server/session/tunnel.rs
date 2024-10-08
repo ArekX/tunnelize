@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::messages::SessionMessage;
+use super::messages::TunnelSessionMessage;
 use log::info;
 use tokio::{
     io::{self},
@@ -16,11 +16,11 @@ use super::super::services::Services;
 pub struct TunnelSession {
     id: Uuid,
     has_admin_privileges: bool,
-    channel_tx: mpsc::Sender<SessionMessage>,
+    channel_tx: mpsc::Sender<TunnelSessionMessage>,
 }
 
 impl TunnelSession {
-    pub fn new(has_admin_privileges: bool, channel_tx: mpsc::Sender<SessionMessage>) -> Self {
+    pub fn new(has_admin_privileges: bool, channel_tx: mpsc::Sender<TunnelSessionMessage>) -> Self {
         let id = Uuid::new_v4();
         Self {
             id,
@@ -29,7 +29,7 @@ impl TunnelSession {
         }
     }
 
-    pub fn get_channel_tx(&self) -> mpsc::Sender<SessionMessage> {
+    pub fn get_channel_tx(&self) -> mpsc::Sender<TunnelSessionMessage> {
         self.channel_tx.clone()
     }
 
@@ -38,8 +38,8 @@ impl TunnelSession {
     }
 }
 
-pub fn create(has_admin_privileges: bool) -> (TunnelSession, mpsc::Receiver<SessionMessage>) {
-    let (channel_tx, channel_rx) = mpsc::channel::<SessionMessage>(100);
+pub fn create(has_admin_privileges: bool) -> (TunnelSession, mpsc::Receiver<TunnelSessionMessage>) {
+    let (channel_tx, channel_rx) = mpsc::channel::<TunnelSessionMessage>(100);
 
     (
         TunnelSession::new(has_admin_privileges, channel_tx),
@@ -50,7 +50,7 @@ pub fn create(has_admin_privileges: bool) -> (TunnelSession, mpsc::Receiver<Sess
 pub async fn start(
     services: Arc<Services>,
     mut stream: TcpStream,
-    mut channel_rx: mpsc::Receiver<SessionMessage>,
+    mut channel_rx: mpsc::Receiver<TunnelSessionMessage>,
 ) {
     let id = Uuid::new_v4();
 

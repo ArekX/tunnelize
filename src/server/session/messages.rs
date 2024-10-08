@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum SessionMessage {
+pub enum TunnelSessionMessage {
     Test,
 }
