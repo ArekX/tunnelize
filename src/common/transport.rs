@@ -72,14 +72,16 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
     stream: &mut T,
     length: usize,
 ) -> Result<Bytes, MessageError> {
-    debug!("Reading {} bytes from stream.", length);
     let mut buffer = BytesMut::with_capacity(length);
     buffer.resize(length, 0);
     match stream.read_exact(&mut buffer).await {
         Ok(0) => {
             return Err(MessageError::ConnectionClosed);
         }
-        Ok(_) => return Ok(buffer.freeze()),
+        Ok(_) => {
+            debug!("Read {} bytes from stream.", length);
+            return Ok(buffer.freeze());
+        }
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
             debug!("Unexpected EOF while reading message. {:?}", e);
             return Err(MessageError::ConnectionClosed);
@@ -127,4 +129,13 @@ where
     stream.write_all(&message_bytes).await?;
 
     Ok(())
+}
+
+pub async fn respond_message<T: tokio::io::AsyncWriteExt + Unpin, M>(stream: &mut T, message: &M)
+where
+    M: ?Sized + serde::Serialize,
+{
+    if let Err(e) = write_message(stream, message).await {
+        debug!("Error while sending message: {:?}", e);
+    }
 }

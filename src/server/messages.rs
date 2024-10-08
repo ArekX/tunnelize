@@ -1,26 +1,20 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-use crate::tunnel::configuration::ProxyConfiguration;
+use super::requests::AuthTunelRequest;
 
 #[derive(Debug)]
 pub enum ChannelMessage {}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ServerRequestMessage {
-    AuthTunnelRequest {
-        endpoint_key: Option<String>,
-        admin_key: Option<String>,
-        proxies: Vec<ProxyConfiguration>,
-    },
-    AuthLinkRequest {
-        tunnel_id: String,
-        session_key: String,
-    },
+    AuthTunnel(AuthTunelRequest),
+    AuthLinkRequest { tunnel_id: Uuid, session_id: Uuid },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ServerResponseMessage {
-    AuthTunnelAccepted { tunnel_id: String },
+    AuthTunnelAccepted { tunnel_id: Uuid },
     AuthTunnelRejected { reason: String },
     AuthLinkAccepted,
     AuthLinkRejected { reason: String },

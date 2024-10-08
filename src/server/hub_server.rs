@@ -5,8 +5,8 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    common::transport::{read_message, write_message},
-    server::messages::{ServerRequestMessage, ServerResponseMessage},
+    common::transport::read_message,
+    server::{messages::ServerRequestMessage, requests::handle_server_message},
 };
 use tokio::io::Result;
 
@@ -30,6 +30,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         tokio::select! {
             _ = cancel_token.cancelled() => {
                 debug!("Hub server stopped.");
+                // TOOD: Close all connections
                 return Ok(());
             }
             client = listener.accept() => {
@@ -53,21 +54,10 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
             }
         };
 
-        println!("message: {:?}", message);
+        let services = services.clone();
 
-        match write_message(
-            &mut stream,
-            &ServerResponseMessage::AuthTunnelAccepted {
-                tunnel_id: "opopop".to_owned(),
-            },
-        )
-        .await
-        {
-            Ok(_) => (),
-            Err(e) => {
-                error!("Failed to write message to client: {}", e);
-                continue;
-            }
-        }
+        tokio::spawn(async move {
+            handle_server_message(services, stream, message).await;
+        });
     }
 }

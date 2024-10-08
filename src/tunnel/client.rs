@@ -9,6 +9,7 @@ use tokio_util::sync::CancellationToken;
 use crate::common::address::resolve_hostname;
 use crate::common::request::send_request;
 use crate::server::messages::{ServerRequestMessage, ServerResponseMessage};
+use crate::server::requests::AuthTunelRequest;
 
 use super::configuration::TunnelConfiguration;
 use super::services::Services;
@@ -54,11 +55,12 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         }
 
         if is_closed(&mut server).await {
-            println!("Server closed the connection.");
+            info!("Server connection closed.");
             return Ok(());
         }
 
         println!("Readable?");
+        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
 }
 
@@ -78,11 +80,11 @@ async fn authenticate_with_server(
 ) -> Result<()> {
     let auth_response: ServerResponseMessage = send_request(
         server,
-        &ServerRequestMessage::AuthTunnelRequest {
+        &ServerRequestMessage::AuthTunnel(AuthTunelRequest {
             endpoint_key: config.endpoint_key.clone(),
             admin_key: config.admin_key.clone(),
             proxies: vec![],
-        },
+        }),
     )
     .await?;
 
