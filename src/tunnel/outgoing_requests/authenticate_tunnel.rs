@@ -4,12 +4,13 @@ use log::info;
 use tokio::io::{self, Result};
 
 use crate::common::connection::ConnectionStream;
-use crate::server::messages::ServerRequestMessage;
-use crate::server::requests::{AuthTunelRequest, AuthTunnelResponse};
+use crate::server::incoming_requests::{
+    AuthTunelRequest, AuthTunnelResponse, ServerRequestMessage,
+};
 
 use crate::tunnel::configuration::TunnelConfiguration;
 
-pub async fn authenticate_with_server(
+pub async fn authenticate_tunnel(
     config: &Arc<TunnelConfiguration>,
     server: &mut ConnectionStream,
 ) -> Result<()> {

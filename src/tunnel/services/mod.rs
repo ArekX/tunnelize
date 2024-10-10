@@ -20,7 +20,7 @@ impl Services {
         }
     }
 
-    pub async fn get_tunnel_manager(&self) -> MutexGuard<ProxyManager> {
+    pub async fn get_proxy_manager(&self) -> MutexGuard<ProxyManager> {
         self.proxy_manager.lock().await
     }
 

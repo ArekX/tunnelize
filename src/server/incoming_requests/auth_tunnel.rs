@@ -8,10 +8,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::{
-        connection::ConnectionStream,
-        request::{DataRequest, DataRequestResponse},
-    },
+    common::{connection::ConnectionStream, request::DataRequest},
     connect_data_response,
     server::{configuration::ServerConfiguration, services::events::ServiceEvent, session},
     tunnel::configuration::ProxyConfiguration,
@@ -71,7 +68,8 @@ async fn validate_server_access(
         if let Some(request_endpoint_key) = request.data.endpoint_key.as_ref() {
             if endpoint_key != request_endpoint_key {
                 request
-                    .respond(&AuthTunnelResponse::Rejected {
+                    .response_stream
+                    .respond_message(&AuthTunnelResponse::Rejected {
                         reason: "Endpoint key is wrong or not valid".to_string(),
                     })
                     .await;
@@ -104,7 +102,8 @@ async fn resolve_admin_privileges(
         if let Some(request_admin_key) = request.data.admin_key.as_ref() {
             if config_admin_key != request_admin_key {
                 request
-                    .respond(&AuthTunnelResponse::Rejected {
+                    .response_stream
+                    .respond_message(&AuthTunnelResponse::Rejected {
                         reason: "Administration key is wrong or not valid".to_string(),
                     })
                     .await;
@@ -134,9 +133,13 @@ async fn start_tunnel_session(
 
     info!("Tunnel connected. Assigned ID: {}", tunnel_id);
 
-    stream
-        .respond_message(&AuthTunnelResponse::Accepted { tunnel_id })
-        .await;
+    if let Err(e) = stream
+        .write_message(&AuthTunnelResponse::Accepted { tunnel_id })
+        .await
+    {
+        debug!("Error while sending tunnel accepted message: {:?}", e);
+        return;
+    }
 
     services
         .push_event(ServiceEvent::TunnelConnected {

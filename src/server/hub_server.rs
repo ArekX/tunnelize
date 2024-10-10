@@ -6,10 +6,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     common::connection::ConnectionStream,
-    server::{
-        messages::ServerRequestMessage,
-        requests::{self},
-    },
+    server::incoming_requests::{self, ServerRequestMessage},
 };
 use tokio::io::Result;
 
@@ -65,7 +62,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         let services = services.clone();
 
         tokio::spawn(async move {
-            requests::handle(services, connection_stream, message).await;
+            incoming_requests::handle(services, connection_stream, message).await;
         });
     }
 }

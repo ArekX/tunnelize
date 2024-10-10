@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     common::{connection::ConnectionStream, transport::MessageError},
-    server::messages::ServerRequestMessage,
+    server::incoming_requests::ServerRequestMessage,
 };
 
 use super::super::services::Services;

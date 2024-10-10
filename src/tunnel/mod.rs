@@ -12,9 +12,10 @@ use crate::common::tasks::start_cancel_listener;
 
 mod client;
 pub mod configuration;
+mod incoming_requests;
 mod messages;
+mod outgoing_requests;
 mod proxies;
-mod requests;
 mod services;
 
 pub async fn start() -> Result<()> {

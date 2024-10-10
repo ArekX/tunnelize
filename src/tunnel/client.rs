@@ -8,7 +8,9 @@ use tokio_util::sync::CancellationToken;
 
 use crate::common::address::resolve_hostname;
 use crate::common::connection::ConnectionStream;
-use crate::tunnel::requests;
+use crate::tunnel::incoming_requests;
+use crate::tunnel::incoming_requests::IncomingRequestMessage;
+use crate::tunnel::outgoing_requests;
 
 use super::services::Services;
 
@@ -35,7 +37,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
 
     let mut connection_stream = ConnectionStream::from(server);
 
-    if let Err(e) = requests::authenticate_with_server(&config, &mut connection_stream).await {
+    if let Err(e) = outgoing_requests::authenticate_tunnel(&config, &mut connection_stream).await {
         error!("Failed to authenticate: {:?}", e);
         return Err(e);
     }
@@ -61,7 +63,15 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
             }
         }
 
-        println!("Readable?");
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        let message: IncomingRequestMessage = match connection_stream.read_message().await {
+            Ok(message) => message,
+            Err(e) => {
+                error!("Failed to read message from server: {}", e);
+                continue;
+            }
+        };
+
+        connection_stream =
+            incoming_requests::handle(services.clone(), connection_stream, message).await;
     }
 }
