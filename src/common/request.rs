@@ -1,39 +1,33 @@
-use std::{
-    io::{Error, ErrorKind},
-    time::Duration,
-};
+use super::connection::ConnectionStream;
+use serde::Serialize;
 
-use serde::{de::DeserializeOwned, Serialize};
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, Result},
-    time::timeout,
-};
+pub trait DataRequestResponse: Serialize {
+    type ResponseMessage: Serialize;
+}
 
-use super::transport::{read_message, write_message};
+pub struct DataRequest<RequestMessage: DataRequestResponse> {
+    pub data: RequestMessage,
+    pub response_stream: ConnectionStream,
+}
 
-pub async fn send_request<Stream, Request, Response>(
-    stream: &mut Stream,
-    request: &Request,
-) -> Result<Response>
-where
-    Stream: AsyncReadExt + AsyncWriteExt + Unpin,
-    Request: ?Sized + Serialize,
-    Response: DeserializeOwned,
-{
-    if let Err(e) = write_message::<Stream, Request>(stream, request).await {
-        return Err(Error::new(ErrorKind::Other, e));
+impl<RequestMessage: DataRequestResponse> DataRequest<RequestMessage> {
+    pub fn new(data: RequestMessage, response_stream: ConnectionStream) -> Self {
+        Self {
+            data,
+            response_stream,
+        }
     }
 
-    match timeout(
-        Duration::from_secs(60),
-        read_message::<Stream, Response>(stream),
-    )
-    .await
-    {
-        Ok(response) => match response {
-            Ok(response) => Ok(response),
-            Err(e) => Err(Error::new(ErrorKind::Other, e)),
-        },
-        Err(e) => Err(Error::new(ErrorKind::Other, e)),
+    pub async fn respond(&mut self, response: &RequestMessage::ResponseMessage) {
+        self.response_stream.respond_message(response).await;
     }
+}
+
+#[macro_export]
+macro_rules! connect_data_response {
+    ($request: ident, $response: ident) => {
+        impl DataRequestResponse for $request {
+            type ResponseMessage = $response;
+        }
+    };
 }

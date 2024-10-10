@@ -131,12 +131,3 @@ where
 
     Ok(())
 }
-
-pub async fn respond_message<T: tokio::io::AsyncWriteExt + Unpin, M>(stream: &mut T, message: &M)
-where
-    M: ?Sized + serde::Serialize,
-{
-    if let Err(e) = write_message(stream, message).await {
-        debug!("Error while sending message: {:?}", e);
-    }
-}

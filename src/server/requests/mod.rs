@@ -1,24 +1,13 @@
 use std::sync::Arc;
 
-use crate::common::connection::ConnectionStream;
+use crate::common::{connection::ConnectionStream, request::DataRequest};
 
 use super::messages::ServerRequestMessage;
 use super::services::Services;
 
 mod auth_tunnel;
 
-pub struct ServerRequest<T> {
-    pub data: T,
-    pub stream: ConnectionStream,
-}
-
-impl<T> ServerRequest<T> {
-    pub fn new(stream: ConnectionStream, data: T) -> Self {
-        Self { data, stream }
-    }
-}
-
-pub use auth_tunnel::{process_auth_tunel_request, AuthTunelRequest};
+pub use auth_tunnel::{handle_auth_tunnel, AuthTunelRequest, AuthTunnelResponse};
 
 pub async fn handle(
     services: Arc<Services>,
@@ -27,7 +16,7 @@ pub async fn handle(
 ) {
     match message {
         ServerRequestMessage::AuthTunnel(request) => {
-            process_auth_tunel_request(services, ServerRequest::new(stream, request)).await;
+            handle_auth_tunnel(services, DataRequest::new(request, stream)).await
         }
         _ => {}
     }

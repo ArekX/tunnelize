@@ -1,18 +1,25 @@
-use std::sync::Arc;
+use std::{
+    io::{Error, ErrorKind},
+    sync::Arc,
+};
 
-use log::info;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::{
-    common::{connection::ConnectionStream, transport::respond_message},
-    server::{configuration::ServerConfiguration, session},
+    common::{
+        connection::ConnectionStream,
+        request::{DataRequest, DataRequestResponse},
+    },
+    connect_data_response,
+    server::{configuration::ServerConfiguration, services::events::ServiceEvent, session},
     tunnel::configuration::ProxyConfiguration,
 };
 
-use super::{
-    super::{messages::ServerResponseMessage, services::Services},
-    ServerRequest,
-};
+use super::super::services::Services;
+
+use tokio::io::Result;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AuthTunelRequest {
@@ -21,55 +28,90 @@ pub struct AuthTunelRequest {
     pub proxies: Vec<ProxyConfiguration>,
 }
 
-pub async fn process_auth_tunel_request<'a>(
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum AuthTunnelResponse {
+    Accepted { tunnel_id: Uuid },
+    Rejected { reason: String },
+}
+
+connect_data_response!(AuthTunelRequest, AuthTunnelResponse);
+
+pub async fn handle_auth_tunnel(
     services: Arc<Services>,
-    mut request: ServerRequest<AuthTunelRequest>,
+    mut request: DataRequest<AuthTunelRequest>,
 ) {
     let config = services.get_config();
 
-    if let Some(endpoint_key) = config.endpoint_key.as_ref() {
-        if let Some(request_endpoint_key) = request.data.endpoint_key.as_ref() {
-            if endpoint_key != request_endpoint_key {
-                request
-                    .stream
-                    .respond_message(&ServerResponseMessage::AuthLinkRejected {
-                        reason: "Endpoint key is wrong or not valid".to_string(),
-                    })
-                    .await;
-            }
-        }
+    if let Err(e) = validate_server_access(&config, &mut request).await {
+        debug!("Error validating server access: {:?}", e);
+        return;
     }
 
-    let has_admin_privileges = match resolve_admin_privileges(
-        &request.data.admin_key,
-        &mut request.stream,
-        &services.get_config(),
-    )
-    .await
-    {
+    if let Err(e) = validate_requested_proxies(&mut request, &config).await {
+        debug!("Error validating requested proxies: {:?}", e);
+        return;
+    }
+
+    let has_admin_privileges = match resolve_admin_privileges(&mut request, &config).await {
         Ok(has_admin_privileges) => has_admin_privileges,
-        Err(_) => {
+        Err(e) => {
+            debug!("Error resolving admin privileges: {:?}", e);
             return;
         }
     };
 
-    start_tunnel_session(services, has_admin_privileges, request.stream).await;
+    start_tunnel_session(services, has_admin_privileges, request.response_stream).await;
 }
 
-async fn resolve_admin_privileges<'a>(
-    admin_key: &Option<String>,
-    stream: &mut ConnectionStream,
+async fn validate_server_access(
+    config: &ServerConfiguration,
+    request: &mut DataRequest<AuthTunelRequest>,
+) -> Result<()> {
+    if let Some(endpoint_key) = config.endpoint_key.as_ref() {
+        if let Some(request_endpoint_key) = request.data.endpoint_key.as_ref() {
+            if endpoint_key != request_endpoint_key {
+                request
+                    .respond(&AuthTunnelResponse::Rejected {
+                        reason: "Endpoint key is wrong or not valid".to_string(),
+                    })
+                    .await;
+
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    "Endpoint key is wrong or not valid",
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn validate_requested_proxies(
+    request: &mut DataRequest<AuthTunelRequest>,
+    config: &ServerConfiguration,
+) -> Result<()> {
+    // todo!()
+
+    Ok(())
+}
+
+async fn resolve_admin_privileges(
+    request: &mut DataRequest<AuthTunelRequest>,
     config: &Arc<ServerConfiguration>,
-) -> Result<bool, ()> {
+) -> Result<bool> {
     if let Some(config_admin_key) = config.admin_key.as_ref() {
-        if let Some(request_admin_key) = admin_key.as_ref() {
+        if let Some(request_admin_key) = request.data.admin_key.as_ref() {
             if config_admin_key != request_admin_key {
-                stream
-                    .respond_message(&ServerResponseMessage::AuthLinkRejected {
+                request
+                    .respond(&AuthTunnelResponse::Rejected {
                         reason: "Administration key is wrong or not valid".to_string(),
                     })
                     .await;
-                return Err(());
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    "Administration key is wrong or not valid",
+                ));
             }
 
             return Ok(true);
@@ -86,19 +128,25 @@ async fn start_tunnel_session(
     has_admin_privileges: bool,
     mut stream: ConnectionStream,
 ) {
-    let mut tunnel_manager = services.get_tunnel_manager().await;
+    let (tunnel_session, channel_rx) = session::tunnel::create(has_admin_privileges);
 
-    let (tunnel, channel_rx) = session::tunnel::create(has_admin_privileges);
-
-    let tunnel_id = tunnel.get_id();
+    let tunnel_id = tunnel_session.get_id();
 
     info!("Tunnel connected. Assigned ID: {}", tunnel_id);
 
-    tunnel_manager.register_tunnel_session(tunnel);
-
     stream
-        .respond_message(&ServerResponseMessage::AuthTunnelAccepted { tunnel_id })
+        .respond_message(&AuthTunnelResponse::Accepted { tunnel_id })
         .await;
 
-    session::tunnel::start(services.clone(), stream, channel_rx).await;
+    services
+        .push_event(ServiceEvent::TunnelConnected {
+            tunnel_session: tunnel_session.clone(),
+        })
+        .await;
+
+    session::tunnel::start(services.clone(), tunnel_session, stream, channel_rx).await;
+
+    services
+        .push_event(ServiceEvent::TunnelDisconnected { tunnel_id })
+        .await;
 }

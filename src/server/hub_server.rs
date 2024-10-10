@@ -41,7 +41,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
             client = listener.accept() => {
                 match client {
                     Ok((stream, stream_address)) => {
-                        connection_stream = ConnectionStream::from_tcp_stream(stream);
+                        connection_stream = ConnectionStream::from(stream);
                         address = stream_address;
                     },
                     Err(e) => {

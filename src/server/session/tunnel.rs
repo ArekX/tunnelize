@@ -1,17 +1,18 @@
 use std::sync::Arc;
 
 use super::messages::TunnelSessionMessage;
-use log::info;
+use log::{debug, info};
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::{
-    common::{connection::ConnectionStream, transport::read_message},
+    common::{connection::ConnectionStream, transport::MessageError},
     server::messages::ServerRequestMessage,
 };
 
 use super::super::services::Services;
 
+#[derive(Clone, Debug)]
 pub struct TunnelSession {
     id: Uuid,
     has_admin_privileges: bool,
@@ -48,31 +49,41 @@ pub fn create(has_admin_privileges: bool) -> (TunnelSession, mpsc::Receiver<Tunn
 
 pub async fn start(
     services: Arc<Services>,
+    session: TunnelSession,
     mut stream: ConnectionStream,
     mut channel_rx: mpsc::Receiver<TunnelSessionMessage>,
 ) {
-    let id = Uuid::new_v4();
+    let id = session.get_id();
 
     loop {
         let message: ServerRequestMessage;
 
         tokio::select! {
-            data = channel_rx.recv() => {
-                info!("Got data via channel {:?}", data);
-                break;
-            }
-            message_result = stream.read_message::<ServerRequestMessage>() => {
-                match message_result {
-                    Ok(ok_message) => {
-                        message = ok_message;
-                    }
-                    Err(e) => {
-                        info!("Failed to read message from tunnel session {}: {}", id, e);
-                        break;
-                    }
+                data = channel_rx.recv() => {
+                    info!("Got data via channel {:?}", data);
+                    break;
+                }
+                message_result = stream.read_message::<ServerRequestMessage>() => {
+                    match message_result {
+                        Ok(ok_message) => {
+                            message = ok_message;
+                        }
+                        Err(e) => match e {
+                            MessageError::ConnectionClosed => {
+                                info!("Tunnel {} closed connection.", id);
+                                break;
+                            }
+                            _ => {
+                                debug!("Error while parsing {:?}", e);
+                                info!("Failed to read message from tunnel session {}: {}", id, e);
+                                continue;
+                            }
+
+
                 }
             }
         }
+            }
 
         println!("Received message from tunnel session {}: {:?}", id, message);
 

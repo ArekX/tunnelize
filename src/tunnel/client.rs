@@ -33,7 +33,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
 
     println!("Connected to server at {}", config.server_host);
 
-    let mut connection_stream = ConnectionStream::from_tcp_stream(server);
+    let mut connection_stream = ConnectionStream::from(server);
 
     if let Err(e) = requests::authenticate_with_server(&config, &mut connection_stream).await {
         error!("Failed to authenticate: {:?}", e);
