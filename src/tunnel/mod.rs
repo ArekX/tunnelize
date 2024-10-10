@@ -1,5 +1,6 @@
-use configuration::TunnelConfiguration;
+use configuration::{ProxyConfiguration, TunnelConfiguration, TunnelProxy};
 use log::debug;
+use proxies::http::HttpProxy;
 use services::Services;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
@@ -12,6 +13,8 @@ use crate::common::tasks::start_cancel_listener;
 mod client;
 pub mod configuration;
 mod messages;
+mod proxies;
+mod requests;
 mod services;
 
 pub async fn start() -> Result<()> {
@@ -19,7 +22,13 @@ pub async fn start() -> Result<()> {
         server_host: "0.0.0.0:3456".to_string(),
         endpoint_key: None,
         admin_key: None,
-        proxies: vec![],
+        proxies: vec![TunnelProxy {
+            service_name: "http".to_string(),
+            proxy: ProxyConfiguration::Http(HttpProxy {
+                desired_name: Some("test".to_string()),
+                forward_address: "0.0.0.0:8000".to_string(),
+            }),
+        }],
     }; // TODO: This should be a parameter in start
 
     let services = Arc::new(Services::new(configuration));

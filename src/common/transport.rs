@@ -3,6 +3,7 @@ use std::fmt;
 use bincode::{self};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use log::debug;
+use serde::de::DeserializeOwned;
 use tokio::io::AsyncReadExt;
 
 #[derive(Debug)]
@@ -94,7 +95,7 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
 
 pub async fn read_message<T: AsyncReadExt + Unpin, M>(stream: &mut T) -> Result<M, MessageError>
 where
-    M: serde::de::DeserializeOwned,
+    M: DeserializeOwned,
 {
     let mut length_bytes = read_exact(stream, 4).await?;
     let length = length_bytes.get_u32();

@@ -1,12 +1,15 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use log::{debug, error};
-use tokio::net::{TcpListener, TcpStream};
+use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    common::transport::read_message,
-    server::{messages::ServerRequestMessage, requests::handle_server_message},
+    common::connection::ConnectionStream,
+    server::{
+        messages::ServerRequestMessage,
+        requests::{self},
+    },
 };
 use tokio::io::Result;
 
@@ -23,8 +26,10 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         }
     };
 
+    // TODO: Initialize all endpoints here
+
     loop {
-        let mut stream: TcpStream;
+        let mut connection_stream: ConnectionStream;
         let address: SocketAddr;
 
         tokio::select! {
@@ -34,8 +39,11 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
                 return Ok(());
             }
             client = listener.accept() => {
-                (stream, address) = match client {
-                    Ok(stream_pair) => stream_pair,
+                match client {
+                    Ok((stream, stream_address)) => {
+                        connection_stream = ConnectionStream::from_tcp_stream(stream);
+                        address = stream_address;
+                    },
                     Err(e) => {
                         error!("Failed to accept client connection: {}", e);
                         continue;
@@ -46,7 +54,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
 
         debug!("Accepted connection from client: {}", address);
 
-        let message: ServerRequestMessage = match read_message(&mut stream).await {
+        let message: ServerRequestMessage = match connection_stream.read_message().await {
             Ok(message) => message,
             Err(e) => {
                 error!("Failed to read message from client: {}", e);
@@ -57,7 +65,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         let services = services.clone();
 
         tokio::spawn(async move {
-            handle_server_message(services, stream, message).await;
+            requests::handle(services, connection_stream, message).await;
         });
     }
 }

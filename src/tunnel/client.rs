@@ -1,17 +1,15 @@
+use std::ops::ControlFlow;
 use std::sync::Arc;
 
-use log::{debug, error, info};
+use log::{debug, error};
 use tokio::io::{self};
-use tokio::sync::watch::error;
 use tokio::{io::Result, net::TcpStream};
 use tokio_util::sync::CancellationToken;
 
 use crate::common::address::resolve_hostname;
-use crate::common::request::send_request;
-use crate::server::messages::{ServerRequestMessage, ServerResponseMessage};
-use crate::server::requests::AuthTunelRequest;
+use crate::common::connection::ConnectionStream;
+use crate::tunnel::requests;
 
-use super::configuration::TunnelConfiguration;
 use super::services::Services;
 
 pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> Result<()> {
@@ -21,7 +19,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
 
     debug!("Resolved server {} -> {}", config.server_host, server_ip);
 
-    let mut server = match TcpStream::connect(server_ip.clone()).await {
+    let server = match TcpStream::connect(server_ip.clone()).await {
         Ok(stream) => stream,
         Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
             error!("Connection refused by server at {}", config.server_host);
@@ -35,7 +33,9 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
 
     println!("Connected to server at {}", config.server_host);
 
-    if let Err(e) = authenticate_with_server(&config, &mut server).await {
+    let mut connection_stream = ConnectionStream::from_tcp_stream(server);
+
+    if let Err(e) = requests::authenticate_with_server(&config, &mut connection_stream).await {
         error!("Failed to authenticate: {:?}", e);
         return Err(e);
     }
@@ -46,62 +46,22 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
                 debug!("Hub server stopped.");
                 return Ok(());
             }
-            readable = server.readable() => {
-                if let Err(e) = readable {
-                    debug!("Error reading from server: {:?}", e);
-                    return Err(e);
+            flow = connection_stream.wait_for_messages() => {
+                match flow {
+                    Ok(ControlFlow::Break(_)) => {
+                        println!("Server closed the connection.");
+                        return Ok(());
+                    }
+                    Ok(ControlFlow::Continue(_)) => {}
+                    Err(e) => {
+                        error!("Error waiting for messages: {:?}", e);
+                        return Err(e);
+                    }
                 }
             }
-        }
-
-        if is_closed(&mut server).await {
-            info!("Server connection closed.");
-            return Ok(());
         }
 
         println!("Readable?");
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
     }
-}
-
-async fn is_closed(server: &mut TcpStream) -> bool {
-    let mut buf = [0; 1];
-    match server.peek(&mut buf).await {
-        Ok(0) => true,
-        Ok(_) => false,
-        Err(e) if e.kind() == io::ErrorKind::WouldBlock => false,
-        Err(_) => true,
-    }
-}
-
-async fn authenticate_with_server(
-    config: &Arc<TunnelConfiguration>,
-    server: &mut TcpStream,
-) -> Result<()> {
-    let auth_response: ServerResponseMessage = send_request(
-        server,
-        &ServerRequestMessage::AuthTunnel(AuthTunelRequest {
-            endpoint_key: config.endpoint_key.clone(),
-            admin_key: config.admin_key.clone(),
-            proxies: vec![],
-        }),
-    )
-    .await?;
-
-    match auth_response {
-        ServerResponseMessage::AuthTunnelAccepted { tunnel_id } => {
-            info!("Tunnel accepted: {}", tunnel_id);
-        }
-        ServerResponseMessage::AuthTunnelRejected { reason } => {
-            return Err(io::Error::new(io::ErrorKind::Other, reason));
-        }
-        _ => {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Invalid message received.",
-            ));
-        }
-    }
-
-    Ok(())
 }

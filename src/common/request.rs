@@ -3,7 +3,11 @@ use std::{
     time::Duration,
 };
 
-use tokio::{io::Result, time::timeout};
+use serde::{de::DeserializeOwned, Serialize};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt, Result},
+    time::timeout,
+};
 
 use super::transport::{read_message, write_message};
 
@@ -12,9 +16,9 @@ pub async fn send_request<Stream, Request, Response>(
     request: &Request,
 ) -> Result<Response>
 where
-    Stream: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin,
-    Request: ?Sized + serde::Serialize,
-    Response: serde::de::DeserializeOwned,
+    Stream: AsyncReadExt + AsyncWriteExt + Unpin,
+    Request: ?Sized + Serialize,
+    Response: DeserializeOwned,
 {
     if let Err(e) = write_message::<Stream, Request>(stream, request).await {
         return Err(Error::new(ErrorKind::Other, e));

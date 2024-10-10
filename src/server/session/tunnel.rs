@@ -2,14 +2,13 @@ use std::sync::Arc;
 
 use super::messages::TunnelSessionMessage;
 use log::info;
-use tokio::{
-    io::{self},
-    net::TcpStream,
-    sync::mpsc,
-};
+use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use crate::{common::transport::read_message, server::messages::ServerRequestMessage};
+use crate::{
+    common::{connection::ConnectionStream, transport::read_message},
+    server::messages::ServerRequestMessage,
+};
 
 use super::super::services::Services;
 
@@ -49,7 +48,7 @@ pub fn create(has_admin_privileges: bool) -> (TunnelSession, mpsc::Receiver<Tunn
 
 pub async fn start(
     services: Arc<Services>,
-    mut stream: TcpStream,
+    mut stream: ConnectionStream,
     mut channel_rx: mpsc::Receiver<TunnelSessionMessage>,
 ) {
     let id = Uuid::new_v4();
@@ -62,7 +61,7 @@ pub async fn start(
                 info!("Got data via channel {:?}", data);
                 break;
             }
-            message_result = read_message::<TcpStream, ServerRequestMessage>(&mut stream) => {
+            message_result = stream.read_message::<ServerRequestMessage>() => {
                 match message_result {
                     Ok(ok_message) => {
                         message = ok_message;
@@ -73,7 +72,6 @@ pub async fn start(
                     }
                 }
             }
-
         }
 
         println!("Received message from tunnel session {}: {:?}", id, message);
@@ -81,15 +79,5 @@ pub async fn start(
         println!("Tunnel session {} is running.", id);
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
         // TODO: Implement the rest of the tunnel session logic
-    }
-}
-
-async fn is_closed(server: &mut TcpStream) -> bool {
-    let mut buf = [0; 1];
-    match server.peek(&mut buf).await {
-        Ok(0) => true,
-        Ok(_) => false,
-        Err(e) if e.kind() == io::ErrorKind::WouldBlock => false,
-        Err(_) => true,
     }
 }
