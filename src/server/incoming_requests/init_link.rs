@@ -14,19 +14,19 @@ use super::super::services::Services;
 use tokio::io::Result;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AuthLinkRequest {
+pub struct InitLinkRequest {
     pub tunnel_id: Uuid,
     pub session_id: Uuid,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum AuthLinkResponse {
+pub enum InitLinkResponse {
     Accepted,
     Rejected { reason: String },
 }
 
-connect_data_response!(AuthLinkRequest, AuthLinkResponse);
+connect_data_response!(InitLinkRequest, InitLinkResponse);
 
-pub async fn handle_auth_link(services: Arc<Services>, mut request: DataRequest<AuthLinkRequest>) {
+pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest<InitLinkRequest>) {
     let config = services.get_config();
 }

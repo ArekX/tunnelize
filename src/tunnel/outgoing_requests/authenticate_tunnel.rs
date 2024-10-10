@@ -5,7 +5,7 @@ use tokio::io::{self, Result};
 
 use crate::common::connection::ConnectionStream;
 use crate::server::incoming_requests::{
-    AuthTunelRequest, AuthTunnelResponse, ServerRequestMessage,
+    InitTunelRequest, InitTunnelResponse, ServerRequestMessage,
 };
 
 use crate::tunnel::configuration::TunnelConfiguration;
@@ -14,8 +14,8 @@ pub async fn authenticate_tunnel(
     config: &Arc<TunnelConfiguration>,
     server: &mut ConnectionStream,
 ) -> Result<()> {
-    let auth_response: AuthTunnelResponse = server
-        .request_message(&ServerRequestMessage::AuthTunnel(AuthTunelRequest {
+    let auth_response: InitTunnelResponse = server
+        .request_message(&ServerRequestMessage::InitTunnel(InitTunelRequest {
             endpoint_key: config.endpoint_key.clone(),
             admin_key: config.admin_key.clone(),
             proxies: vec![],
@@ -23,10 +23,10 @@ pub async fn authenticate_tunnel(
         .await?;
 
     match auth_response {
-        AuthTunnelResponse::Accepted { tunnel_id } => {
+        InitTunnelResponse::Accepted { tunnel_id } => {
             info!("Tunnel accepted: {}", tunnel_id);
         }
-        AuthTunnelResponse::Rejected { reason } => {
+        InitTunnelResponse::Rejected { reason } => {
             return Err(io::Error::new(io::ErrorKind::Other, reason));
         }
     }

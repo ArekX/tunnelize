@@ -3,20 +3,20 @@ use std::sync::Arc;
 use crate::common::{connection::ConnectionStream, request::DataRequest};
 
 use super::services::Services;
-use auth_link::handle_auth_link;
-use auth_tunnel::handle_auth_tunnel;
+use init_link::process_init_link;
+use init_tunnel::process_auth_tunnel;
 use serde::{Deserialize, Serialize};
 
-mod auth_link;
-mod auth_tunnel;
+mod init_link;
+mod init_tunnel;
 
-pub use auth_link::{AuthLinkRequest, AuthLinkResponse};
-pub use auth_tunnel::{AuthTunelRequest, AuthTunnelResponse};
+pub use init_link::{InitLinkRequest, InitLinkResponse};
+pub use init_tunnel::{InitTunelRequest, InitTunnelResponse};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ServerRequestMessage {
-    AuthTunnel(AuthTunelRequest),
-    AuthLink(AuthLinkRequest),
+    InitTunnel(InitTunelRequest),
+    InitLink(InitLinkRequest),
 }
 
 pub async fn handle(
@@ -25,11 +25,11 @@ pub async fn handle(
     message: ServerRequestMessage,
 ) {
     match message {
-        ServerRequestMessage::AuthTunnel(request) => {
-            handle_auth_tunnel(services, DataRequest::new(request, stream)).await
+        ServerRequestMessage::InitTunnel(request) => {
+            process_auth_tunnel(services, DataRequest::new(request, stream)).await
         }
-        ServerRequestMessage::AuthLink(request) => {
-            handle_auth_link(services, DataRequest::new(request, stream)).await
+        ServerRequestMessage::InitLink(request) => {
+            process_init_link(services, DataRequest::new(request, stream)).await
         }
     }
 }

@@ -19,23 +19,23 @@ use super::super::services::Services;
 use tokio::io::Result;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct AuthTunelRequest {
+pub struct InitTunelRequest {
     pub endpoint_key: Option<String>,
     pub admin_key: Option<String>,
     pub proxies: Vec<ProxyConfiguration>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum AuthTunnelResponse {
+pub enum InitTunnelResponse {
     Accepted { tunnel_id: Uuid },
     Rejected { reason: String },
 }
 
-connect_data_response!(AuthTunelRequest, AuthTunnelResponse);
+connect_data_response!(InitTunelRequest, InitTunnelResponse);
 
-pub async fn handle_auth_tunnel(
+pub async fn process_auth_tunnel(
     services: Arc<Services>,
-    mut request: DataRequest<AuthTunelRequest>,
+    mut request: DataRequest<InitTunelRequest>,
 ) {
     let config = services.get_config();
 
@@ -62,14 +62,14 @@ pub async fn handle_auth_tunnel(
 
 async fn validate_server_access(
     config: &ServerConfiguration,
-    request: &mut DataRequest<AuthTunelRequest>,
+    request: &mut DataRequest<InitTunelRequest>,
 ) -> Result<()> {
     if let Some(endpoint_key) = config.endpoint_key.as_ref() {
         if let Some(request_endpoint_key) = request.data.endpoint_key.as_ref() {
             if endpoint_key != request_endpoint_key {
                 request
                     .response_stream
-                    .respond_message(&AuthTunnelResponse::Rejected {
+                    .respond_message(&InitTunnelResponse::Rejected {
                         reason: "Endpoint key is wrong or not valid".to_string(),
                     })
                     .await;
@@ -86,7 +86,7 @@ async fn validate_server_access(
 }
 
 async fn validate_requested_proxies(
-    request: &mut DataRequest<AuthTunelRequest>,
+    request: &mut DataRequest<InitTunelRequest>,
     config: &ServerConfiguration,
 ) -> Result<()> {
     // todo!()
@@ -95,7 +95,7 @@ async fn validate_requested_proxies(
 }
 
 async fn resolve_admin_privileges(
-    request: &mut DataRequest<AuthTunelRequest>,
+    request: &mut DataRequest<InitTunelRequest>,
     config: &Arc<ServerConfiguration>,
 ) -> Result<bool> {
     if let Some(config_admin_key) = config.admin_key.as_ref() {
@@ -103,7 +103,7 @@ async fn resolve_admin_privileges(
             if config_admin_key != request_admin_key {
                 request
                     .response_stream
-                    .respond_message(&AuthTunnelResponse::Rejected {
+                    .respond_message(&InitTunnelResponse::Rejected {
                         reason: "Administration key is wrong or not valid".to_string(),
                     })
                     .await;
@@ -134,7 +134,7 @@ async fn start_tunnel_session(
     info!("Tunnel connected. Assigned ID: {}", tunnel_id);
 
     if let Err(e) = stream
-        .write_message(&AuthTunnelResponse::Accepted { tunnel_id })
+        .write_message(&InitTunnelResponse::Accepted { tunnel_id })
         .await
     {
         debug!("Error while sending tunnel accepted message: {:?}", e);

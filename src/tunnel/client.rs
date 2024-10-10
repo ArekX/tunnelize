@@ -9,7 +9,7 @@ use tokio_util::sync::CancellationToken;
 use crate::common::address::resolve_hostname;
 use crate::common::connection::ConnectionStream;
 use crate::tunnel::incoming_requests;
-use crate::tunnel::incoming_requests::IncomingRequestMessage;
+use crate::tunnel::incoming_requests::TunnelRequestMessage;
 use crate::tunnel::outgoing_requests;
 
 use super::services::Services;
@@ -63,7 +63,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
             }
         }
 
-        let message: IncomingRequestMessage = match connection_stream.read_message().await {
+        let message: TunnelRequestMessage = match connection_stream.read_message().await {
             Ok(message) => message,
             Err(e) => {
                 error!("Failed to read message from server: {}", e);
