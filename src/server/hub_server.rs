@@ -10,7 +10,7 @@ use crate::{
 };
 use tokio::io::Result;
 
-use super::services::Services;
+use super::{endpoints, services::Services};
 
 pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> Result<()> {
     let config = services.get_config();
@@ -23,7 +23,10 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         }
     };
 
-    // TODO: Initialize all endpoints here
+    if let Err(e) = endpoints::start_endpoints(services.clone()) {
+        error!("Failed to start endpoints: {}", e);
+        return Ok(());
+    }
 
     loop {
         let mut connection_stream: ConnectionStream;
