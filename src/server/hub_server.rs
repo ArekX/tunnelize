@@ -23,7 +23,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         }
     };
 
-    if let Err(e) = endpoints::start_endpoints(services.clone()) {
+    if let Err(e) = endpoints::start_endpoints(services.clone()).await {
         error!("Failed to start endpoints: {}", e);
         return Ok(());
     }
