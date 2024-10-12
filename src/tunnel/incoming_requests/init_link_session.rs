@@ -8,6 +8,7 @@ use crate::{common::request::DataRequest, connect_data_response, tunnel::service
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InitLinkRequest {
     pub tunnel_id: Uuid,
+    pub proxy_id: Uuid,
     pub session_id: Uuid,
 }
 

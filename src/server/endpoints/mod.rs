@@ -1,11 +1,7 @@
-use std::{
-    io::{Error, ErrorKind},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use http::HttpEndpointInfo;
 use log::{debug, error};
-use serde::{Deserialize, Serialize};
 
 use super::{
     configuration::EndpointConfiguration,
@@ -15,7 +11,7 @@ use tokio::{io::Result, sync::mpsc};
 
 pub mod http;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug)]
 pub enum EndpointInfo {
     Http(HttpEndpointInfo),
 }

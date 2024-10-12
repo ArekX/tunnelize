@@ -100,11 +100,16 @@ pub async fn handle_channel_message(
         TunnelSessionMessage::EndpointInfo(info) => {
             println!("Endpoint info: {:?}", info);
         }
-        TunnelSessionMessage::ClientLinkRequest { client_id } => {
+        TunnelSessionMessage::ClientLinkRequest {
+            client_id,
+            endpoint_name: _, // FIXME: store this
+            response_tx,
+        } => {
             let response: InitLinkResponse = match stream
                 .request_message(&TunnelRequestMessage::InitLinkSession(InitLinkRequest {
                     tunnel_id: session.get_id(),
-                    session_id: Uuid::new_v4(), // FIXME: Store session id
+                    proxy_id: Uuid::new_v4(), // FIXME: Proxy ID should be generated on server
+                    session_id: Uuid::new_v4(), // FIXME: Store session id with link to client_id
                 }))
                 .await
             {
@@ -115,13 +120,17 @@ pub async fn handle_channel_message(
                 }
             };
 
-            if let InitLinkResponse::Accepted = response {
-                println!(
-                    "Accepted link request for client {} with session id",
-                    client_id
-                );
-            } else {
-                println!("Rejected link request for client {}", client_id);
+            match response {
+                InitLinkResponse::Accepted => {
+                    if let Err(_) = response_tx.send(Ok(())) {
+                        info!("Failed to send response to client link request.");
+                    }
+                }
+                InitLinkResponse::Rejected { reason } => {
+                    if let Err(_) = response_tx.send(Err(reason)) {
+                        info!("Failed to send response to client link request.");
+                    }
+                }
             }
         }
     }

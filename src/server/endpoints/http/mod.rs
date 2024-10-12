@@ -15,7 +15,10 @@ use serde::{Deserialize, Serialize};
 use tokio::{
     io::Result,
     net::TcpListener,
-    sync::mpsc::{self},
+    sync::{
+        mpsc::{self},
+        oneshot,
+    },
     time::timeout,
 };
 use tunnel_host::TunnelHost;
@@ -33,7 +36,10 @@ use crate::{
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum HttpEndpointInfo {
-    AssignedUrl(String),
+    AssignedUrl {
+        proxy_id: Uuid,
+        assigned_url: String,
+    },
 }
 
 pub async fn start(
@@ -152,18 +158,26 @@ async fn handle_client_request(
         ));
     };
 
+    let client_id = Uuid::new_v4();
+
     let client = Client::new(
+        client_id,
         name.to_owned(),
         hostname,
         stream,
-        Some(request.into_bytes()),
+        Some(request.clone().into_bytes()),
     );
 
-    let client_id = client.get_id();
+    services.get_client_manager().await.add_client(client);
 
-    // TODO: Needs oneshot for response
+    let (request_tx, request_rx) = oneshot::channel::<std::result::Result<(), String>>();
+
     if let Err(e) = tunnel_tx
-        .send(TunnelSessionMessage::ClientLinkRequest { client_id })
+        .send(TunnelSessionMessage::ClientLinkRequest {
+            client_id,
+            endpoint_name: name.to_owned(),
+            response_tx: request_tx,
+        })
         .await
     {
         error!(
@@ -172,8 +186,36 @@ async fn handle_client_request(
         );
     }
 
-    // TODO: Add this only when oneshot is implemented
-    services.get_client_manager().await.add_client(client);
+    match request_rx.await {
+        Ok(Ok(())) => {}
+        Ok(Err(response)) => {
+            let Some(mut client) = services.get_client_manager().await.take_client(client_id)
+            else {
+                return Err(Error::new(ErrorKind::Other, response));
+            };
+
+            client
+                .stream
+                .send_and_close(&get_error_response(&request, &response))
+                .await;
+            return Err(Error::new(ErrorKind::Other, response));
+        }
+        Err(e) => {
+            let Some(mut client) = services.get_client_manager().await.take_client(client_id)
+            else {
+                return Err(Error::new(ErrorKind::Other, "Failed to get tunnel session"));
+            };
+
+            client
+                .stream
+                .send_and_close(&get_error_response(
+                    &request,
+                    "Failed to get response from tunnel session",
+                ))
+                .await;
+            return Err(Error::new(ErrorKind::Other, e));
+        }
+    }
 
     Ok(())
 }
@@ -237,7 +279,10 @@ async fn send_assigned_url(
 
     if let Err(e) = session_tx
         .send(TunnelSessionMessage::EndpointInfo(EndpointInfo::Http(
-            HttpEndpointInfo::AssignedUrl(full_url.to_string()),
+            HttpEndpointInfo::AssignedUrl {
+                proxy_id: Uuid::new_v4(),
+                assigned_url: full_url.to_string(),
+            },
         )))
         .await
     {

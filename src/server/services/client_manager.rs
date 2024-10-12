@@ -8,19 +8,20 @@ pub struct Client {
     id: Uuid,
     service_name: String,
     hostname: String,
-    stream: ConnectionStream,
+    pub stream: ConnectionStream,
     initial_tunnel_data: Option<Vec<u8>>,
 }
 
 impl Client {
     pub fn new(
+        id: Uuid,
         service_name: String,
         hostname: String,
         stream: ConnectionStream,
         initial_tunnel_data: Option<Vec<u8>>,
     ) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            id,
             service_name,
             hostname,
             stream,
@@ -35,6 +36,7 @@ impl Client {
 
 pub struct ClientManager {
     clients: HashMap<Uuid, Client>,
+    // TODO: Separate client streams into separate hashmap
 }
 
 impl ClientManager {
@@ -48,7 +50,7 @@ impl ClientManager {
         self.clients.insert(client.id, client);
     }
 
-    pub fn remove_client(&mut self, id: Uuid) {
-        self.clients.remove(&id);
+    pub fn take_client(&mut self, id: Uuid) -> Option<Client> {
+        self.clients.remove(&id)
     }
 }

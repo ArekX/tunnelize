@@ -90,6 +90,7 @@ async fn validate_requested_proxies(
     config: &ServerConfiguration,
 ) -> Result<()> {
     // TODO: Validate requested proxies
+    // TODO: Assign proxy IDs here, this is to be used by endpoints for info, also send the IDs back to tunnel
 
     Ok(())
 }
