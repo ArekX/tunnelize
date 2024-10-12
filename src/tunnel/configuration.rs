@@ -12,7 +12,7 @@ pub struct TunnelConfiguration {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TunnelProxy {
-    pub service_name: String,
+    pub endpoint_name: String,
     pub proxy: ProxyConfiguration,
 }
 
@@ -20,4 +20,6 @@ pub struct TunnelProxy {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProxyConfiguration {
     Http(HttpProxy),
+    Tcp { port_from: u16, port_to: u16 },
+    Udp { port_from: u16, port_to: u16 },
 }

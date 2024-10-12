@@ -4,7 +4,7 @@ use crate::common::{connection::ConnectionStream, request::DataRequest};
 
 use super::services::Services;
 use init_link::process_init_link;
-use init_tunnel::process_auth_tunnel;
+use init_tunnel::process_init_tunnel;
 use serde::{Deserialize, Serialize};
 
 mod init_link;
@@ -26,7 +26,7 @@ pub async fn handle(
 ) {
     match message {
         ServerRequestMessage::InitTunnel(request) => {
-            process_auth_tunnel(services, DataRequest::new(request, stream)).await
+            process_init_tunnel(services, DataRequest::new(request, stream)).await
         }
         ServerRequestMessage::InitLink(request) => {
             process_init_link(services, DataRequest::new(request, stream)).await

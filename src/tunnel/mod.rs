@@ -12,7 +12,7 @@ use crate::common::tasks::start_cancel_listener;
 
 mod client;
 pub mod configuration;
-mod incoming_requests;
+pub mod incoming_requests;
 mod messages;
 mod outgoing_requests;
 mod proxies;
@@ -24,7 +24,7 @@ pub async fn start() -> Result<()> {
         endpoint_key: None,
         admin_key: None,
         proxies: vec![TunnelProxy {
-            service_name: "http".to_string(),
+            endpoint_name: "http".to_string(),
             proxy: ProxyConfiguration::Http(HttpProxy {
                 desired_name: Some("test".to_string()),
                 forward_address: "0.0.0.0:8000".to_string(),

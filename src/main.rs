@@ -6,7 +6,7 @@ use log::{debug, info};
 
 mod common;
 mod server;
-mod tunnel;
+pub mod tunnel;
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {

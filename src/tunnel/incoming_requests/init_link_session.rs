@@ -25,5 +25,5 @@ pub async fn process_init_link(
 ) {
     let config = services.get_config();
 
-    
+    // TODO: Implement the rest of the function
 }

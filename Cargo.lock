@@ -1370,6 +1370,7 @@ dependencies = [
  "log",
  "rand",
  "regex",
+ "rustls",
  "serde",
  "serde_json",
  "tokio",

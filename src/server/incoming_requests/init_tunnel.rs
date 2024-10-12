@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::{connection::ConnectionStream, request::DataRequest},
+    common::request::DataRequest,
     connect_data_response,
     server::{configuration::ServerConfiguration, services::events::ServiceEvent, session},
-    tunnel::configuration::ProxyConfiguration,
+    tunnel::configuration::TunnelProxy,
 };
 
 use super::super::services::Services;
@@ -22,7 +22,7 @@ use tokio::io::Result;
 pub struct InitTunelRequest {
     pub endpoint_key: Option<String>,
     pub admin_key: Option<String>,
-    pub proxies: Vec<ProxyConfiguration>,
+    pub proxies: Vec<TunnelProxy>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -33,7 +33,7 @@ pub enum InitTunnelResponse {
 
 connect_data_response!(InitTunelRequest, InitTunnelResponse);
 
-pub async fn process_auth_tunnel(
+pub async fn process_init_tunnel(
     services: Arc<Services>,
     mut request: DataRequest<InitTunelRequest>,
 ) {
@@ -57,7 +57,7 @@ pub async fn process_auth_tunnel(
         }
     };
 
-    start_tunnel_session(services, has_admin_privileges, request.response_stream).await;
+    start_tunnel_session(services, has_admin_privileges, request).await;
 }
 
 async fn validate_server_access(
@@ -89,7 +89,7 @@ async fn validate_requested_proxies(
     request: &mut DataRequest<InitTunelRequest>,
     config: &ServerConfiguration,
 ) -> Result<()> {
-    // todo!()
+    // TODO: Validate requested proxies
 
     Ok(())
 }
@@ -125,13 +125,15 @@ async fn resolve_admin_privileges(
 async fn start_tunnel_session(
     services: Arc<Services>,
     has_admin_privileges: bool,
-    mut stream: ConnectionStream,
+    request: DataRequest<InitTunelRequest>,
 ) {
     let (tunnel_session, channel_rx) = session::tunnel::create(has_admin_privileges);
 
     let tunnel_id = tunnel_session.get_id();
 
     info!("Tunnel connected. Assigned ID: {}", tunnel_id);
+
+    let mut stream = request.response_stream;
 
     if let Err(e) = stream
         .write_message(&InitTunnelResponse::Accepted { tunnel_id })
@@ -144,6 +146,7 @@ async fn start_tunnel_session(
     services
         .push_event(ServiceEvent::TunnelConnected {
             tunnel_session: tunnel_session.clone(),
+            tunnel_proxies: request.data.proxies,
         })
         .await;
 

@@ -8,6 +8,7 @@ use uuid::Uuid;
 use crate::{
     common::{connection::ConnectionStream, transport::MessageError},
     server::incoming_requests::ServerRequestMessage,
+    tunnel::incoming_requests::{InitLinkRequest, InitLinkResponse, TunnelRequestMessage},
 };
 
 use super::super::services::Services;
@@ -56,39 +57,83 @@ pub async fn start(
     let id = session.get_id();
 
     loop {
-        let message: ServerRequestMessage;
-
         tokio::select! {
-                data = channel_rx.recv() => {
-                    info!("Got data via channel {:?}", data);
+            data = channel_rx.recv() => {
+
+                let Some(message) = data else {
                     break;
-                }
-                message_result = stream.read_message::<ServerRequestMessage>() => {
-                    match message_result {
-                        Ok(ok_message) => {
-                            message = ok_message;
-                        }
-                        Err(e) => match e {
-                            MessageError::ConnectionClosed => {
-                                info!("Tunnel {} closed connection.", id);
-                                break;
+                };
+
+                handle_channel_message(&services, &session, &mut stream, message).await;
+            }
+            message_result = stream.read_message::<ServerRequestMessage>() => {
+                        match message_result {
+                            Ok(ok_message) => {
+                                handle_tunnel_message(&services, &session, ok_message).await;
                             }
-                            _ => {
-                                debug!("Error while parsing {:?}", e);
-                                info!("Failed to read message from tunnel session {}: {}", id, e);
-                                continue;
-                            }
+                            Err(e) => match e {
+                                MessageError::ConnectionClosed => {
+                                    info!("Tunnel {} closed connection.", id);
+                                    break;
+                                }
+                                _ => {
+                                    debug!("Error while parsing {:?}", e);
+                                    info!("Failed to read message from tunnel session {}: {}", id, e);
+                                    continue;
+                                }
 
 
+                    }
                 }
             }
         }
-            }
-
-        println!("Received message from tunnel session {}: {:?}", id, message);
-
-        println!("Tunnel session {} is running.", id);
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-        // TODO: Implement the rest of the tunnel session logic
     }
+}
+
+pub async fn handle_channel_message(
+    services: &Arc<Services>,
+    session: &TunnelSession,
+    stream: &mut ConnectionStream,
+    message: TunnelSessionMessage,
+) {
+    match message {
+        TunnelSessionMessage::EndpointInfo(info) => {
+            println!("Endpoint info: {:?}", info);
+        }
+        TunnelSessionMessage::ClientLinkRequest { client_id } => {
+            let response: InitLinkResponse = match stream
+                .request_message(&TunnelRequestMessage::InitLinkSession(InitLinkRequest {
+                    tunnel_id: session.get_id(),
+                    session_id: Uuid::new_v4(), // FIXME: Store session id
+                }))
+                .await
+            {
+                Ok(response) => response,
+                Err(e) => {
+                    info!("Failed to send InitLinkSession request: {}", e);
+                    return;
+                }
+            };
+
+            if let InitLinkResponse::Accepted = response {
+                println!(
+                    "Accepted link request for client {} with session id",
+                    client_id
+                );
+            } else {
+                println!("Rejected link request for client {}", client_id);
+            }
+        }
+    }
+}
+
+pub async fn handle_tunnel_message(
+    services: &Arc<Services>,
+    session: &TunnelSession,
+    message: ServerRequestMessage,
+) {
+    let id = session.get_id();
+
+    println!("Handling message from tunnel session {}: {:?}", id, message);
+    // TODO: Implement the rest of the tunnel session logic
 }

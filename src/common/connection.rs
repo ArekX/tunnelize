@@ -13,7 +13,10 @@ use tokio::{
 };
 use tokio_rustls::client::TlsStream;
 
-use super::transport::{read_message, write_message, MessageError};
+use super::{
+    cli,
+    transport::{read_message, write_message, MessageError},
+};
 
 pub enum ConnectionStream {
     TcpStream(TcpStream),
@@ -38,7 +41,7 @@ impl ConnectionStream {
 
         let inner_stream = match self {
             Self::TcpStream(stream) => stream,
-            Self::TlsTcpStream(stream) => &mut stream.get_mut().0,
+            Self::TlsTcpStream(stream) => stream.get_mut().0,
         };
 
         match inner_stream.peek(&mut buf).await {
@@ -117,6 +120,25 @@ impl ConnectionStream {
     {
         if let Err(e) = self.write_message(message).await {
             debug!("Error while sending message: {:?}", e);
+        }
+    }
+
+    pub async fn send_and_close(&mut self, message: &str) {
+        if let Err(e) = self.write_all(message.as_bytes()).await {
+            debug!("Error while sending message: {:?}", e);
+        }
+
+        match self {
+            Self::TcpStream(stream) => {
+                if let Err(e) = stream.shutdown().await {
+                    debug!("Error while closing stream: {:?}", e);
+                }
+            }
+            Self::TlsTcpStream(stream) => {
+                if let Err(e) = stream.shutdown().await {
+                    debug!("Error while closing stream: {:?}", e);
+                }
+            }
         }
     }
 

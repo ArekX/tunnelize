@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use init_link_session::{process_init_link, InitLinkRequest};
+use init_link_session::process_init_link;
 use serde::{Deserialize, Serialize};
 
 use crate::common::{connection::ConnectionStream, request::DataRequest};
@@ -8,6 +8,8 @@ use crate::common::{connection::ConnectionStream, request::DataRequest};
 use super::services::Services;
 
 mod init_link_session;
+
+pub use init_link_session::{InitLinkRequest, InitLinkResponse};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TunnelRequestMessage {

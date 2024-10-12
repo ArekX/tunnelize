@@ -15,8 +15,11 @@ pub mod events;
 mod link_manager;
 mod tunnel_manager;
 
+pub use client_manager::Client;
+pub use endpoint_manager::{Endpoint, EndpointMessage};
+
 pub trait HandleServiceEvent {
-    fn handle_event(&mut self, event: ServiceEvent);
+    async fn handle_event(&mut self, event: &ServiceEvent);
 }
 
 pub struct Services {
@@ -57,7 +60,8 @@ impl Services {
     }
 
     pub async fn push_event(&self, event: ServiceEvent) {
-        self.get_tunnel_manager().await.handle_event(event);
+        self.get_tunnel_manager().await.handle_event(&event).await;
+        self.get_endpoint_manager().await.handle_event(&event).await;
         // TODO: force other services to handle the event
     }
 
