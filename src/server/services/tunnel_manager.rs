@@ -38,7 +38,12 @@ impl TunnelManager {
         Request: ChannelRequestResponse,
         TunnelSessionMessage: From<ChannelRequest<Request>>,
     {
-        let tunnel_tx = self.get_session_tx(id).unwrap();
+        let Some(tunnel_tx) = self.get_session_tx(id) else {
+            return Err(tokio::io::Error::new(
+                tokio::io::ErrorKind::NotFound,
+                format!("Tunnel session not found: {:?}", id),
+            ));
+        };
 
         send_channel_request::<TunnelSessionMessage, Request>(
             tunnel_tx,

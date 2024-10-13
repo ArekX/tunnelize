@@ -144,23 +144,6 @@ async fn handle_client_request(
         ));
     };
 
-    let Some(tunnel_tx) = services
-        .get_tunnel_manager()
-        .await
-        .get_session_tx(tunnel_id)
-    else {
-        stream
-            .send_and_close(&get_error_response(
-                &request,
-                "No tunnel is assigned for the requested hostname",
-            ))
-            .await;
-        return Err(Error::new(
-            ErrorKind::Other,
-            "No tunnel is assigned for the requested hostname",
-        ));
-    };
-
     let client_id = Uuid::new_v4();
 
     let client = Client::new(
@@ -173,7 +156,7 @@ async fn handle_client_request(
 
     services.get_client_manager().await.add_client(client);
 
-    let response = services
+    match services
         .get_tunnel_manager()
         .await
         .send_session_request(
@@ -184,7 +167,32 @@ async fn handle_client_request(
             },
         )
         .await
-        .unwrap();
+    {
+        Ok(_) => {
+            println!(
+                "Client ID '{}' linked to tunnel ID '{}'",
+                client_id, tunnel_id
+            );
+        }
+        Err(e) => {
+            error!("Failed to link client to tunnel: {}", e);
+
+            if let Some(mut client) = services.get_client_manager().await.take_client(client_id) {
+                client
+                    .stream
+                    .send_and_close(&get_error_response(
+                        &request,
+                        "Failed to link client to tunnel",
+                    ))
+                    .await;
+            }
+
+            return Err(Error::new(
+                ErrorKind::Other,
+                "Failed to link client to tunnel",
+            ));
+        }
+    }
 
     Ok(())
 }
