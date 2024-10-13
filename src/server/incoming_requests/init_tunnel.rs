@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::request::DataRequest,
+    common::data_request::DataRequest,
     connect_data_response,
     server::{configuration::ServerConfiguration, services::events::ServiceEvent, session},
     tunnel::configuration::TunnelProxy,

@@ -18,6 +18,7 @@ use super::{
     transport::{read_message, write_message, MessageError},
 };
 
+#[derive(Debug)]
 pub enum ConnectionStream {
     TcpStream(TcpStream),
     TlsTcpStream(TlsStream<TcpStream>),

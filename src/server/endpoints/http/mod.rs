@@ -25,11 +25,14 @@ use tunnel_host::TunnelHost;
 use uuid::Uuid;
 
 use crate::{
-    common::connection::ConnectionStream,
+    common::{
+        channel_request::{send_channel_request, ChannelRequest},
+        connection::ConnectionStream,
+    },
     server::{
         endpoints::EndpointInfo,
         services::{Client, EndpointMessage, Services},
-        session::messages::TunnelSessionMessage,
+        session::messages::{ClientLinkRequest, ClientLinkResponse, TunnelSessionMessage},
     },
     tunnel::configuration::ProxyConfiguration,
 };
@@ -170,52 +173,18 @@ async fn handle_client_request(
 
     services.get_client_manager().await.add_client(client);
 
-    let (request_tx, request_rx) = oneshot::channel::<std::result::Result<(), String>>();
-
-    if let Err(e) = tunnel_tx
-        .send(TunnelSessionMessage::ClientLinkRequest {
-            client_id,
-            endpoint_name: name.to_owned(),
-            response_tx: request_tx,
-        })
+    let response = services
+        .get_tunnel_manager()
         .await
-    {
-        error!(
-            "Failed to send client link request to tunnel session: {}",
-            e
-        );
-    }
-
-    match request_rx.await {
-        Ok(Ok(())) => {}
-        Ok(Err(response)) => {
-            let Some(mut client) = services.get_client_manager().await.take_client(client_id)
-            else {
-                return Err(Error::new(ErrorKind::Other, response));
-            };
-
-            client
-                .stream
-                .send_and_close(&get_error_response(&request, &response))
-                .await;
-            return Err(Error::new(ErrorKind::Other, response));
-        }
-        Err(e) => {
-            let Some(mut client) = services.get_client_manager().await.take_client(client_id)
-            else {
-                return Err(Error::new(ErrorKind::Other, "Failed to get tunnel session"));
-            };
-
-            client
-                .stream
-                .send_and_close(&get_error_response(
-                    &request,
-                    "Failed to get response from tunnel session",
-                ))
-                .await;
-            return Err(Error::new(ErrorKind::Other, e));
-        }
-    }
+        .send_session_request(
+            tunnel_id,
+            ClientLinkRequest {
+                client_id,
+                endpoint_name: name.to_owned(),
+            },
+        )
+        .await
+        .unwrap();
 
     Ok(())
 }

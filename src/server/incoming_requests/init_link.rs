@@ -7,7 +7,7 @@ use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{common::request::DataRequest, connect_data_response};
+use crate::{common::data_request::DataRequest, connect_data_response};
 
 use super::super::services::Services;
 

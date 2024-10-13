@@ -4,7 +4,10 @@ use log::debug;
 use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
-use crate::server::session::{messages::TunnelSessionMessage, tunnel::TunnelSession};
+use crate::{
+    common::channel_request::{send_channel_request, ChannelRequest, ChannelRequestResponse},
+    server::session::{messages::TunnelSessionMessage, tunnel::TunnelSession},
+};
 
 use super::{events::ServiceEvent, HandleServiceEvent};
 
@@ -24,6 +27,24 @@ impl TunnelManager {
             Some(session) => Some(session.get_channel_tx()),
             None => None,
         }
+    }
+
+    pub async fn send_session_request<Request>(
+        &self,
+        id: &Uuid,
+        request: Request,
+    ) -> tokio::io::Result<Request::ResponseMessage>
+    where
+        Request: ChannelRequestResponse,
+        TunnelSessionMessage: From<ChannelRequest<Request>>,
+    {
+        let tunnel_tx = self.get_session_tx(id).unwrap();
+
+        send_channel_request::<TunnelSessionMessage, Request>(
+            tunnel_tx,
+            ChannelRequest::new(request),
+        )
+        .await
     }
 
     pub fn register_tunnel_session(&mut self, tunnel: &TunnelSession) {

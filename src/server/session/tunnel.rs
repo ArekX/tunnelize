@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::messages::TunnelSessionMessage;
+use super::messages::{ClientLinkResponse, TunnelSessionMessage};
 use log::{debug, info};
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -94,17 +94,13 @@ pub async fn handle_channel_message(
     services: &Arc<Services>,
     session: &TunnelSession,
     stream: &mut ConnectionStream,
-    message: TunnelSessionMessage,
+    mut message: TunnelSessionMessage,
 ) {
     match message {
         TunnelSessionMessage::EndpointInfo(info) => {
             println!("Endpoint info: {:?}", info);
         }
-        TunnelSessionMessage::ClientLinkRequest {
-            client_id,
-            endpoint_name: _, // FIXME: store this
-            response_tx,
-        } => {
+        TunnelSessionMessage::ClientLink(ref mut request) => {
             let response: InitLinkResponse = match stream
                 .request_message(&TunnelRequestMessage::InitLinkSession(InitLinkRequest {
                     tunnel_id: session.get_id(),
@@ -122,14 +118,10 @@ pub async fn handle_channel_message(
 
             match response {
                 InitLinkResponse::Accepted => {
-                    if let Err(_) = response_tx.send(Ok(())) {
-                        info!("Failed to send response to client link request.");
-                    }
+                    request.respond(ClientLinkResponse::Accepted);
                 }
                 InitLinkResponse::Rejected { reason } => {
-                    if let Err(_) = response_tx.send(Err(reason)) {
-                        info!("Failed to send response to client link request.");
-                    }
+                    request.respond(ClientLinkResponse::Rejected { reason });
                 }
             }
         }

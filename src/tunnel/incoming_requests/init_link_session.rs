@@ -3,7 +3,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{common::request::DataRequest, connect_data_response, tunnel::services::Services};
+use crate::{common::data_request::DataRequest, connect_data_response, tunnel::services::Services};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InitLinkRequest {
