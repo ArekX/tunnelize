@@ -5,8 +5,11 @@ use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
 use crate::{
-    common::channel_request::{send_channel_request, ChannelRequest, ChannelRequestResponse},
-    server::session::{messages::TunnelSessionMessage, tunnel::TunnelSession},
+    common::channel::{DataResponse, RequestSender},
+    server::session::{
+        messages::{TunnelSessionMessage, TunnelSessionResponse},
+        tunnel::TunnelSession,
+    },
 };
 
 use super::{events::ServiceEvent, HandleServiceEvent};
@@ -22,21 +25,20 @@ impl TunnelManager {
         }
     }
 
-    pub fn get_session_tx(&self, id: &Uuid) -> Option<Sender<TunnelSessionMessage>> {
+    pub fn get_session_tx(&self, id: &Uuid) -> Option<RequestSender<TunnelSessionMessage>> {
         match self.tunnels.get(id) {
             Some(session) => Some(session.get_channel_tx()),
             None => None,
         }
     }
 
-    pub async fn send_session_request<Request>(
+    pub async fn send_session_request<T: Into<TunnelSessionMessage> + DataResponse>(
         &self,
         id: &Uuid,
-        request: Request,
-    ) -> tokio::io::Result<Request::ResponseMessage>
+        request: T,
+    ) -> tokio::io::Result<T::Response>
     where
-        Request: ChannelRequestResponse,
-        TunnelSessionMessage: From<ChannelRequest<Request>>,
+        T::Response: TryFrom<TunnelSessionResponse>,
     {
         let Some(tunnel_tx) = self.get_session_tx(id) else {
             return Err(tokio::io::Error::new(
@@ -45,11 +47,7 @@ impl TunnelManager {
             ));
         };
 
-        send_channel_request::<TunnelSessionMessage, Request>(
-            tunnel_tx,
-            ChannelRequest::new(request),
-        )
-        .await
+        tunnel_tx.request(request).await
     }
 
     pub fn register_tunnel_session(&mut self, tunnel: &TunnelSession) {

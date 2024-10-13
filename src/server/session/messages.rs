@@ -1,14 +1,24 @@
 use uuid::Uuid;
 
 use crate::{
-    common::channel_request::ChannelRequest, connect_channel_response, map_request_enum,
+    common::channel::{DataResponse, RequestEnum},
+    connect_request_struct_with_enum, connect_response_struct_with_enum,
     server::endpoints::EndpointInfo,
 };
 
 #[derive(Debug)]
 pub enum TunnelSessionMessage {
     EndpointInfo(EndpointInfo),
-    ClientLink(ChannelRequest<ClientLinkRequest>),
+    ClientLinkRequest(ClientLinkRequest),
+}
+
+impl RequestEnum for TunnelSessionMessage {
+    type ResponseEnum = TunnelSessionResponse;
+}
+
+#[derive(Debug)]
+pub enum TunnelSessionResponse {
+    ClientLinkResponse(ClientLinkResponse),
 }
 
 #[derive(Debug)]
@@ -17,14 +27,16 @@ pub struct ClientLinkRequest {
     pub endpoint_name: String,
 }
 
+connect_request_struct_with_enum!(ClientLinkRequest, TunnelSessionMessage);
+
 #[derive(Debug)]
 pub enum ClientLinkResponse {
     Accepted,
     Rejected { reason: String },
 }
 
-connect_channel_response!(ClientLinkRequest, ClientLinkResponse);
+connect_response_struct_with_enum!(ClientLinkResponse, TunnelSessionResponse);
 
-map_request_enum!(TunnelSessionMessage, {
-    ClientLinkRequest => ClientLink
-});
+impl DataResponse for ClientLinkRequest {
+    type Response = ClientLinkResponse;
+}

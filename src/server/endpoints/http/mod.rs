@@ -15,27 +15,23 @@ use serde::{Deserialize, Serialize};
 use tokio::{
     io::Result,
     net::TcpListener,
-    sync::{
-        mpsc::{self},
-        oneshot,
-    },
+    sync::mpsc::{self},
     time::timeout,
 };
 use tunnel_host::TunnelHost;
 use uuid::Uuid;
 
 use crate::{
-    common::{
-        channel_request::{send_channel_request, ChannelRequest},
-        connection::ConnectionStream,
-    },
+    common::connection::ConnectionStream,
     server::{
         endpoints::EndpointInfo,
-        services::{Client, EndpointMessage, Services},
-        session::messages::{ClientLinkRequest, ClientLinkResponse, TunnelSessionMessage},
+        services::{Client, Services},
+        session::messages::{ClientLinkRequest, TunnelSessionMessage, TunnelSessionResponse},
     },
     tunnel::configuration::ProxyConfiguration,
 };
+
+use super::messages::EndpointMessage;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum HttpEndpointInfo {
@@ -173,7 +169,7 @@ async fn handle_client_request(
         )
         .await
     {
-        Ok(_) => {
+        Ok(result) => {
             println!(
                 "Client ID '{}' linked to tunnel ID '{}'",
                 client_id, tunnel_id

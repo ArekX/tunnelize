@@ -2,14 +2,16 @@ use std::sync::Arc;
 
 use http::HttpEndpointInfo;
 use log::{debug, error};
+use messages::EndpointMessage;
 
 use super::{
     configuration::EndpointConfiguration,
-    services::{Endpoint, EndpointMessage, Services},
+    services::{Endpoint, Services},
 };
 use tokio::{io::Result, sync::mpsc};
 
 pub mod http;
+pub mod messages;
 
 #[derive(Debug)]
 pub enum EndpointInfo {

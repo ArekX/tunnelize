@@ -2,24 +2,10 @@ use std::collections::HashMap;
 
 use log::error;
 use tokio::sync::mpsc::Sender;
-use uuid::Uuid;
 
-use crate::{
-    server::configuration::EndpointConfiguration, tunnel::configuration::ProxyConfiguration,
-};
+use crate::server::{configuration::EndpointConfiguration, endpoints::messages::EndpointMessage};
 
 use super::{events::ServiceEvent, HandleServiceEvent};
-
-#[derive(Clone, Debug)]
-pub enum EndpointMessage {
-    TunnelConnected {
-        tunnel_id: Uuid,
-        proxy_configuration: ProxyConfiguration,
-    },
-    TunnelDisconnected {
-        tunnel_id: Uuid,
-    },
-}
 
 #[derive(Clone, Debug)]
 pub struct Endpoint {

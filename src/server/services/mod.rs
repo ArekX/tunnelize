@@ -16,7 +16,7 @@ mod link_manager;
 mod tunnel_manager;
 
 pub use client_manager::Client;
-pub use endpoint_manager::{Endpoint, EndpointMessage};
+pub use endpoint_manager::Endpoint;
 
 pub trait HandleServiceEvent {
     async fn handle_event(&mut self, event: &ServiceEvent);
