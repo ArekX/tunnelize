@@ -124,11 +124,7 @@ impl ConnectionStream {
         }
     }
 
-    pub async fn send_and_close(&mut self, message: &str) {
-        if let Err(e) = self.write_all(message.as_bytes()).await {
-            debug!("Error while sending message: {:?}", e);
-        }
-
+    pub async fn shutdown(&mut self) {
         match self {
             Self::TcpStream(stream) => {
                 if let Err(e) = stream.shutdown().await {
@@ -141,6 +137,14 @@ impl ConnectionStream {
                 }
             }
         }
+    }
+
+    pub async fn write_and_shutdown(&mut self, message: &[u8]) {
+        if let Err(e) = self.write_all(message).await {
+            debug!("Error while sending message: {:?}", e);
+        }
+
+        self.shutdown().await;
     }
 
     pub async fn link_session_with(&mut self, other: &mut Self) -> Result<()> {
