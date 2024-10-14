@@ -119,7 +119,7 @@ pub fn create_channel<T: RequestEnum>() -> (RequestSender<T>, RequestReceiver<T>
 }
 
 #[macro_export]
-macro_rules! connect_struct_with_request_enum {
+macro_rules! connect_request_with_enum {
     ($request_struct: ident, $enum: ident) => {
         impl Into<$enum> for $request_struct {
             fn into(self) -> $enum {
@@ -130,7 +130,7 @@ macro_rules! connect_struct_with_request_enum {
 }
 
 #[macro_export]
-macro_rules! connect_struct_with_response_enum {
+macro_rules! connect_response_with_enum {
     ($response_struct: ident, $response_enum: ident) => {
         impl Into<$response_enum> for $response_struct {
             fn into(self) -> $response_enum {
@@ -148,6 +148,15 @@ macro_rules! connect_struct_with_response_enum {
                     _ => Err(()),
                 }
             }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! connect_request_with_response {
+    ($request_struct: ident, $response_struct: ident) => {
+        impl crate::common::channel::DataResponse for $request_struct {
+            type Response = $response_struct;
         }
     };
 }
