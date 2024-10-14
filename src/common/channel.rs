@@ -153,10 +153,19 @@ macro_rules! connect_response_with_enum {
 }
 
 #[macro_export]
-macro_rules! connect_request_with_response {
+macro_rules! connect_request_with_response_struct {
     ($request_struct: ident, $response_struct: ident) => {
         impl crate::common::channel::DataResponse for $request_struct {
             type Response = $response_struct;
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! connect_request_with_reponse_enum {
+    ($request_enum: ident, $response_enum: ident) => {
+        impl RequestEnum for $request_enum {
+            type ResponseEnum = $response_enum;
         }
     };
 }
