@@ -2,7 +2,7 @@ use uuid::Uuid;
 
 use crate::{
     common::channel::{DataResponse, RequestEnum},
-    connect_request_struct_with_enum, connect_response_struct_with_enum,
+    connect_struct_with_request_enum, connect_struct_with_response_enum,
     server::endpoints::EndpointInfo,
 };
 
@@ -27,7 +27,7 @@ pub struct ClientLinkRequest {
     pub endpoint_name: String,
 }
 
-connect_request_struct_with_enum!(ClientLinkRequest, TunnelSessionMessage);
+connect_struct_with_request_enum!(ClientLinkRequest, TunnelSessionMessage);
 
 #[derive(Debug)]
 pub enum ClientLinkResponse {
@@ -35,7 +35,7 @@ pub enum ClientLinkResponse {
     Rejected { reason: String },
 }
 
-connect_response_struct_with_enum!(ClientLinkResponse, TunnelSessionResponse);
+connect_struct_with_response_enum!(ClientLinkResponse, TunnelSessionResponse);
 
 impl DataResponse for ClientLinkRequest {
     type Response = ClientLinkResponse;

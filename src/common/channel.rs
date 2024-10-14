@@ -119,7 +119,7 @@ pub fn create_channel<T: RequestEnum>() -> (RequestSender<T>, RequestReceiver<T>
 }
 
 #[macro_export]
-macro_rules! connect_request_struct_with_enum {
+macro_rules! connect_struct_with_request_enum {
     ($request_struct: ident, $enum: ident) => {
         impl Into<$enum> for $request_struct {
             fn into(self) -> $enum {
@@ -130,20 +130,21 @@ macro_rules! connect_request_struct_with_enum {
 }
 
 #[macro_export]
-macro_rules! connect_response_struct_with_enum {
-    ($response_struct: ident, $enum: ident) => {
-        impl Into<$enum> for $response_struct {
-            fn into(self) -> $enum {
-                $enum::$response_struct(self)
+macro_rules! connect_struct_with_response_enum {
+    ($response_struct: ident, $response_enum: ident) => {
+        impl Into<$response_enum> for $response_struct {
+            fn into(self) -> $response_enum {
+                $response_enum::$response_struct(self)
             }
         }
 
-        impl TryFrom<$enum> for $response_struct {
+        #[allow(unreachable_patterns)]
+        impl TryFrom<$response_enum> for $response_struct {
             type Error = ();
 
-            fn try_from(response: $enum) -> Result<Self, Self::Error> {
+            fn try_from(response: $response_enum) -> Result<Self, Self::Error> {
                 match response {
-                    $enum::$response_struct(response) => Ok(response),
+                    $response_enum::$response_struct(response) => Ok(response),
                     _ => Err(()),
                 }
             }
