@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     io::{Error, ErrorKind},
     sync::Arc,
 };
@@ -10,8 +11,13 @@ use uuid::Uuid;
 use crate::{
     common::data_request::DataRequest,
     connect_data_response,
-    server::{configuration::ServerConfiguration, services::events::ServiceEvent, session},
-    tunnel::configuration::TunnelProxy,
+    server::{
+        configuration::ServerConfiguration,
+        endpoints::messages::{EndpointInfo, RegisterProxyRequest},
+        services::events::ServiceEvent,
+        session::{self},
+    },
+    tunnel::configuration::{ProxyConfiguration, TunnelProxy},
 };
 
 use super::super::services::Services;
@@ -22,16 +28,28 @@ use tokio::io::Result;
 pub struct InitTunelRequest {
     pub endpoint_key: Option<String>,
     pub admin_key: Option<String>,
-    pub proxies: Vec<TunnelProxy>,
+    pub proxies: Vec<Proxy>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct Proxy {
+    pub proxy_id: Uuid,
+    pub endpoint_name: String,
+    pub proxy: ProxyConfiguration,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum InitTunnelResponse {
-    Accepted { tunnel_id: Uuid },
-    Rejected { reason: String },
+    Accepted {
+        tunnel_id: Uuid,
+        endpoint_info: HashMap<Uuid, EndpointInfo>,
+    },
+    Rejected {
+        reason: String,
+    },
 }
 
-connect_data_response!(InitTunelRequest, InitTunnelResponse);
+connect_data_response!(InitTunelRequest -> InitTunnelResponse);
 
 pub async fn process_init_tunnel(
     services: Arc<Services>,
@@ -123,6 +141,74 @@ async fn resolve_admin_privileges(
     Ok(true)
 }
 
+#[derive(Debug, Clone)]
+pub struct ProxySession {
+    pub proxy_id: Uuid,
+    pub config: ProxyConfiguration,
+}
+
+async fn resolve_endpoint_info(
+    tunnel_id: Uuid,
+    request: &DataRequest<InitTunelRequest>,
+    services: &Arc<Services>,
+) -> Result<HashMap<Uuid, EndpointInfo>> {
+    let mut service_proxies = HashMap::<String, Vec<ProxySession>>::new();
+
+    for proxy in request.data.proxies.iter() {
+        let sessions = {
+            if !service_proxies.contains_key(&proxy.endpoint_name) {
+                service_proxies.insert(proxy.endpoint_name.clone(), Vec::new());
+            }
+
+            service_proxies.get_mut(&proxy.endpoint_name).unwrap()
+        };
+
+        let proxy_id = Uuid::new_v4();
+
+        let proxy_session = ProxySession {
+            proxy_id,
+            config: proxy.proxy.clone(),
+        };
+
+        sessions.push(proxy_session);
+    }
+
+    let mut proxy_data = HashMap::<Uuid, EndpointInfo>::new();
+
+    for (service_name, proxies) in service_proxies.iter() {
+        let Ok(response) = services
+            .get_endpoint_manager()
+            .await
+            .send_request(
+                service_name,
+                RegisterProxyRequest {
+                    tunnel_id,
+                    proxy_sessions: proxies.clone(),
+                },
+            )
+            .await
+        else {
+            debug!(
+                "Error while sending RegisterProxyRequest to endpoint '{}'",
+                service_name
+            );
+            return Err(Error::new(
+                ErrorKind::Other,
+                format!(
+                    "Error while sending RegisterProxyRequest to endpoint '{}'",
+                    service_name
+                ),
+            ));
+        };
+
+        for (proxy_id, endpoint_info) in response.proxy_info {
+            proxy_data.insert(proxy_id, endpoint_info);
+        }
+    }
+
+    Ok(proxy_data)
+}
+
 async fn start_tunnel_session(
     services: Arc<Services>,
     has_admin_privileges: bool,
@@ -134,22 +220,23 @@ async fn start_tunnel_session(
 
     info!("Tunnel connected. Assigned ID: {}", tunnel_id);
 
+    let Ok(endpoint_info) = resolve_endpoint_info(tunnel_id, &request, &services).await else {
+        debug!("Error while resolving endpoint info!");
+        return;
+    };
+
     let mut stream = request.response_stream;
 
     if let Err(e) = stream
-        .write_message(&InitTunnelResponse::Accepted { tunnel_id })
+        .write_message(&InitTunnelResponse::Accepted {
+            tunnel_id,
+            endpoint_info,
+        })
         .await
     {
         debug!("Error while sending tunnel accepted message: {:?}", e);
         return;
     }
-
-    services
-        .push_event(ServiceEvent::TunnelConnected {
-            tunnel_session: tunnel_session.clone(),
-            tunnel_proxies: request.data.proxies,
-        })
-        .await;
 
     session::tunnel::start(services.clone(), tunnel_session, stream, channel_rx).await;
 

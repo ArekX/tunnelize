@@ -13,7 +13,6 @@ use crate::common::connection::ConnectionStream;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct HttpProxy {
     pub desired_name: Option<String>,
-    pub forward_address: String,
 }
 
 pub struct HttpSession {

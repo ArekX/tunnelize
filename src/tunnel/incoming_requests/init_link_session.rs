@@ -18,7 +18,7 @@ pub enum InitLinkResponse {
     Rejected { reason: String },
 }
 
-connect_data_response!(InitLinkRequest, InitLinkResponse);
+connect_data_response!(InitLinkRequest -> InitLinkResponse);
 
 pub async fn process_init_link(
     services: Arc<Services>,

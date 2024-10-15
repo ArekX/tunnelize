@@ -61,7 +61,12 @@ impl<T: RequestEnum> RequestSender<T> {
 
         request.assign_tx(response_tx);
 
-        self.tx.send(request).await.unwrap(); // TODO: FIX
+        if let Err(_) = self.tx.send(request).await {
+            return Err(tokio::io::Error::new(
+                tokio::io::ErrorKind::Other,
+                "Failed to send request!",
+            ));
+        }
 
         let Ok(result) = response_rx.await else {
             return Err(tokio::io::Error::new(
@@ -119,12 +124,35 @@ pub fn create_channel<T: RequestEnum>() -> (RequestSender<T>, RequestReceiver<T>
 }
 
 #[macro_export]
+macro_rules! connect_to_channel {
+    ($request_enum: ident -> $response_enum: ident) => {
+        impl crate::common::channel::RequestEnum for $request_enum {
+            type ResponseEnum = $response_enum;
+        }
+    };
+    ($request_enum: ident <- $request_type: ident <-> $response_type: ident -> $response_enum: ident) => {
+        crate::connect_request_with_enum!($request_type, $request_enum);
+        crate::connect_request_with_response!($request_type, $response_type);
+        crate::connect_response_with_enum!($response_type, $response_enum);
+    };
+}
+
+#[macro_export]
 macro_rules! connect_request_with_enum {
     ($request_struct: ident, $enum: ident) => {
         impl Into<$enum> for $request_struct {
             fn into(self) -> $enum {
                 $enum::$request_struct(self)
             }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! connect_request_with_response {
+    ($request_struct: ident, $response_struct: ident) => {
+        impl crate::common::channel::DataResponse for $request_struct {
+            type Response = $response_struct;
         }
     };
 }
@@ -153,19 +181,31 @@ macro_rules! connect_response_with_enum {
 }
 
 #[macro_export]
-macro_rules! connect_request_with_response_struct {
-    ($request_struct: ident, $response_struct: ident) => {
-        impl crate::common::channel::DataResponse for $request_struct {
-            type Response = $response_struct;
+macro_rules! create_enum_channel {
+    ($request_enum: ident -> $response_enum: ident, {
+        $($request_type: ident -> $response_type: ident),*
+    }) => {
+        #[derive(Debug)]
+        pub enum $request_enum {
+        $(
+            $request_type($request_type)
+        ),*
         }
+
+        crate::connect_to_channel!($request_enum -> $response_enum);
+
+        #[derive(Debug)]
+        pub enum $response_enum {
+        $(
+            $response_type($response_type)
+        ),*
+        }
+
+        $(
+            crate::connect_to_channel!($request_enum <- $request_type <-> $response_type -> $response_enum);
+        )*
     };
 }
 
-#[macro_export]
-macro_rules! connect_request_with_reponse_enum {
-    ($request_enum: ident, $response_enum: ident) => {
-        impl RequestEnum for $request_enum {
-            type ResponseEnum = $response_enum;
-        }
-    };
-}
+#[derive(Debug, Clone)]
+pub struct OkResponse;

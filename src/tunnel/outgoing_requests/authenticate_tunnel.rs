@@ -9,8 +9,10 @@ use crate::server::incoming_requests::{
 };
 
 use crate::tunnel::configuration::TunnelConfiguration;
+use crate::tunnel::services::Services;
 
 pub async fn authenticate_tunnel(
+    services: &Arc<Services>,
     config: &Arc<TunnelConfiguration>,
     server: &mut ConnectionStream,
 ) -> Result<()> {
@@ -23,8 +25,12 @@ pub async fn authenticate_tunnel(
         .await?;
 
     match auth_response {
-        InitTunnelResponse::Accepted { tunnel_id } => {
+        InitTunnelResponse::Accepted {
+            tunnel_id,
+            endpoint_info,
+        } => {
             info!("Tunnel accepted: {}", tunnel_id);
+            info!("Endpoints accepted: {:?}", endpoint_info);
         }
         InitTunnelResponse::Rejected { reason } => {
             return Err(io::Error::new(io::ErrorKind::Other, reason));

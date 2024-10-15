@@ -3,6 +3,7 @@ mod protocol;
 mod tunnel_host;
 
 use std::{
+    collections::HashMap,
     io::{Error, ErrorKind},
     sync::Arc,
     time::Duration,
@@ -11,43 +12,40 @@ use std::{
 pub use configuration::HttpEndpointConfig;
 use log::{debug, error, info};
 use protocol::get_error_response;
+use rustls::crypto::hash::Hash;
 use serde::{Deserialize, Serialize};
-use tokio::{
-    io::Result,
-    net::TcpListener,
-    sync::mpsc::{self},
-    time::timeout,
-};
+use tokio::{io::Result, net::TcpListener, time::timeout};
 use tunnel_host::TunnelHost;
 use uuid::Uuid;
 
 use crate::{
-    common::connection::ConnectionStream,
+    common::{
+        channel::{OkResponse, Request, RequestReceiver},
+        connection::ConnectionStream,
+        text::get_random_letters,
+    },
     server::{
-        endpoints::EndpointInfo,
+        endpoints::messages::RegisterProxyResponse,
         services::{Client, Services},
-        session::messages::{ClientLinkRequest, TunnelSessionMessage, TunnelSessionResponse},
+        session::messages::ClientLinkRequest,
     },
     tunnel::configuration::ProxyConfiguration,
 };
 
-use super::messages::EndpointMessage;
+use super::messages::{EndpointInfo, EndpointRequest, RemoveTunnelRequest};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum HttpEndpointInfo {
-    AssignedUrl {
-        proxy_id: Uuid,
-        assigned_url: String,
-    },
+pub struct HttpEndpointInfo {
+    assigned_url: String,
 }
 
 pub async fn start(
     services: Arc<Services>,
     name: String,
     config: HttpEndpointConfig,
-    mut channel_rx: mpsc::Receiver<EndpointMessage>,
+    mut channel_rx: RequestReceiver<EndpointRequest>,
 ) -> Result<()> {
-    let mut tunnel_host = TunnelHost::new();
+    let mut tunnel_host = TunnelHost::new(&config);
 
     let listener = match TcpListener::bind(format!("0.0.0.0:{}", config.port)).await {
         Ok(listener) => listener,
@@ -62,11 +60,11 @@ pub async fn start(
 
     loop {
         tokio::select! {
-            message = channel_rx.recv() => {
-                match message {
-                    Some(message) => {
-                        debug!("Received endpoint message '{:?}'", message);
-                        if let Err(e) = handle_endpoint_message(message, &config, &mut tunnel_host, &services).await {
+            request = channel_rx.recv() => {
+                match request {
+                    Some(request) => {
+                        debug!("Received endpoint message");
+                        if let Err(e) = handle_endpoint_message(request, &config, &mut tunnel_host, &services).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
                     },
@@ -198,75 +196,43 @@ async fn handle_client_request(
 }
 
 async fn handle_endpoint_message(
-    message: EndpointMessage,
+    mut request: Request<EndpointRequest>,
     config: &HttpEndpointConfig,
     tunnel_host: &mut TunnelHost,
-    services: &Arc<Services>,
+    _services: &Arc<Services>, // TODO: See if needed
 ) -> Result<()> {
-    match message {
-        EndpointMessage::TunnelConnected {
-            tunnel_id,
-            proxy_configuration,
-        } => {
-            let ProxyConfiguration::Http(http_config) = proxy_configuration else {
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "Invalid proxy configuration for HTTP endpoint",
-                ));
-            };
+    match &request.data {
+        EndpointRequest::RegisterProxyRequest(proxy_request) => {
+            let mut proxy_info = HashMap::<Uuid, EndpointInfo>::new();
 
-            let name = http_config.desired_name.unwrap_or("random".to_string());
+            for proxy_session in proxy_request.proxy_sessions.iter() {
+                let ProxyConfiguration::Http(http_config) = &proxy_session.config else {
+                    debug!("Proxy session configuration passed is not for Http endpoint");
+                    continue;
+                };
 
-            let hostname = config.host_template.replace("{name}", &name);
+                let hostname =
+                    tunnel_host.register_host(&http_config.desired_name, &proxy_request.tunnel_id);
 
-            let full_url = config.full_url_template.replace("{hostname}", &hostname);
+                info!(
+                    "Tunnel ID '{}' connected to http endpoint with hostname '{}'",
+                    proxy_request.tunnel_id, hostname
+                );
 
-            info!(
-                "Tunnel ID '{}' connected to endpoint '{}' with hostname '{}'",
-                tunnel_id, name, hostname
-            );
+                let assigned_url = config.full_url_template.replace("{hostname}", &hostname);
 
-            tunnel_host.add_tunnel(hostname, tunnel_id);
+                proxy_info.insert(
+                    proxy_session.proxy_id,
+                    EndpointInfo::Http(HttpEndpointInfo { assigned_url }),
+                );
+            }
 
-            send_assigned_url(&tunnel_id, &full_url, services).await?;
+            request.respond(RegisterProxyResponse { proxy_info }).await;
         }
-        EndpointMessage::TunnelDisconnected { tunnel_id } => {
+        EndpointRequest::RemoveTunnelRequest(RemoveTunnelRequest { tunnel_id }) => {
             tunnel_host.remove_tunnel_by_id(&tunnel_id);
+            request.respond(OkResponse).await;
         }
-    }
-
-    Ok(())
-}
-
-async fn send_assigned_url(
-    tunnel_id: &Uuid,
-    full_url: &str,
-    services: &Arc<Services>,
-) -> Result<()> {
-    let Some(session_tx) = services
-        .get_tunnel_manager()
-        .await
-        .get_session_tx(tunnel_id)
-    else {
-        return Err(Error::new(
-            ErrorKind::Other,
-            "Failed to get tunnel session for tunnel ID",
-        ));
-    };
-
-    if let Err(e) = session_tx
-        .send(TunnelSessionMessage::EndpointInfo(EndpointInfo::Http(
-            HttpEndpointInfo::AssignedUrl {
-                proxy_id: Uuid::new_v4(),
-                assigned_url: full_url.to_string(),
-            },
-        )))
-        .await
-    {
-        return Err(Error::new(
-            ErrorKind::Other,
-            format!("Failed to send assigned URL to tunnel session: {}", e),
-        ));
     }
 
     Ok(())

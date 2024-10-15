@@ -37,7 +37,9 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
 
     let mut connection_stream = ConnectionStream::from(server);
 
-    if let Err(e) = outgoing_requests::authenticate_tunnel(&config, &mut connection_stream).await {
+    if let Err(e) =
+        outgoing_requests::authenticate_tunnel(&services, &config, &mut connection_stream).await
+    {
         error!("Failed to authenticate: {:?}", e);
         return Err(e);
     }

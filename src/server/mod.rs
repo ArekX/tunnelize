@@ -14,7 +14,7 @@ use tokio_util::sync::CancellationToken;
 use crate::common::tasks::start_cancel_listener;
 
 mod configuration;
-mod endpoints;
+pub mod endpoints;
 mod hub_channel;
 mod hub_server;
 pub mod incoming_requests;

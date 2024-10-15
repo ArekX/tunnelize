@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::{
     common::channel::{DataResponse, RequestSender},
     server::session::{
-        messages::{TunnelSessionMessage, TunnelSessionResponse},
+        messages::{TunnelSessionRequest, TunnelSessionResponse},
         tunnel::TunnelSession,
     },
 };
@@ -25,14 +25,14 @@ impl TunnelManager {
         }
     }
 
-    pub fn get_session_tx(&self, id: &Uuid) -> Option<RequestSender<TunnelSessionMessage>> {
+    pub fn get_session_tx(&self, id: &Uuid) -> Option<RequestSender<TunnelSessionRequest>> {
         match self.tunnels.get(id) {
             Some(session) => Some(session.get_channel_tx()),
             None => None,
         }
     }
 
-    pub async fn send_session_request<T: Into<TunnelSessionMessage> + DataResponse>(
+    pub async fn send_session_request<T: Into<TunnelSessionRequest> + DataResponse>(
         &self,
         id: &Uuid,
         request: T,

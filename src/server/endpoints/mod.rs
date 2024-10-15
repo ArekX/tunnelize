@@ -1,22 +1,12 @@
 use std::sync::Arc;
 
-use http::HttpEndpointInfo;
 use log::{debug, error};
-use messages::EndpointMessage;
 
-use super::{
-    configuration::EndpointConfiguration,
-    services::{Endpoint, Services},
-};
-use tokio::{io::Result, sync::mpsc};
+use super::{configuration::EndpointConfiguration, services::Services};
+use tokio::io::Result;
 
 pub mod http;
 pub mod messages;
-
-#[derive(Debug)]
-pub enum EndpointInfo {
-    Http(HttpEndpointInfo),
-}
 
 macro_rules! start_endpoint {
     ($service: expr, $services: ident, $name: ident, $config: ident, $channel_rx: ident) => {{
@@ -38,14 +28,7 @@ pub async fn start_endpoints(services: Arc<Services>) -> Result<()> {
     let mut endpoint_manager = services.get_endpoint_manager().await;
 
     for (service_name, endpoint_config) in config.endpoints.iter() {
-        // FIXME: This channel needs to be created elsewhere
-        let (channel_tx, channel_rx) = mpsc::channel::<EndpointMessage>(100);
-
-        endpoint_manager.add_endpoint(Endpoint::new(
-            service_name.clone(),
-            endpoint_config.clone(),
-            channel_tx,
-        ));
+        let channel_rx = endpoint_manager.add_endpoint(service_name, endpoint_config);
 
         match endpoint_config {
             EndpointConfiguration::Http(http_config) => {

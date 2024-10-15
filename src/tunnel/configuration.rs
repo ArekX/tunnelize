@@ -13,7 +13,8 @@ pub struct TunnelConfiguration {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TunnelProxy {
     pub endpoint_name: String,
-    pub proxy: ProxyConfiguration,
+    pub forward_address: String,
+    pub config: ProxyConfiguration,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -5,4 +5,5 @@ pub mod connection;
 pub mod data_request;
 pub mod logger;
 pub mod tasks;
+pub mod text;
 pub mod transport;

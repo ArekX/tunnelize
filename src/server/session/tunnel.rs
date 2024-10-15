@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::messages::{self, ClientLinkResponse, TunnelSessionMessage};
+use super::messages::{self, ClientLinkResponse, TunnelSessionRequest};
 use log::{debug, info};
 use tokio::sync::mpsc;
 use uuid::Uuid;
@@ -21,13 +21,13 @@ use super::super::services::Services;
 pub struct TunnelSession {
     id: Uuid,
     has_admin_privileges: bool,
-    channel_tx: RequestSender<TunnelSessionMessage>,
+    channel_tx: RequestSender<TunnelSessionRequest>,
 }
 
 impl TunnelSession {
     pub fn new(
         has_admin_privileges: bool,
-        channel_tx: RequestSender<TunnelSessionMessage>,
+        channel_tx: RequestSender<TunnelSessionRequest>,
     ) -> Self {
         let id = Uuid::new_v4();
         Self {
@@ -37,7 +37,7 @@ impl TunnelSession {
         }
     }
 
-    pub fn get_channel_tx(&self) -> RequestSender<TunnelSessionMessage> {
+    pub fn get_channel_tx(&self) -> RequestSender<TunnelSessionRequest> {
         self.channel_tx.clone()
     }
 
@@ -48,8 +48,8 @@ impl TunnelSession {
 
 pub fn create(
     has_admin_privileges: bool,
-) -> (TunnelSession, RequestReceiver<TunnelSessionMessage>) {
-    let (channel_tx, channel_rx) = create_channel::<TunnelSessionMessage>();
+) -> (TunnelSession, RequestReceiver<TunnelSessionRequest>) {
+    let (channel_tx, channel_rx) = create_channel::<TunnelSessionRequest>();
 
     (
         TunnelSession::new(has_admin_privileges, channel_tx),
@@ -61,7 +61,7 @@ pub async fn start(
     services: Arc<Services>,
     session: TunnelSession,
     mut stream: ConnectionStream,
-    mut channel_rx: RequestReceiver<TunnelSessionMessage>,
+    mut channel_rx: RequestReceiver<TunnelSessionRequest>,
 ) {
     let id = session.get_id();
 
@@ -104,13 +104,10 @@ pub async fn handle_channel_message(
     services: &Arc<Services>,
     session: &TunnelSession,
     stream: &mut ConnectionStream,
-    mut request: Request<TunnelSessionMessage>,
+    mut request: Request<TunnelSessionRequest>,
 ) {
     match &mut request.data {
-        TunnelSessionMessage::EndpointInfo(info) => {
-            println!("Endpoint info: {:?}", info);
-        }
-        TunnelSessionMessage::ClientLinkRequest(ref mut requestx) => {
+        TunnelSessionRequest::ClientLinkRequest(ref mut requestx) => {
             let response: InitLinkResponse = match stream
                 .request_message(&TunnelRequestMessage::InitLinkSession(InitLinkRequest {
                     tunnel_id: session.get_id(),
@@ -128,10 +125,12 @@ pub async fn handle_channel_message(
 
             match response {
                 InitLinkResponse::Accepted => {
-                    request.respond(ClientLinkResponse::Accepted);
+                    request.respond(ClientLinkResponse::Accepted).await;
                 }
                 InitLinkResponse::Rejected { reason } => {
-                    request.respond(ClientLinkResponse::Rejected { reason });
+                    request
+                        .respond(ClientLinkResponse::Rejected { reason })
+                        .await;
                 }
             }
         }

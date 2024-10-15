@@ -22,7 +22,7 @@ impl<RequestMessage: DataRequestResponse, Stream> DataRequest<RequestMessage, St
 
 #[macro_export]
 macro_rules! connect_data_response {
-    ($request: ident, $response: ident) => {
+    ($request: ident -> $response: ident) => {
         impl crate::common::data_request::DataRequestResponse for $request {
             type ResponseMessage = $response;
         }

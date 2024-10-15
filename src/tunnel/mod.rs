@@ -25,9 +25,9 @@ pub async fn start() -> Result<()> {
         admin_key: None,
         proxies: vec![TunnelProxy {
             endpoint_name: "http".to_string(),
-            proxy: ProxyConfiguration::Http(HttpProxy {
+            forward_address: "0.0.0.0:8000".to_string(),
+            config: ProxyConfiguration::Http(HttpProxy {
                 desired_name: Some("test".to_string()),
-                forward_address: "0.0.0.0:8000".to_string(),
             }),
         }],
     }; // TODO: This should be a parameter in start
