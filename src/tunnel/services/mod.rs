@@ -15,7 +15,7 @@ pub struct Services {
 impl Services {
     pub fn new(config: TunnelConfiguration) -> Self {
         Self {
-            proxy_manager: Mutex::new(ProxyManager::new(&config)),
+            proxy_manager: Mutex::new(ProxyManager::new()),
             config: Arc::new(config),
         }
     }

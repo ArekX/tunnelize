@@ -11,7 +11,7 @@ mod init_link;
 mod init_tunnel;
 
 pub use init_link::{InitLinkRequest, InitLinkResponse};
-pub use init_tunnel::{InitTunelRequest, InitTunnelResponse, ProxySession};
+pub use init_tunnel::{InitTunelRequest, InitTunnelResponse, InputProxy, ProxySession};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ServerRequestMessage {

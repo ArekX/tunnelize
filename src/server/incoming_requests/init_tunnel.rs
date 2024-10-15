@@ -28,11 +28,11 @@ use tokio::io::Result;
 pub struct InitTunelRequest {
     pub endpoint_key: Option<String>,
     pub admin_key: Option<String>,
-    pub proxies: Vec<Proxy>,
+    pub proxies: Vec<InputProxy>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Proxy {
+pub struct InputProxy {
     pub proxy_id: Uuid,
     pub endpoint_name: String,
     pub proxy: ProxyConfiguration,

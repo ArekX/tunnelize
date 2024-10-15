@@ -18,7 +18,6 @@ pub struct TunnelProxy {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProxyConfiguration {
     Http(HttpProxy),
     Tcp { port_from: u16, port_to: u16 },

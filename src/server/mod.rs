@@ -1,4 +1,5 @@
-use configuration::ServerConfiguration;
+use configuration::{EndpointConfiguration, ServerConfiguration};
+use endpoints::http::HttpEndpointConfig;
 use log::{debug, info};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
@@ -23,13 +24,25 @@ mod services;
 mod session;
 
 pub async fn start() -> Result<()> {
-    let configuration = ServerConfiguration {
+    let mut configuration = ServerConfiguration {
         server_port: 3456,
         admin_key: None,
         max_tunnel_input_wait: 30,
         endpoint_key: None,
         endpoints: HashMap::new(),
     }; // TODO: This should be a parameter in start
+
+    configuration.endpoints.insert(
+        "http".to_owned(),
+        EndpointConfiguration::Http(HttpEndpointConfig {
+            port: 3457,
+            max_client_input_wait_secs: 10,
+            hostname_template: "opop-{name}.loclahost".to_owned(),
+            full_url_template: "http://{hostname}:3457".to_owned(),
+            allow_custom_hostnames: true,
+            require_authorization: None,
+        }),
+    );
 
     let (channel_tx, channel_rx) = mpsc::channel::<ChannelMessage>(100);
     let services = Arc::new(Services::new(configuration, channel_tx));
