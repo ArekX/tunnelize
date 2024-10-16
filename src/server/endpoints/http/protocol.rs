@@ -1,7 +1,88 @@
+use std::collections::HashMap;
+
 use base64::{engine::general_purpose, Engine as _};
 use log::debug;
 
 use crate::common::connection::ConnectionStream;
+
+enum HttpStatusCode {
+    Ok,
+    Unauthorized,
+    BadGateway,
+}
+
+impl HttpStatusCode {
+    pub fn get_protocol_text(&self) -> &'static str {
+        match self {
+            HttpStatusCode::Ok => "200 OK",
+            HttpStatusCode::Unauthorized => "401 Unauthorized",
+            HttpStatusCode::BadGateway => "502 Bad Gateway",
+        }
+    }
+}
+
+struct HttpResponseBuilder {
+    version: String,
+    status_code: HttpStatusCode,
+    headers: HashMap<String, String>,
+    body: String,
+}
+
+impl HttpResponseBuilder {
+    pub fn from_request(http_request: &str, status_code: HttpStatusCode, body: &str) -> Self {
+        let mut instance = Self {
+            version: HttpResponseBuilder::get_http_version(http_request),
+            status_code,
+            body: body.to_owned(),
+            headers: HashMap::new(),
+        };
+
+        instance
+            .with_header("Content-Type".to_string(), "text/plain".to_string())
+            .with_header("Content-Length".to_string(), body.len().to_string())
+            .with_header("Connection".to_string(), "close".to_string());
+
+        instance
+    }
+
+    fn get_http_version(request: &str) -> String {
+        match request
+            .lines()
+            .find(|line| line.starts_with("HTTP/"))
+            .map(|line| {
+                let Some(version) = line.split_whitespace().next() else {
+                    return "HTTP/1.1";
+                };
+
+                version
+            }) {
+            Some(http_version) => http_version.to_string(),
+            None => "HTTP/1.1".to_string(),
+        }
+    }
+
+    pub fn with_header(&mut self, header: String, value: String) -> &mut Self {
+        self.headers.insert(header, value);
+        self
+    }
+
+    pub fn build(&self) -> String {
+        let header_string = self
+            .headers
+            .iter()
+            .map(|(header, value)| format!("{}: {}", header, value))
+            .collect::<Vec<String>>()
+            .join("\r\n");
+
+        format!(
+            "{} {}\r\n{}\r\n\r\n{}",
+            self.version,
+            self.status_code.get_protocol_text(),
+            header_string,
+            self.body
+        )
+    }
+}
 
 pub fn find_host_header_value(http_request: &str) -> Option<String> {
     let host = find_header_value(http_request, "Host");
@@ -36,25 +117,20 @@ pub fn get_unauthorized_response(http_request: &str, realm: &Option<String>) -> 
         None => "Production",
     };
 
-    let message =
-        "Access to the requested resource is not authorized. Please provide valid credentials.";
-
-    format!(
-        "{} 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"{}\"\r\nContent-Length: {}\r\n\r\n{}",
-        get_http_version(http_request),
-        realm_string,
-        message.len(),
-        message
+    HttpResponseBuilder::from_request(
+        http_request,
+        HttpStatusCode::Unauthorized,
+        "Access to the requested resource is not authorized. Please provide valid credentials.",
     )
+    .with_header(
+        "WWW-Authenticate".to_string(),
+        format!("Basic realm=\"{}\"", realm_string),
+    )
+    .build()
 }
 
 pub fn get_error_response(http_request: &str, message: &str) -> String {
-    format!(
-        "{} 502 OK\r\nContent-Length: {}\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n{}",
-        get_http_version(http_request),
-        message.len(),
-        message
-    )
+    HttpResponseBuilder::from_request(http_request, HttpStatusCode::BadGateway, message).build()
 }
 
 pub async fn read_http_request(stream: &mut ConnectionStream) -> String {
@@ -118,20 +194,4 @@ fn find_header_value(request: &str, header_name: &str) -> Option<String> {
 
             "".to_string()
         })
-}
-
-fn get_http_version(request: &str) -> String {
-    match request
-        .lines()
-        .find(|line| line.starts_with("HTTP/"))
-        .map(|line| {
-            let Some(version) = line.split_whitespace().next() else {
-                return "HTTP/1.1";
-            };
-
-            version
-        }) {
-        Some(http_version) => http_version.to_string(),
-        None => "HTTP/1.1".to_string(),
-    }
 }
