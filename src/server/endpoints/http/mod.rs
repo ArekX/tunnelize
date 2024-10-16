@@ -231,6 +231,7 @@ async fn handle_endpoint_message(
             request.respond(RegisterProxyResponse { proxy_info }).await;
         }
         EndpointRequest::RemoveTunnelRequest(RemoveTunnelRequest { tunnel_id }) => {
+            info!("Removing tunnel ID '{}' from http endpoint.", tunnel_id);
             tunnel_host.remove_tunnel_by_id(&tunnel_id);
             request.respond(OkResponse).await;
         }

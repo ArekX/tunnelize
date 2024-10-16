@@ -6,7 +6,7 @@ use crate::{
     common::channel::{create_channel, DataResponse, RequestReceiver, RequestSender},
     server::{
         configuration::EndpointConfiguration,
-        endpoints::messages::{EndpointRequest, EndpointResponse},
+        endpoints::messages::{EndpointRequest, EndpointResponse, RemoveTunnelRequest},
     },
 };
 
@@ -92,5 +92,27 @@ impl EndpointManager {
 }
 
 impl HandleServiceEvent for EndpointManager {
-    async fn handle_event(&mut self, _: &ServiceEvent) {}
+    async fn handle_event(&mut self, event: &ServiceEvent) {
+        match event {
+            ServiceEvent::TunnelDisconnected { tunnel_id } => {
+                for endpoint_name in self.endpoints.keys() {
+                    if let Err(e) = self
+                        .send_request(
+                            &endpoint_name,
+                            RemoveTunnelRequest {
+                                tunnel_id: tunnel_id.clone(),
+                            },
+                        )
+                        .await
+                    {
+                        error!(
+                            "Error while sending RemoveTunnelRequest to endpoint '{}': {:?}",
+                            endpoint_name, e
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
 }

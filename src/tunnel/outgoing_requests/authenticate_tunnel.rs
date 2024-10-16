@@ -16,36 +16,11 @@ pub async fn authenticate_tunnel(
     config: &Arc<TunnelConfiguration>,
     server: &mut ConnectionStream,
 ) -> Result<()> {
-    let input_proxies: Vec<InputProxy> = {
-        let mut proxy_manager = services.get_proxy_manager().await;
-        let mut results = vec![];
-        for proxy in config.proxies.iter() {
-            let proxy_id = proxy_manager.add_proxy(&proxy);
-
-            results.push(InputProxy {
-                proxy_id,
-                endpoint_name: proxy.endpoint_name.clone(),
-                proxy: proxy.config.clone(),
-            });
-        }
-
-        results
-    };
-
-    log::debug!(
-        "Sending tunnel authentication request: {:?}",
-        ServerRequestMessage::InitTunnel(InitTunelRequest {
-            endpoint_key: config.endpoint_key.clone(),
-            admin_key: config.admin_key.clone(),
-            proxies: input_proxies.clone(),
-        })
-    );
-
     let auth_response: InitTunnelResponse = server
         .request_message(&ServerRequestMessage::InitTunnel(InitTunelRequest {
             endpoint_key: config.endpoint_key.clone(),
             admin_key: config.admin_key.clone(),
-            proxies: input_proxies.clone(),
+            proxies: get_input_proxies(services, config).await,
         }))
         .await?;
 
@@ -63,4 +38,23 @@ pub async fn authenticate_tunnel(
     }
 
     Ok(())
+}
+
+async fn get_input_proxies(
+    services: &Arc<Services>,
+    config: &Arc<TunnelConfiguration>,
+) -> Vec<InputProxy> {
+    let mut proxy_manager = services.get_proxy_manager().await;
+    let mut results = vec![];
+    for proxy in config.proxies.iter() {
+        let proxy_id = proxy_manager.add_proxy(&proxy);
+
+        results.push(InputProxy {
+            proxy_id,
+            endpoint_name: proxy.endpoint_name.clone(),
+            proxy: proxy.config.clone(),
+        });
+    }
+
+    results
 }
