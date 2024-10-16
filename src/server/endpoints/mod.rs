@@ -13,12 +13,13 @@ macro_rules! start_endpoint {
         let services = $services.clone();
         let name = $name.clone();
         let config = $config.clone();
+        log::info!("Started endpoint: {}", $name);
         tokio::spawn(async move {
             if let Err(e) = $service(services, name.clone(), config, $channel_rx).await {
                 error!("Error occurred while running endpoint '{}'", name);
                 debug!("Error: {:?}", e);
             }
-        })
+        });
     }};
 }
 

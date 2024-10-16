@@ -1,6 +1,6 @@
 use std::fmt;
 
-use bincode::{self};
+use bincode::{self, de};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use log::debug;
 use serde::de::DeserializeOwned;
@@ -80,7 +80,6 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
             return Err(MessageError::ConnectionClosed);
         }
         Ok(_) => {
-            debug!("Read {} bytes from stream.", length);
             return Ok(buffer.freeze());
         }
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
@@ -88,6 +87,7 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
             return Err(MessageError::ConnectionClosed);
         }
         Err(e) => {
+            debug!("Error reading message. {:?}", e);
             return Err(MessageError::IoError(e));
         }
     }

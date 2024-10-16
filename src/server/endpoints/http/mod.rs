@@ -47,7 +47,7 @@ pub async fn start(
 ) -> Result<()> {
     let mut tunnel_host = TunnelHost::new(&config);
 
-    let listener = match TcpListener::bind(format!("0.0.0.0:{}", config.port)).await {
+    let listener = match TcpListener::bind(config.get_bind_address()).await {
         Ok(listener) => listener,
         Err(e) => {
             error!("Failed to bind client listener: {}", e);
@@ -64,7 +64,7 @@ pub async fn start(
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
-                        if let Err(e) = handle_endpoint_message(request, &config, &mut tunnel_host, &services).await {
+                        if let Err(e) = handle_endpoint_message(request, &config,  &mut tunnel_host).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
                     },
@@ -117,6 +117,8 @@ async fn handle_client_request(
             return Err(Error::new(ErrorKind::Other, e));
         }
     };
+
+    // TODO: Check authorization
 
     let hostname = match protocol::find_host_header_value(&request) {
         Some(hostname) => hostname,
@@ -199,7 +201,6 @@ async fn handle_endpoint_message(
     mut request: Request<EndpointRequest>,
     config: &HttpEndpointConfig,
     tunnel_host: &mut TunnelHost,
-    _services: &Arc<Services>, // TODO: See if needed
 ) -> Result<()> {
     match &request.data {
         EndpointRequest::RegisterProxyRequest(proxy_request) => {
@@ -219,11 +220,11 @@ async fn handle_endpoint_message(
                     proxy_request.tunnel_id, hostname
                 );
 
-                let assigned_url = config.full_url_template.replace("{hostname}", &hostname);
-
                 proxy_info.insert(
                     proxy_session.proxy_id,
-                    EndpointInfo::Http(HttpEndpointInfo { assigned_url }),
+                    EndpointInfo::Http(HttpEndpointInfo {
+                        assigned_url: config.get_full_url(&hostname),
+                    }),
                 );
             }
 

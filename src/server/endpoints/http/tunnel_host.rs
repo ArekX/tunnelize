@@ -8,6 +8,7 @@ use super::HttpEndpointConfig;
 
 pub struct TunnelHost {
     hostname_template: String,
+    allow_custom_hostnames: bool,
     host_tunnel_map: HashMap<String, Uuid>,
 }
 
@@ -15,14 +16,19 @@ impl TunnelHost {
     pub fn new(config: &HttpEndpointConfig) -> Self {
         Self {
             host_tunnel_map: HashMap::new(),
+            allow_custom_hostnames: config.allow_custom_hostnames,
             hostname_template: config.hostname_template.clone(),
         }
     }
 
     pub fn register_host(&mut self, desired_hostname: &Option<String>, tunnel_id: &Uuid) -> String {
-        let name = desired_hostname
-            .clone()
-            .unwrap_or_else(|| get_random_letters(5));
+        let name = if self.allow_custom_hostnames {
+            desired_hostname
+                .clone()
+                .unwrap_or_else(|| get_random_letters(5))
+        } else {
+            get_random_letters(5)
+        };
 
         let hostname = self.hostname_template.replace("{name}", &name);
 
