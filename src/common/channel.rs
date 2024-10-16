@@ -82,18 +82,6 @@ impl<T: RequestEnum> RequestSender<T> {
             )
         })
     }
-
-    pub async fn send(&self, data: T) -> Result<()> {
-        let request = Request {
-            data,
-            response_tx: None,
-        };
-
-        self.tx.send(request).await.map_err(|_| {
-            error!("Failed to send request!");
-            tokio::io::Error::new(tokio::io::ErrorKind::Other, "Failed to send request!")
-        })
-    }
 }
 
 impl<T: RequestEnum> Clone for RequestSender<T> {
@@ -109,7 +97,7 @@ pub struct RequestReceiver<T: RequestEnum> {
 }
 
 impl<T: RequestEnum> RequestReceiver<T> {
-    pub async fn recv(&mut self) -> Option<Request<T>> {
+    pub async fn wait_for_requests(&mut self) -> Option<Request<T>> {
         self.rx.recv().await
     }
 }

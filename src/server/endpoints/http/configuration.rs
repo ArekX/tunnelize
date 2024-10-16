@@ -36,7 +36,7 @@ impl HttpEndpointConfig {
             format!(":{}", self.port)
         };
 
-        format!("{}://{}:{}", protocol, hostname, port)
+        format!("{}://{}{}", protocol, hostname, port)
     }
 }
 

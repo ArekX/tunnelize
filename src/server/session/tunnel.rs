@@ -67,7 +67,7 @@ pub async fn start(
 
     loop {
         tokio::select! {
-            data = channel_rx.recv() => {
+            data = channel_rx.wait_for_requests() => {
 
                 let Some(message) = data else {
                     break;
@@ -107,12 +107,15 @@ pub async fn handle_channel_message(
     mut request: Request<TunnelSessionRequest>,
 ) {
     match &mut request.data {
-        TunnelSessionRequest::ClientLinkRequest(ref mut requestx) => {
+        TunnelSessionRequest::ClientLinkRequest(request_data) => {
+            let link_session_id = Uuid::new_v4();
+            // FIXME: Store session id with link to client_id
+
             let response: InitLinkResponse = match stream
                 .request_message(&TunnelRequestMessage::InitLinkSession(InitLinkRequest {
                     tunnel_id: session.get_id(),
-                    proxy_id: Uuid::new_v4(), // FIXME: Proxy ID should be generated on server
-                    session_id: Uuid::new_v4(), // FIXME: Store session id with link to client_id
+                    proxy_id: request_data.proxy_id,
+                    session_id: link_session_id,
                 }))
                 .await
             {

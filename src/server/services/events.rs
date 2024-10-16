@@ -1,13 +1,12 @@
-use clap::builder::Str;
 use uuid::Uuid;
 
-use crate::{server::session::tunnel::TunnelSession, tunnel::configuration::TunnelProxy};
+use crate::server::{incoming_requests::InputProxy, session::tunnel::TunnelSession};
 
 #[derive(Clone, Debug)]
 pub enum ServiceEvent {
     TunnelConnected {
         tunnel_session: TunnelSession,
-        tunnel_proxies: Vec<TunnelProxy>,
+        input_proxies: Vec<InputProxy>,
     },
     TunnelDisconnected {
         tunnel_id: Uuid,

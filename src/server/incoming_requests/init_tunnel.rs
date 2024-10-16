@@ -238,6 +238,13 @@ async fn start_tunnel_session(
         return;
     }
 
+    services
+        .push_event(ServiceEvent::TunnelConnected {
+            tunnel_session: tunnel_session.clone(),
+            input_proxies: request.data.proxies.clone(),
+        })
+        .await;
+
     session::tunnel::start(services.clone(), tunnel_session, stream, channel_rx).await;
 
     services

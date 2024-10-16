@@ -25,7 +25,7 @@ use crate::{
     server::{
         endpoints::messages::RegisterProxyResponse,
         services::{Client, Services},
-        session::messages::ClientLinkRequest,
+        session::messages::{ClientLinkRequest, ClientLinkResponse},
     },
     tunnel::configuration::ProxyConfiguration,
 };
@@ -58,7 +58,7 @@ pub async fn start(
 
     loop {
         tokio::select! {
-            request = channel_rx.recv() => {
+            request = channel_rx.wait_for_requests() => {
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
@@ -130,7 +130,7 @@ async fn handle_client_request(
         }
     };
 
-    let Some(tunnel_id) = tunnel_host.get_tunnel_id(&hostname) else {
+    let Some(session) = tunnel_host.get_session(&hostname) else {
         stream
             .write_and_shutdown(
                 &get_error_response(&request, "No tunnel is assigned for the requested hostname")
@@ -159,18 +159,35 @@ async fn handle_client_request(
         .get_tunnel_manager()
         .await
         .send_session_request(
-            tunnel_id,
+            &session.tunnel_id,
             ClientLinkRequest {
-                client_id,
-                endpoint_name: name.to_owned(),
+                client_name: name.to_owned(),
+                proxy_id: session.proxy_id,
             },
         )
         .await
     {
         Ok(result) => {
+            if let ClientLinkResponse::Rejected { reason } = result {
+                error!(
+                    "Client ID '{}' rejected by tunnel ID '{}': {}",
+                    client_id, session.tunnel_id, reason
+                );
+
+                if let Some(mut client) = services.get_client_manager().await.take_client(client_id)
+                {
+                    client
+                        .stream
+                        .write_and_shutdown(&get_error_response(&request, &reason).as_bytes())
+                        .await;
+                }
+
+                return Err(Error::new(ErrorKind::Other, reason));
+            }
+
             println!(
                 "Client ID '{}' linked to tunnel ID '{}'",
-                client_id, tunnel_id
+                client_id, session.tunnel_id
             );
         }
         Err(e) => {
@@ -210,8 +227,11 @@ async fn handle_endpoint_message(
                     continue;
                 };
 
-                let hostname =
-                    tunnel_host.register_host(&http_config.desired_name, &proxy_request.tunnel_id);
+                let hostname = tunnel_host.register_host(
+                    &http_config.desired_name,
+                    &proxy_request.tunnel_id,
+                    &proxy_session.proxy_id,
+                );
 
                 info!(
                     "Tunnel ID '{}' connected to http endpoint with hostname '{}'",

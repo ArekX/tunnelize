@@ -13,10 +13,7 @@ use tokio::{
 };
 use tokio_rustls::client::TlsStream;
 
-use super::{
-    cli,
-    transport::{read_message, write_message, MessageError},
-};
+use super::transport::{read_message, write_message, MessageError};
 
 #[derive(Debug)]
 pub enum ConnectionStream {

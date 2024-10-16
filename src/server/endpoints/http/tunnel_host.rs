@@ -9,7 +9,12 @@ use super::HttpEndpointConfig;
 pub struct TunnelHost {
     hostname_template: String,
     allow_custom_hostnames: bool,
-    host_tunnel_map: HashMap<String, Uuid>,
+    host_tunnel_map: HashMap<String, HostTunnelSession>,
+}
+
+pub struct HostTunnelSession {
+    pub tunnel_id: Uuid,
+    pub proxy_id: Uuid,
 }
 
 impl TunnelHost {
@@ -21,7 +26,12 @@ impl TunnelHost {
         }
     }
 
-    pub fn register_host(&mut self, desired_hostname: &Option<String>, tunnel_id: &Uuid) -> String {
+    pub fn register_host(
+        &mut self,
+        desired_hostname: &Option<String>,
+        tunnel_id: &Uuid,
+        proxy_id: &Uuid,
+    ) -> String {
         let name = if self.allow_custom_hostnames {
             desired_hostname
                 .clone()
@@ -32,16 +42,23 @@ impl TunnelHost {
 
         let hostname = self.hostname_template.replace("{name}", &name);
 
-        self.host_tunnel_map.insert(hostname.clone(), *tunnel_id);
+        self.host_tunnel_map.insert(
+            hostname.clone(),
+            HostTunnelSession {
+                tunnel_id: *tunnel_id,
+                proxy_id: *proxy_id,
+            },
+        );
 
         hostname
     }
 
     pub fn remove_tunnel_by_id(&mut self, tunnel_id: &Uuid) {
-        self.host_tunnel_map.retain(|_, v| v != tunnel_id);
+        self.host_tunnel_map
+            .retain(|_, v| &v.tunnel_id != tunnel_id);
     }
 
-    pub fn get_tunnel_id(&self, hostname: &str) -> Option<&Uuid> {
+    pub fn get_session(&self, hostname: &str) -> Option<&HostTunnelSession> {
         self.host_tunnel_map.get(hostname)
     }
 }

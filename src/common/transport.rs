@@ -1,6 +1,6 @@
 use std::fmt;
 
-use bincode::{self, de};
+use bincode::{self};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use log::debug;
 use serde::de::DeserializeOwned;

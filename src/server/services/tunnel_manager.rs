@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use log::debug;
-use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
 use crate::{
@@ -64,7 +63,7 @@ impl HandleServiceEvent for TunnelManager {
         match event {
             ServiceEvent::TunnelConnected {
                 tunnel_session: tunnel,
-                tunnel_proxies: _, // TODO: Add proxy configuration to tunnel list
+                input_proxies: _, // TODO: Add proxy configuration to tunnel list
             } => {
                 debug!("Registering tunnel ID to manager: {:?}", tunnel.get_id());
                 self.register_tunnel_session(tunnel);

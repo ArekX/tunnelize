@@ -27,4 +27,12 @@ pub async fn process_init_link(
     let config = services.get_config();
 
     // TODO: Implement the rest of the function
+
+    log::debug!("Received InitLinkRequest: {:?}", request.data);
+    request
+        .response_stream
+        .respond_message(&InitLinkResponse::Rejected {
+            reason: "Not yet implemented, by tunnel.".to_string(),
+        })
+        .await;
 }

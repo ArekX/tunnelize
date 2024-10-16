@@ -1,7 +1,7 @@
 use env_logger::Env;
 
 use super::cli::Commands;
-
+use std::io::Write;
 #[cfg(debug_assertions)]
 const VERBOSE_LOG_LEVEL: &str = "trace";
 
@@ -30,6 +30,19 @@ pub fn initialize_logger(command: &Commands) {
 
     #[cfg(not(debug_assertions))]
     builder.format_target(false);
+
+    #[cfg(debug_assertions)]
+    builder.format(|buf, record| {
+        writeln!(
+            buf,
+            "{}-{} [{}:{}] - {}",
+            record.level(),
+            chrono::Local::now().format("%H:%M:%S"),
+            record.file().unwrap_or("unknown"),
+            record.line().unwrap_or(0),
+            record.args()
+        )
+    });
 
     builder.init();
 }
