@@ -12,7 +12,6 @@ use std::{
 pub use configuration::HttpEndpointConfig;
 use log::{debug, error, info};
 use protocol::get_error_response;
-use rustls::crypto::hash::Hash;
 use serde::{Deserialize, Serialize};
 use tokio::{io::Result, net::TcpListener, time::timeout};
 use tunnel_host::TunnelHost;
@@ -22,7 +21,6 @@ use crate::{
     common::{
         channel::{OkResponse, Request, RequestReceiver},
         connection::ConnectionStream,
-        text::get_random_letters,
     },
     server::{
         endpoints::messages::RegisterProxyResponse,
