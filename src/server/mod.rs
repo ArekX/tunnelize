@@ -36,10 +36,11 @@ pub async fn start() -> Result<()> {
         "http".to_owned(),
         EndpointConfiguration::Http(HttpEndpointConfig {
             port: 3457,
+            is_secure: false,
             address: None,
             max_client_input_wait_secs: 10,
             hostname_template: "opop-{name}.localhost".to_owned(),
-            full_url_template: "http://{hostname}:3457".to_owned(),
+            full_url_template: None,
             allow_custom_hostnames: true,
             require_authorization: None,
         }),
