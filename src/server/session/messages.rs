@@ -8,7 +8,7 @@ create_enum_channel!(TunnelSessionRequest -> TunnelSessionResponse, {
 
 #[derive(Debug)]
 pub struct ClientLinkRequest {
-    pub client_name: String,
+    pub client_id: Uuid,
     pub proxy_id: Uuid,
 }
 

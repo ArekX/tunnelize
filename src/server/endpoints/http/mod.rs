@@ -156,7 +156,7 @@ async fn handle_client_request(
         Some(request.get_request_bytes()),
     );
 
-    services.get_client_manager().await.add_client(client);
+    services.get_client_manager().await.subscribe_client(client);
 
     match services
         .get_tunnel_manager()
@@ -164,7 +164,7 @@ async fn handle_client_request(
         .send_session_request(
             &session.tunnel_id,
             ClientLinkRequest {
-                client_name: name.to_owned(),
+                client_id: client_id,
                 proxy_id: session.proxy_id,
             },
         )
@@ -177,13 +177,14 @@ async fn handle_client_request(
                     client_id, session.tunnel_id, reason
                 );
 
-                if let Some(mut client) = services.get_client_manager().await.take_client(client_id)
-                {
-                    client
-                        .stream
-                        .close_with_data(&HttpResponseBuilder::from_error(&reason).build_bytes())
-                        .await;
-                }
+                services
+                    .get_client_manager()
+                    .await
+                    .cancel_client(
+                        &client_id,
+                        &HttpResponseBuilder::from_error(&reason).build_bytes(),
+                    )
+                    .await;
 
                 return Err(Error::new(ErrorKind::Other, reason));
             }
@@ -196,15 +197,15 @@ async fn handle_client_request(
         Err(e) => {
             error!("Failed to link client to tunnel: {}", e);
 
-            if let Some(mut client) = services.get_client_manager().await.take_client(client_id) {
-                client
-                    .stream
-                    .close_with_data(
-                        &HttpResponseBuilder::from_error("Failed to link client to tunnel")
-                            .build_bytes(),
-                    )
-                    .await;
-            }
+            services
+                .get_client_manager()
+                .await
+                .cancel_client(
+                    &client_id,
+                    &HttpResponseBuilder::from_error("Failed to link client to tunnel")
+                        .build_bytes(),
+                )
+                .await;
 
             return Err(Error::new(
                 ErrorKind::Other,
