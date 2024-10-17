@@ -74,7 +74,7 @@ pub async fn start(
                 };
 
 
-                handle_channel_message(&services, &session, &mut stream, message).await;
+                handle_channel_request(&services, &session, &mut stream, message).await;
             }
             message_result = stream.read_message::<ServerRequestMessage>() => {
                         match message_result {
@@ -100,7 +100,7 @@ pub async fn start(
     }
 }
 
-pub async fn handle_channel_message(
+pub async fn handle_channel_request(
     services: &Arc<Services>,
     session: &TunnelSession,
     stream: &mut ConnectionStream,
