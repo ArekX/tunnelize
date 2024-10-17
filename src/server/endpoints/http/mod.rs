@@ -100,17 +100,12 @@ async fn handle_client_request(
 ) -> Result<()> {
     let max_input_duration = Duration::from_secs(config.max_client_input_wait_secs);
 
-    let request = match timeout(
-        max_input_duration,
-        HttpRequestReader::read_from_stream(&mut stream),
-    )
-    .await
-    {
+    let request = match timeout(max_input_duration, HttpRequestReader::new(&mut stream)).await {
         Ok(request) => request,
         Err(e) => {
             stream
                 .close_with_data(
-                    &HttpResponseBuilder::from_bad_gateway(
+                    &HttpResponseBuilder::from_error(
                         "Failed to read request data within allowed time frame",
                     )
                     .build_bytes(),
@@ -129,7 +124,7 @@ async fn handle_client_request(
         None => {
             stream
                 .close_with_data(
-                    &HttpResponseBuilder::from_bad_gateway("Host header is missing").build_bytes(),
+                    &HttpResponseBuilder::from_error("Host header is missing").build_bytes(),
                 )
                 .await;
             return Err(Error::new(ErrorKind::Other, "Host header is missing"));
@@ -139,7 +134,7 @@ async fn handle_client_request(
     let Some(session) = tunnel_host.get_session(&hostname) else {
         stream
             .close_with_data(
-                &HttpResponseBuilder::from_bad_gateway(
+                &HttpResponseBuilder::from_error(
                     "No tunnel is assigned for the requested hostname",
                 )
                 .build_bytes(),
@@ -186,9 +181,7 @@ async fn handle_client_request(
                 {
                     client
                         .stream
-                        .close_with_data(
-                            &HttpResponseBuilder::from_bad_gateway(&reason).build_bytes(),
-                        )
+                        .close_with_data(&HttpResponseBuilder::from_error(&reason).build_bytes())
                         .await;
                 }
 
@@ -207,7 +200,7 @@ async fn handle_client_request(
                 client
                     .stream
                     .close_with_data(
-                        &HttpResponseBuilder::from_bad_gateway("Failed to link client to tunnel")
+                        &HttpResponseBuilder::from_error("Failed to link client to tunnel")
                             .build_bytes(),
                     )
                     .await;

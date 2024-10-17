@@ -9,7 +9,7 @@ pub struct HttpRequestReader {
 }
 
 impl HttpRequestReader {
-    pub async fn read_from_stream(stream: &mut ConnectionStream) -> Self {
+    pub async fn new(stream: &mut ConnectionStream) -> Self {
         Self {
             request: stream.read_string_until("\r\n\r\n").await,
         }
@@ -116,13 +116,13 @@ impl HttpResponseBuilder {
 
         instance.with_header(
             "WWW-Authenticate".to_string(),
-            format!("Basic realm=\"{}\"", realm_string),
+            format!("Basic realm=\"{}\"", realm_string.replace('"', "")),
         );
 
         instance
     }
 
-    pub fn from_bad_gateway(message: &str) -> Self {
+    pub fn from_error(message: &str) -> Self {
         Self::new(HttpStatusCode::BadGateway, message)
     }
 
