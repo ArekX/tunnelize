@@ -42,11 +42,7 @@ pub async fn start() -> Result<()> {
             hostname_template: "opop-{name}.localhost".to_owned(),
             full_url_template: None,
             allow_custom_hostnames: true,
-            require_authorization: Some(AuthorizeUser {
-                realm: None,
-                username: "admin".to_owned(),
-                password: "admin".to_owned(),
-            }),
+            require_authorization: None,
         }),
     );
 

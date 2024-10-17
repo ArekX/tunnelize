@@ -12,7 +12,7 @@ use std::{
 pub use configuration::{AuthorizeUser, HttpEndpointConfig};
 
 use log::{debug, error, info};
-use protocol::{get_error_response, get_unauthorized_response, HttpRequestReader};
+use protocol::{HttpRequestReader, HttpResponseBuilder};
 use serde::{Deserialize, Serialize};
 use tokio::{io::Result, net::TcpListener, time::timeout};
 use tunnel_host::TunnelHost;
@@ -110,8 +110,10 @@ async fn handle_client_request(
         Err(e) => {
             stream
                 .close_with_data(
-                    &get_error_response("Failed to read request data within allowed time frame")
-                        .as_bytes(),
+                    &HttpResponseBuilder::from_bad_gateway(
+                        "Failed to read request data within allowed time frame",
+                    )
+                    .build_bytes(),
                 )
                 .await;
             return Err(Error::new(ErrorKind::Other, e));
@@ -126,7 +128,9 @@ async fn handle_client_request(
         Some(hostname) => hostname,
         None => {
             stream
-                .close_with_data(&get_error_response("Host header is missing").as_bytes())
+                .close_with_data(
+                    &HttpResponseBuilder::from_bad_gateway("Host header is missing").build_bytes(),
+                )
                 .await;
             return Err(Error::new(ErrorKind::Other, "Host header is missing"));
         }
@@ -135,7 +139,10 @@ async fn handle_client_request(
     let Some(session) = tunnel_host.get_session(&hostname) else {
         stream
             .close_with_data(
-                &get_error_response("No tunnel is assigned for the requested hostname").as_bytes(),
+                &HttpResponseBuilder::from_bad_gateway(
+                    "No tunnel is assigned for the requested hostname",
+                )
+                .build_bytes(),
             )
             .await;
         return Err(Error::new(
@@ -179,7 +186,9 @@ async fn handle_client_request(
                 {
                     client
                         .stream
-                        .close_with_data(&get_error_response(&reason).as_bytes())
+                        .close_with_data(
+                            &HttpResponseBuilder::from_bad_gateway(&reason).build_bytes(),
+                        )
                         .await;
                 }
 
@@ -198,7 +207,8 @@ async fn handle_client_request(
                 client
                     .stream
                     .close_with_data(
-                        &get_error_response("Failed to link client to tunnel").as_bytes(),
+                        &HttpResponseBuilder::from_bad_gateway("Failed to link client to tunnel")
+                            .build_bytes(),
                     )
                     .await;
             }
@@ -221,7 +231,7 @@ async fn check_authorization(
     if let Some(user) = &config.require_authorization {
         if !request.is_authorization_matching(&user.username, &user.password) {
             stream
-                .close_with_data(&get_unauthorized_response(&user.realm).as_bytes())
+                .close_with_data(&HttpResponseBuilder::from_unauthorized(&user.realm).build_bytes())
                 .await;
             return false;
         }

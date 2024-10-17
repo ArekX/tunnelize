@@ -67,7 +67,7 @@ impl HttpRequestReader {
     }
 }
 
-enum HttpStatusCode {
+pub enum HttpStatusCode {
     Unauthorized,
     BadGateway,
 }
@@ -81,7 +81,7 @@ impl HttpStatusCode {
     }
 }
 
-struct HttpResponseBuilder {
+pub struct HttpResponseBuilder {
     status_code: HttpStatusCode,
     headers: HashMap<String, String>,
     body: String,
@@ -101,6 +101,29 @@ impl HttpResponseBuilder {
             .with_header("Connection".to_string(), "close".to_string());
 
         instance
+    }
+
+    pub fn from_unauthorized(realm: &Option<String>) -> Self {
+        let realm_string = match realm.as_ref() {
+            Some(realm) => realm,
+            None => "Production",
+        };
+
+        let mut instance = Self::new(
+            HttpStatusCode::Unauthorized,
+            "Access to the requested endpoint is not authorized. Please provide valid credentials.",
+        );
+
+        instance.with_header(
+            "WWW-Authenticate".to_string(),
+            format!("Basic realm=\"{}\"", realm_string),
+        );
+
+        instance
+    }
+
+    pub fn from_bad_gateway(message: &str) -> Self {
+        Self::new(HttpStatusCode::BadGateway, message)
     }
 
     pub fn with_header(&mut self, header: String, value: String) -> &mut Self {
@@ -123,25 +146,8 @@ impl HttpResponseBuilder {
             self.body
         )
     }
-}
 
-pub fn get_unauthorized_response(realm: &Option<String>) -> String {
-    let realm_string = match realm.as_ref() {
-        Some(realm) => realm,
-        None => "Production",
-    };
-
-    HttpResponseBuilder::new(
-        HttpStatusCode::Unauthorized,
-        "Access to the requested resource is not authorized. Please provide valid credentials.",
-    )
-    .with_header(
-        "WWW-Authenticate".to_string(),
-        format!("Basic realm=\"{}\"", realm_string),
-    )
-    .build()
-}
-
-pub fn get_error_response(message: &str) -> String {
-    HttpResponseBuilder::new(HttpStatusCode::BadGateway, message).build()
+    pub fn build_bytes(&self) -> Vec<u8> {
+        self.build().into_bytes()
+    }
 }
