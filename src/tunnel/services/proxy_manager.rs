@@ -21,6 +21,12 @@ impl ProxyManager {
         }
     }
 
+    pub fn get_forward_address(&self, id: &Uuid) -> Option<String> {
+        self.proxy_session_map
+            .get(id)
+            .map(|session| session.forward_address.clone())
+    }
+
     pub fn add_proxy(&mut self, proxy: &TunnelProxy) -> Uuid {
         let id = Uuid::new_v4();
 

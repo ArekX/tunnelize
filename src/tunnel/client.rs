@@ -12,11 +12,10 @@ use crate::tunnel::incoming_requests;
 use crate::tunnel::incoming_requests::TunnelRequestMessage;
 use crate::tunnel::outgoing_requests;
 
+use super::configuration::TunnelConfiguration;
 use super::services::Services;
 
-pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> Result<()> {
-    let config = services.get_config();
-
+pub async fn create_server_connection(config: &TunnelConfiguration) -> Result<ConnectionStream> {
     let server_ip = resolve_hostname(&config.server_host)?;
 
     debug!("Resolved server {} -> {}", config.server_host, server_ip);
@@ -35,7 +34,13 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
 
     println!("Connected to server at {}", config.server_host);
 
-    let mut connection_stream = ConnectionStream::from(server);
+    Ok(ConnectionStream::from(server))
+}
+
+pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> Result<()> {
+    let config = services.get_config();
+
+    let mut connection_stream = create_server_connection(&config).await?;
 
     if let Err(e) =
         outgoing_requests::authenticate_tunnel(&services, &config, &mut connection_stream).await

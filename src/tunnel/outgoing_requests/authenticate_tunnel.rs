@@ -29,6 +29,8 @@ pub async fn authenticate_tunnel(
             tunnel_id,
             endpoint_info,
         } => {
+            services.get_tunnel_data().await.set_tunnel_id(tunnel_id);
+
             info!("Tunnel accepted: {}", tunnel_id);
             info!("Endpoints accepted: {:?}", endpoint_info);
         }

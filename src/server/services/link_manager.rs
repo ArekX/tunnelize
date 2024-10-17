@@ -34,12 +34,20 @@ impl LinkManager {
         id
     }
 
-    pub fn get_client_id(&mut self, id: &Uuid) -> Option<Uuid> {
-        self.link_sessions.get(id).map(|session| session.client_id)
-    }
+    pub fn resolve_tunnel_session_client(
+        &mut self,
+        session_id: &Uuid,
+        tunnel_id: &Uuid,
+    ) -> Option<Uuid> {
+        let Some(session) = self.link_sessions.get(session_id) else {
+            return None;
+        };
 
-    pub fn get_tunnel_id(&mut self, id: &Uuid) -> Option<Uuid> {
-        self.link_sessions.get(id).map(|session| session.tunnel_id)
+        if &session.tunnel_id != tunnel_id {
+            return None;
+        }
+
+        Some(session.client_id)
     }
 
     pub fn remove_session(&mut self, id: &Uuid) {
