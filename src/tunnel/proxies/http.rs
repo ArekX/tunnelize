@@ -39,7 +39,7 @@ pub async fn start(session: HttpSession) -> Result<()> {
                 debug!("Http proxy session stopped.");
                 return Ok(());
             }
-            flow = connection_stream.wait_for_messages() => {
+            flow = connection_stream.wait_for_data() => {
                 match flow {
                     Ok(ControlFlow::Break(_)) => {
                         println!("Server closed the connection.");

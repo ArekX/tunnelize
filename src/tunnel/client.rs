@@ -50,7 +50,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
                 debug!("Hub server stopped.");
                 return Ok(());
             }
-            flow = connection_stream.wait_for_messages() => {
+            flow = connection_stream.wait_for_data() => {
                 match flow {
                     Ok(ControlFlow::Break(_)) => {
                         println!("Server closed the connection.");

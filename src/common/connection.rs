@@ -34,7 +34,7 @@ impl From<TlsStream<TcpStream>> for ConnectionStream {
 }
 
 impl ConnectionStream {
-    pub async fn wait_for_messages(&mut self) -> Result<ControlFlow<()>> {
+    pub async fn wait_for_data(&mut self) -> Result<ControlFlow<()>> {
         let mut buf = [0; 1];
 
         let inner_stream = match self {
@@ -70,6 +70,49 @@ impl ConnectionStream {
         match self {
             Self::TcpStream(stream) => read_message(stream).await,
             Self::TlsTcpStream(stream) => read_message(stream).await,
+        }
+    }
+
+    pub async fn read_string_until(&mut self, until_string: &str) -> String {
+        let mut request_buffer = Vec::new();
+
+        loop {
+            debug!("Waiting tcp stream to be readable...");
+
+            if let Err(e) = self.wait_for_data().await {
+                debug!(
+                    "Error while waiting for client stream to be readable: {:?}",
+                    e
+                );
+                break;
+            }
+
+            let mut buffer = [0; 100024];
+
+            match self.read(&mut buffer).await {
+                Ok(0) => {
+                    break;
+                }
+                Ok(read) => {
+                    request_buffer.extend_from_slice(&buffer[..read]);
+
+                    if String::from_utf8_lossy(&request_buffer).contains(until_string) {
+                        break;
+                    }
+                }
+                Err(e) => {
+                    debug!("Error while reading until block: {:?}", e);
+                    break;
+                }
+            }
+        }
+
+        match String::from_utf8(request_buffer) {
+            Ok(result) => result,
+            Err(e) => {
+                debug!("Error while converting buffer to string: {:?}", e);
+                String::new()
+            }
         }
     }
 
@@ -136,7 +179,7 @@ impl ConnectionStream {
         }
     }
 
-    pub async fn write_and_shutdown(&mut self, message: &[u8]) {
+    pub async fn close_with_data(&mut self, message: &[u8]) {
         if let Err(e) = self.write_all(message).await {
             debug!("Error while sending message: {:?}", e);
         }

@@ -9,9 +9,10 @@ use std::{
     time::Duration,
 };
 
-pub use configuration::HttpEndpointConfig;
+pub use configuration::{AuthorizeUser, HttpEndpointConfig};
+
 use log::{debug, error, info};
-use protocol::get_error_response;
+use protocol::{get_error_response, get_unauthorized_response, HttpRequestReader};
 use serde::{Deserialize, Serialize};
 use tokio::{io::Result, net::TcpListener, time::timeout};
 use tunnel_host::TunnelHost;
@@ -99,12 +100,16 @@ async fn handle_client_request(
 ) -> Result<()> {
     let max_input_duration = Duration::from_secs(config.max_client_input_wait_secs);
 
-    let request = match timeout(max_input_duration, protocol::read_http_request(&mut stream)).await
+    let request = match timeout(
+        max_input_duration,
+        HttpRequestReader::read_from_stream(&mut stream),
+    )
+    .await
     {
         Ok(request) => request,
         Err(e) => {
             stream
-                .write_and_shutdown(
+                .close_with_data(
                     &get_error_response("Failed to read request data within allowed time frame")
                         .as_bytes(),
                 )
@@ -113,13 +118,15 @@ async fn handle_client_request(
         }
     };
 
-    // TODO: Check authorization
+    if !check_authorization(&mut stream, config, &request).await {
+        return Err(Error::new(ErrorKind::Other, "Unauthorized"));
+    }
 
-    let hostname = match protocol::find_host_header_value(&request) {
+    let hostname = match request.find_hostname() {
         Some(hostname) => hostname,
         None => {
             stream
-                .write_and_shutdown(&get_error_response("Host header is missing").as_bytes())
+                .close_with_data(&get_error_response("Host header is missing").as_bytes())
                 .await;
             return Err(Error::new(ErrorKind::Other, "Host header is missing"));
         }
@@ -127,7 +134,7 @@ async fn handle_client_request(
 
     let Some(session) = tunnel_host.get_session(&hostname) else {
         stream
-            .write_and_shutdown(
+            .close_with_data(
                 &get_error_response("No tunnel is assigned for the requested hostname").as_bytes(),
             )
             .await;
@@ -144,7 +151,7 @@ async fn handle_client_request(
         name.to_owned(),
         hostname,
         stream,
-        Some(request.clone().into_bytes()),
+        Some(request.get_request_bytes()),
     );
 
     services.get_client_manager().await.add_client(client);
@@ -172,7 +179,7 @@ async fn handle_client_request(
                 {
                     client
                         .stream
-                        .write_and_shutdown(&get_error_response(&reason).as_bytes())
+                        .close_with_data(&get_error_response(&reason).as_bytes())
                         .await;
                 }
 
@@ -190,7 +197,7 @@ async fn handle_client_request(
             if let Some(mut client) = services.get_client_manager().await.take_client(client_id) {
                 client
                     .stream
-                    .write_and_shutdown(
+                    .close_with_data(
                         &get_error_response("Failed to link client to tunnel").as_bytes(),
                     )
                     .await;
@@ -204,6 +211,23 @@ async fn handle_client_request(
     }
 
     Ok(())
+}
+
+async fn check_authorization(
+    stream: &mut ConnectionStream,
+    config: &HttpEndpointConfig,
+    request: &HttpRequestReader,
+) -> bool {
+    if let Some(user) = &config.require_authorization {
+        if !request.is_authorization_matching(&user.username, &user.password) {
+            stream
+                .close_with_data(&get_unauthorized_response(&user.realm).as_bytes())
+                .await;
+            return false;
+        }
+    }
+
+    true
 }
 
 async fn handle_endpoint_message(
