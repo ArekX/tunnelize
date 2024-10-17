@@ -6,7 +6,6 @@ use log::debug;
 use crate::common::connection::ConnectionStream;
 
 enum HttpStatusCode {
-    Ok,
     Unauthorized,
     BadGateway,
 }
@@ -14,7 +13,6 @@ enum HttpStatusCode {
 impl HttpStatusCode {
     pub fn get_protocol_text(&self) -> &'static str {
         match self {
-            HttpStatusCode::Ok => "200 OK",
             HttpStatusCode::Unauthorized => "401 Unauthorized",
             HttpStatusCode::BadGateway => "502 Bad Gateway",
         }
@@ -22,16 +20,14 @@ impl HttpStatusCode {
 }
 
 struct HttpResponseBuilder {
-    version: String,
     status_code: HttpStatusCode,
     headers: HashMap<String, String>,
     body: String,
 }
 
 impl HttpResponseBuilder {
-    pub fn from_request(http_request: &str, status_code: HttpStatusCode, body: &str) -> Self {
+    pub fn from_request(status_code: HttpStatusCode, body: &str) -> Self {
         let mut instance = Self {
-            version: HttpResponseBuilder::get_http_version(http_request),
             status_code,
             body: body.to_owned(),
             headers: HashMap::new(),
@@ -43,22 +39,6 @@ impl HttpResponseBuilder {
             .with_header("Connection".to_string(), "close".to_string());
 
         instance
-    }
-
-    fn get_http_version(request: &str) -> String {
-        match request
-            .lines()
-            .find(|line| line.starts_with("HTTP/"))
-            .map(|line| {
-                let Some(version) = line.split_whitespace().next() else {
-                    return "HTTP/1.1";
-                };
-
-                version
-            }) {
-            Some(http_version) => http_version.to_string(),
-            None => "HTTP/1.1".to_string(),
-        }
     }
 
     pub fn with_header(&mut self, header: String, value: String) -> &mut Self {
@@ -75,8 +55,7 @@ impl HttpResponseBuilder {
             .join("\r\n");
 
         format!(
-            "{} {}\r\n{}\r\n\r\n{}",
-            self.version,
+            "HTTP/1.1 {}\r\n{}\r\n\r\n{}",
             self.status_code.get_protocol_text(),
             header_string,
             self.body
@@ -111,14 +90,13 @@ pub fn is_authorized(http_request: &str, username: &str, password: &str) -> bool
     false
 }
 
-pub fn get_unauthorized_response(http_request: &str, realm: &Option<String>) -> String {
+pub fn get_unauthorized_response(realm: &Option<String>) -> String {
     let realm_string = match realm.as_ref() {
         Some(realm) => realm,
         None => "Production",
     };
 
     HttpResponseBuilder::from_request(
-        http_request,
         HttpStatusCode::Unauthorized,
         "Access to the requested resource is not authorized. Please provide valid credentials.",
     )
@@ -129,8 +107,8 @@ pub fn get_unauthorized_response(http_request: &str, realm: &Option<String>) -> 
     .build()
 }
 
-pub fn get_error_response(http_request: &str, message: &str) -> String {
-    HttpResponseBuilder::from_request(http_request, HttpStatusCode::BadGateway, message).build()
+pub fn get_error_response(message: &str) -> String {
+    HttpResponseBuilder::from_request(HttpStatusCode::BadGateway, message).build()
 }
 
 pub async fn read_http_request(stream: &mut ConnectionStream) -> String {

@@ -105,11 +105,8 @@ async fn handle_client_request(
         Err(e) => {
             stream
                 .write_and_shutdown(
-                    &get_error_response(
-                        "",
-                        "Failed to read request data within allowed time frame",
-                    )
-                    .as_bytes(),
+                    &get_error_response("Failed to read request data within allowed time frame")
+                        .as_bytes(),
                 )
                 .await;
             return Err(Error::new(ErrorKind::Other, e));
@@ -122,9 +119,7 @@ async fn handle_client_request(
         Some(hostname) => hostname,
         None => {
             stream
-                .write_and_shutdown(
-                    &get_error_response(&request, "Host header is missing").as_bytes(),
-                )
+                .write_and_shutdown(&get_error_response("Host header is missing").as_bytes())
                 .await;
             return Err(Error::new(ErrorKind::Other, "Host header is missing"));
         }
@@ -133,8 +128,7 @@ async fn handle_client_request(
     let Some(session) = tunnel_host.get_session(&hostname) else {
         stream
             .write_and_shutdown(
-                &get_error_response(&request, "No tunnel is assigned for the requested hostname")
-                    .as_bytes(),
+                &get_error_response("No tunnel is assigned for the requested hostname").as_bytes(),
             )
             .await;
         return Err(Error::new(
@@ -178,7 +172,7 @@ async fn handle_client_request(
                 {
                     client
                         .stream
-                        .write_and_shutdown(&get_error_response(&request, &reason).as_bytes())
+                        .write_and_shutdown(&get_error_response(&reason).as_bytes())
                         .await;
                 }
 
@@ -197,7 +191,7 @@ async fn handle_client_request(
                 client
                     .stream
                     .write_and_shutdown(
-                        &get_error_response(&request, "Failed to link client to tunnel").as_bytes(),
+                        &get_error_response("Failed to link client to tunnel").as_bytes(),
                     )
                     .await;
             }
