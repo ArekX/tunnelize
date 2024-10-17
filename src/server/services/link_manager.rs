@@ -40,10 +40,12 @@ impl LinkManager {
         tunnel_id: &Uuid,
     ) -> Option<Uuid> {
         let Some(session) = self.link_sessions.get(session_id) else {
+            println!("Session not found");
             return None;
         };
 
         if &session.tunnel_id != tunnel_id {
+            println!("Tunnel ID mismatch");
             return None;
         }
 

@@ -1,7 +1,4 @@
-use std::{
-    io::{Error, ErrorKind},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -26,12 +23,15 @@ pub enum InitLinkResponse {
 connect_data_response!(InitLinkRequest -> InitLinkResponse);
 
 pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest<InitLinkRequest>) {
-    let config = services.get_config();
+    info!(
+        "process_init_link {}, {}",
+        request.data.session_id, request.data.tunnel_id
+    );
 
     let Some(client_id) = services
         .get_link_manager()
         .await
-        .resolve_tunnel_session_client(&request.data.tunnel_id, &request.data.session_id)
+        .resolve_tunnel_session_client(&request.data.session_id, &request.data.tunnel_id)
     else {
         request
             .response_stream
@@ -56,12 +56,19 @@ pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest
         return;
     };
 
+    request
+        .response_stream
+        .respond_message(&InitLinkResponse::Accepted)
+        .await;
+
     if let Some(data) = client_link.initial_tunnel_data {
-        if let Err(e) = request.response_stream.write_all(data.as_slice()).await {
+        if let Err(e) = request.response_stream.write_all(&data).await {
             debug!("Error writing initial tunnel data: {:?}", e);
             return;
         }
     }
+
+    println!("Linking session");
 
     if let Err(e) = request
         .response_stream

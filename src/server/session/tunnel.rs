@@ -108,8 +108,15 @@ pub async fn handle_channel_request(
 ) {
     match &mut request.data {
         TunnelSessionRequest::ClientLinkRequest(request_data) => {
-            let link_session_id = Uuid::new_v4();
-            // FIXME: Store session id with link to client_id
+            let link_session_id = services
+                .get_link_manager()
+                .await
+                .create_link_session(session.get_id(), request_data.client_id);
+
+            info!(
+                "Created link session {} for client {}",
+                link_session_id, request_data.client_id
+            );
 
             let response: InitLinkResponse = match stream
                 .request_message(&TunnelRequestMessage::InitLinkSession(InitLinkRequest {

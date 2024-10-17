@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use bincode::de;
 use log::debug;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
@@ -138,6 +139,7 @@ impl ConnectionStream {
         ResponseMessage: DeserializeOwned,
     {
         if let Err(e) = self.write_message::<RequestMessage>(request).await {
+            debug!("Error while sending message: {:?}", e);
             return Err(Error::new(ErrorKind::Other, e));
         }
 
@@ -149,9 +151,15 @@ impl ConnectionStream {
         {
             Ok(response) => match response {
                 Ok(response) => Ok(response),
-                Err(e) => Err(Error::new(ErrorKind::Other, e)),
+                Err(e) => {
+                    debug!("Error while reading response: {:?}", e);
+                    Err(Error::new(ErrorKind::Other, e))
+                }
             },
-            Err(e) => Err(Error::new(ErrorKind::Other, e)),
+            Err(e) => {
+                debug!("Timeout while waiting for response: {:?}", e);
+                Err(Error::new(ErrorKind::TimedOut, e))
+            }
         }
     }
 

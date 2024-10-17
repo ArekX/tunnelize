@@ -38,6 +38,8 @@ impl ProxyManager {
 
         self.proxy_session_map.insert(id, proxy_session);
 
+        println!("Added proxy session: {:?}", id);
+
         id
     }
 }

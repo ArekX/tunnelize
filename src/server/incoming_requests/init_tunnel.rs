@@ -163,10 +163,8 @@ async fn resolve_endpoint_info(
             service_proxies.get_mut(&proxy.endpoint_name).unwrap()
         };
 
-        let proxy_id = Uuid::new_v4();
-
         let proxy_session = ProxySession {
-            proxy_id,
+            proxy_id: proxy.proxy_id,
             config: proxy.proxy.clone(),
         };
 

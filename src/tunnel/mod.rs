@@ -20,12 +20,12 @@ mod services;
 
 pub async fn start() -> Result<()> {
     let configuration = TunnelConfiguration {
-        server_host: "0.0.0.0:3456".to_string(),
+        server_host: "127.0.0.1:3456".to_string(),
         endpoint_key: None,
         admin_key: None,
         proxies: vec![TunnelProxy {
             endpoint_name: "http".to_string(),
-            forward_address: "0.0.0.0:8000".to_string(),
+            forward_address: "0.0.0.0:1234".to_string(),
             config: ProxyConfiguration::Http(HttpProxy {
                 desired_name: Some("test".to_string()),
             }),

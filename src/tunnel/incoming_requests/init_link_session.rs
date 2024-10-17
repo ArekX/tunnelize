@@ -8,8 +8,10 @@ use uuid::Uuid;
 use crate::{
     common::{connection::ConnectionStream, data_request::DataRequest},
     connect_data_response,
-    server::incoming_requests::InitLinkRequest as ServerInitLinkRequest,
-    server::incoming_requests::InitLinkResponse as ServerInitLinkResponse,
+    server::incoming_requests::{
+        InitLinkRequest as ServerInitLinkRequest, InitLinkResponse as ServerInitLinkResponse,
+        ServerRequestMessage,
+    },
     tunnel::{client::create_server_connection, services::Services},
 };
 
@@ -32,6 +34,8 @@ pub async fn process_init_link(
     services: Arc<Services>,
     request: &mut DataRequest<InitLinkRequest>,
 ) {
+    println!("process_init_link {}", request.data.proxy_id);
+
     let Some(address) = services
         .get_proxy_manager()
         .await
@@ -77,18 +81,14 @@ pub async fn start_relay(
         return Ok(());
     };
 
-    let Ok(response): tokio::io::Result<ServerInitLinkResponse> = server_connection
-        .request_message(&ServerInitLinkRequest {
+    let auth_response: ServerInitLinkResponse = server_connection
+        .request_message(&ServerRequestMessage::InitLink(ServerInitLinkRequest {
             tunnel_id,
             session_id,
-        })
-        .await
-    else {
-        error!("Failed to initiate link with tunnel server.");
-        return Ok(());
-    };
+        }))
+        .await?;
 
-    if let ServerInitLinkResponse::Rejected { reason } = response {
+    if let ServerInitLinkResponse::Rejected { reason } = auth_response {
         error!("Tunnel server link rejected: {}", reason);
         return Ok(());
     }
