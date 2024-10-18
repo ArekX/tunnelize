@@ -58,7 +58,7 @@ pub enum ProxyProtocol {
 impl From<&ProxyConfiguration> for ProxyProtocol {
     fn from(value: &ProxyConfiguration) -> Self {
         match value {
-            ProxyConfiguration::Http(_) => ProxyProtocol::Tcp,
+            ProxyConfiguration::Http { .. } => ProxyProtocol::Tcp,
             ProxyConfiguration::Tcp { .. } => ProxyProtocol::Tcp,
             ProxyConfiguration::Udp { .. } => ProxyProtocol::Udp,
         }

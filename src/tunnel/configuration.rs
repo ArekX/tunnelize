@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-use super::proxies::http::HttpProxy;
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TunnelConfiguration {
     pub server_host: String,
@@ -19,7 +17,7 @@ pub struct TunnelProxy {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ProxyConfiguration {
-    Http(HttpProxy),
+    Http { desired_name: Option<String> },
     Tcp { port_from: u16, port_to: u16 },
     Udp { port_from: u16, port_to: u16 },
 }

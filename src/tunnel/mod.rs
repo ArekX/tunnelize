@@ -1,6 +1,5 @@
 use configuration::{ProxyConfiguration, TunnelConfiguration, TunnelProxy};
 use log::debug;
-use proxies::http::HttpProxy;
 use services::Services;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
@@ -15,7 +14,6 @@ pub mod configuration;
 pub mod incoming_requests;
 mod messages;
 mod outgoing_requests;
-mod proxies;
 mod services;
 
 pub async fn start() -> Result<()> {
@@ -26,9 +24,9 @@ pub async fn start() -> Result<()> {
         proxies: vec![TunnelProxy {
             endpoint_name: "http".to_string(),
             forward_address: "0.0.0.0:1234".to_string(),
-            config: ProxyConfiguration::Http(HttpProxy {
+            config: ProxyConfiguration::Http {
                 desired_name: Some("test".to_string()),
-            }),
+            },
         }],
     }; // TODO: This should be a parameter in start
 
