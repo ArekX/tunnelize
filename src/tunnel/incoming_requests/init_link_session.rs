@@ -110,11 +110,8 @@ pub async fn start_relay(
     }
 
     tokio::spawn(async move {
-        if let Err(e) = forward_connection
-            .link_session_with(&mut server_connection)
-            .await
-        {
-            error!("Failed to link relay: {:?}", e);
+        if let Err(e) = forward_connection.pipe_to(&mut server_connection).await {
+            error!("Relay session failed: {:?}", e);
         }
     });
 

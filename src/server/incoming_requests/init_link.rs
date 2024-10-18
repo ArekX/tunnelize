@@ -65,7 +65,7 @@ pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest
 
     if let Err(e) = request
         .response_stream
-        .link_session_with(&mut client_link.stream)
+        .pipe_to(&mut client_link.stream)
         .await
     {
         debug!("Error linking session: {:?}", e);

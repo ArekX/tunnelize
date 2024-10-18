@@ -195,7 +195,7 @@ impl ConnectionStream {
         self.shutdown().await;
     }
 
-    pub async fn link_session_with(&mut self, other: &mut Self) -> Result<()> {
+    pub async fn pipe_to(&mut self, other: &mut Self) -> Result<()> {
         match (self, other) {
             (Self::TcpStream(src), Self::TcpStream(dst)) => {
                 match io::copy_bidirectional(src, dst).await {
