@@ -23,11 +23,6 @@ pub enum InitLinkResponse {
 connect_data_response!(InitLinkRequest -> InitLinkResponse);
 
 pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest<InitLinkRequest>) {
-    info!(
-        "process_init_link {}, {}",
-        request.data.session_id, request.data.tunnel_id
-    );
-
     let Some(client_id) = services
         .get_link_manager()
         .await
@@ -68,8 +63,6 @@ pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest
         }
     }
 
-    println!("Linking session");
-
     if let Err(e) = request
         .response_stream
         .link_session_with(&mut client_link.stream)
@@ -78,5 +71,13 @@ pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest
         debug!("Error linking session: {:?}", e);
     }
 
-    // TODO: after link cleanup
+    services
+        .get_client_manager()
+        .await
+        .remove_client(&client_id);
+
+    services
+        .get_link_manager()
+        .await
+        .remove_session(&request.data.session_id);
 }

@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use std::{io::ErrorKind, sync::Arc, time::Duration};
 
 use log::error;
 use serde::{Deserialize, Serialize};
-use tokio::net::TcpStream;
+use tokio::{net::TcpStream, time::timeout};
 use uuid::Uuid;
 
 use crate::{
@@ -51,19 +51,26 @@ pub async fn process_init_link(
     };
 
     {
-        let services = services.clone();
-        let session_id = request.data.session_id;
-        tokio::spawn(async move {
-            if let Err(e) = start_relay(services, session_id, address).await {
-                error!("Failed to start relay: {:?}", e);
-            }
-        });
-    }
+        if let Err(e) =
+            start_relay(services.clone(), request.data.session_id, address.clone()).await
+        {
+            error!("Failed to start relay: {:?}", e);
 
-    request
-        .response_stream
-        .respond_message(&InitLinkResponse::Accepted)
-        .await;
+            let message = if let ErrorKind::ConnectionRefused = e.kind() {
+                format!(
+                    "Connection refused, could not connect to source at {}",
+                    address
+                )
+            } else {
+                format!("Failed to start relay: {:?}", e.kind())
+            };
+
+            request
+                .response_stream
+                .respond_message(&InitLinkResponse::Rejected { reason: message })
+                .await;
+        }
+    };
 }
 
 pub async fn start_relay(
@@ -73,12 +80,21 @@ pub async fn start_relay(
 ) -> tokio::io::Result<()> {
     let config = services.get_config();
 
-    let mut forward_connection = ConnectionStream::from(TcpStream::connect(address).await?);
+    let mut forward_connection = match TcpStream::connect(address).await {
+        Ok(stream) => ConnectionStream::from(stream),
+        Err(e) => {
+            error!("Failed to connect to forward address: {}", e);
+            return Err(e);
+        }
+    };
     let mut server_connection = create_server_connection(&config).await?;
 
     let Some(tunnel_id) = services.get_tunnel_data().await.get_tunnel_id() else {
         error!("Tunnel ID not found.");
-        return Ok(());
+        return Err(tokio::io::Error::new(
+            ErrorKind::Other,
+            "Tunnel ID not found or incorrectly assigned.",
+        ));
     };
 
     let auth_response: ServerInitLinkResponse = server_connection
@@ -90,16 +106,17 @@ pub async fn start_relay(
 
     if let ServerInitLinkResponse::Rejected { reason } = auth_response {
         error!("Tunnel server link rejected: {}", reason);
-        return Ok(());
+        return Err(tokio::io::Error::new(ErrorKind::Other, reason));
     }
 
-    if let Err(e) = forward_connection
-        .link_session_with(&mut server_connection)
-        .await
-    {
-        error!("Failed to link relay: {:?}", e);
-        return Err(e);
-    }
+    tokio::spawn(async move {
+        if let Err(e) = forward_connection
+            .link_session_with(&mut server_connection)
+            .await
+        {
+            error!("Failed to link relay: {:?}", e);
+        }
+    });
 
     Ok(())
 }
