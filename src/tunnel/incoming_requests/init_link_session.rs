@@ -1,16 +1,14 @@
-use std::{io::ErrorKind, sync::Arc, time::Duration};
+use std::{io::ErrorKind, sync::Arc};
 
 use log::error;
 use serde::{Deserialize, Serialize};
-use tokio::{net::TcpStream, time::timeout};
+use tokio::net::TcpStream;
 use uuid::Uuid;
 
 use crate::{
-    common::{connection::ConnectionStream, data_request::DataRequest},
-    connect_data_response,
+    common::connection::ConnectionStream,
     server::incoming_requests::{
         InitLinkRequest as ServerInitLinkRequest, InitLinkResponse as ServerInitLinkResponse,
-        ServerRequestMessage,
     },
     tunnel::{client::create_server_connection, services::Services},
 };
@@ -28,21 +26,19 @@ pub enum InitLinkResponse {
     Rejected { reason: String },
 }
 
-connect_data_response!(InitLinkRequest -> InitLinkResponse);
-
 pub async fn process_init_link(
-    services: Arc<Services>,
-    request: &mut DataRequest<InitLinkRequest>,
+    services: &Arc<Services>,
+    request: InitLinkRequest,
+    response_stream: &mut ConnectionStream,
 ) {
-    println!("process_init_link {}", request.data.proxy_id);
+    println!("process_init_link {}", request.proxy_id);
 
     let Some(address) = services
         .get_proxy_manager()
         .await
-        .get_forward_address(&request.data.proxy_id)
+        .get_forward_address(&request.proxy_id)
     else {
-        request
-            .response_stream
+        response_stream
             .respond_message(&InitLinkResponse::Rejected {
                 reason: "Requested proxy not found".to_string(),
             })
@@ -51,9 +47,7 @@ pub async fn process_init_link(
     };
 
     {
-        if let Err(e) =
-            start_relay(services.clone(), request.data.session_id, address.clone()).await
-        {
+        if let Err(e) = start_relay(services.clone(), request.session_id, address.clone()).await {
             error!("Failed to start relay: {:?}", e);
 
             let message = if let ErrorKind::ConnectionRefused = e.kind() {
@@ -65,8 +59,7 @@ pub async fn process_init_link(
                 format!("Failed to start relay: {:?}", e.kind())
             };
 
-            request
-                .response_stream
+            response_stream
                 .respond_message(&InitLinkResponse::Rejected { reason: message })
                 .await;
         }
@@ -98,10 +91,10 @@ pub async fn start_relay(
     };
 
     let auth_response: ServerInitLinkResponse = server_connection
-        .request_message(&ServerRequestMessage::InitLink(ServerInitLinkRequest {
+        .request_message(ServerInitLinkRequest {
             tunnel_id,
             session_id,
-        }))
+        })
         .await?;
 
     if let ServerInitLinkResponse::Rejected { reason } = auth_response {

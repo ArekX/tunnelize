@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::common::{connection::ConnectionStream, data_request::DataRequest};
+use crate::{common::connection::ConnectionStream, create_data_enum};
 
 use super::services::Services;
 use init_link::process_init_link;
@@ -13,11 +13,10 @@ mod init_tunnel;
 pub use init_link::{InitLinkRequest, InitLinkResponse};
 pub use init_tunnel::{InitTunelRequest, InitTunnelResponse, InputProxy, ProxySession};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum ServerRequestMessage {
-    InitTunnel(InitTunelRequest),
-    InitLink(InitLinkRequest),
-}
+create_data_enum!(ServerRequestMessage, {
+    InitTunelRequest -> InitTunnelResponse,
+    InitLinkRequest -> InitLinkResponse
+});
 
 pub async fn handle(
     services: Arc<Services>,
@@ -25,11 +24,11 @@ pub async fn handle(
     message: ServerRequestMessage,
 ) {
     match message {
-        ServerRequestMessage::InitTunnel(request) => {
-            process_init_tunnel(services, DataRequest::new(request, stream)).await
+        ServerRequestMessage::InitTunelRequest(request) => {
+            process_init_tunnel(services, request, stream).await
         }
-        ServerRequestMessage::InitLink(request) => {
-            process_init_link(services, DataRequest::new(request, stream)).await
+        ServerRequestMessage::InitLinkRequest(request) => {
+            process_init_link(services, request, stream).await
         }
     }
 }

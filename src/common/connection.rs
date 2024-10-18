@@ -14,7 +14,10 @@ use tokio::{
 };
 use tokio_rustls::client::TlsStream;
 
-use super::transport::{read_message, write_message, MessageError};
+use super::{
+    data_request::DataRequest,
+    transport::{read_message, write_message, MessageError},
+};
 
 #[derive(Debug)]
 pub enum ConnectionStream {
@@ -130,22 +133,24 @@ impl ConnectionStream {
         }
     }
 
-    pub async fn request_message<RequestMessage, ResponseMessage>(
+    pub async fn request_message<RequestMessage: DataRequest>(
         &mut self,
-        request: &RequestMessage,
-    ) -> std::result::Result<ResponseMessage, Error>
+        request: RequestMessage,
+    ) -> Result<RequestMessage::DataResponse>
     where
-        RequestMessage: ?Sized + Serialize,
-        ResponseMessage: DeserializeOwned,
+        RequestMessage: ?Sized + Serialize + Into<RequestMessage::DataEnum>,
     {
-        if let Err(e) = self.write_message::<RequestMessage>(request).await {
+        if let Err(e) = self
+            .write_message::<RequestMessage::DataEnum>(&request.into())
+            .await
+        {
             debug!("Error while sending message: {:?}", e);
             return Err(Error::new(ErrorKind::Other, e));
         }
 
         match timeout(
             Duration::from_secs(60),
-            self.read_message::<ResponseMessage>(),
+            self.read_message::<RequestMessage::DataResponse>(),
         )
         .await
         {
@@ -196,6 +201,7 @@ impl ConnectionStream {
     }
 
     pub async fn pipe_to(&mut self, other: &mut Self) -> Result<()> {
+        // TODO: TcpStream to TlsStream will probably need to be handled differently
         match (self, other) {
             (Self::TcpStream(src), Self::TcpStream(dst)) => {
                 match io::copy_bidirectional(src, dst).await {

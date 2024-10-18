@@ -119,11 +119,11 @@ pub async fn handle_channel_request(
             );
 
             let response: InitLinkResponse = match stream
-                .request_message(&TunnelRequestMessage::InitLinkSession(InitLinkRequest {
+                .request_message(InitLinkRequest {
                     tunnel_id: session.get_id(),
                     proxy_id: request_data.proxy_id,
                     session_id: link_session_id,
-                }))
+                })
                 .await
             {
                 Ok(response) => response,

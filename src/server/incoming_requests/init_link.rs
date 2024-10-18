@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use log::{debug, info};
+use log::debug;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{common::data_request::DataRequest, connect_data_response};
+use crate::common::connection::ConnectionStream;
 
 use super::super::services::Services;
 
@@ -20,16 +20,17 @@ pub enum InitLinkResponse {
     Rejected { reason: String },
 }
 
-connect_data_response!(InitLinkRequest -> InitLinkResponse);
-
-pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest<InitLinkRequest>) {
+pub async fn process_init_link(
+    services: Arc<Services>,
+    request: InitLinkRequest,
+    mut response_stream: ConnectionStream,
+) {
     let Some(client_id) = services
         .get_link_manager()
         .await
-        .resolve_tunnel_session_client(&request.data.session_id, &request.data.tunnel_id)
+        .resolve_tunnel_session_client(&request.session_id, &request.tunnel_id)
     else {
-        request
-            .response_stream
+        response_stream
             .respond_message(&InitLinkResponse::Rejected {
                 reason: "Session not found".to_string(),
             })
@@ -42,8 +43,7 @@ pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest
         .await
         .take_client_link(&client_id)
     else {
-        request
-            .response_stream
+        response_stream
             .respond_message(&InitLinkResponse::Rejected {
                 reason: "Client not found".to_string(),
             })
@@ -51,23 +51,18 @@ pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest
         return;
     };
 
-    request
-        .response_stream
+    response_stream
         .respond_message(&InitLinkResponse::Accepted)
         .await;
 
     if let Some(data) = client_link.initial_tunnel_data {
-        if let Err(e) = request.response_stream.write_all(&data).await {
+        if let Err(e) = response_stream.write_all(&data).await {
             debug!("Error writing initial tunnel data: {:?}", e);
             return;
         }
     }
 
-    if let Err(e) = request
-        .response_stream
-        .pipe_to(&mut client_link.stream)
-        .await
-    {
+    if let Err(e) = response_stream.pipe_to(&mut client_link.stream).await {
         debug!("Error linking session: {:?}", e);
     }
 
@@ -79,5 +74,5 @@ pub async fn process_init_link(services: Arc<Services>, mut request: DataRequest
     services
         .get_link_manager()
         .await
-        .remove_session(&request.data.session_id);
+        .remove_session(&request.session_id);
 }

@@ -3,7 +3,7 @@ use tokio::io::{self, Result};
 use uuid::Uuid;
 
 use crate::common::connection::ConnectionStream;
-use crate::server::incoming_requests::{InitLinkRequest, InitLinkResponse, ServerRequestMessage};
+use crate::server::incoming_requests::{InitLinkRequest, InitLinkResponse};
 
 pub async fn authenticate_link(
     tunnel_id: Uuid,
@@ -11,10 +11,10 @@ pub async fn authenticate_link(
     server: &mut ConnectionStream,
 ) -> Result<()> {
     let auth_response: InitLinkResponse = server
-        .request_message(&ServerRequestMessage::InitLink(InitLinkRequest {
+        .request_message(InitLinkRequest {
             tunnel_id,
             session_id,
-        }))
+        })
         .await?;
 
     match auth_response {

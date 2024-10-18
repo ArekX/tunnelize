@@ -78,7 +78,6 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
             }
         };
 
-        connection_stream =
-            incoming_requests::handle(services.clone(), connection_stream, message).await;
+        incoming_requests::handle(&services, &mut connection_stream, message).await;
     }
 }
