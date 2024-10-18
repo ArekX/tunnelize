@@ -3,7 +3,6 @@ use std::sync::Arc;
 use proxy_manager::ProxyManager;
 use tokio::sync::{Mutex, MutexGuard};
 use tunnel_data::TunnelData;
-use uuid::Uuid;
 
 use super::configuration::TunnelConfiguration;
 

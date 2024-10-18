@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::messages::{self, ClientLinkResponse, TunnelSessionRequest};
+use super::messages::{ClientLinkResponse, TunnelSessionRequest};
 use log::{debug, info};
 use uuid::Uuid;
 
@@ -11,10 +11,8 @@ use crate::{
         transport::MessageError,
     },
     server::incoming_requests::ServerRequestMessage,
-    tunnel::incoming_requests::{InitLinkRequest, InitLinkResponse, TunnelRequestMessage},
+    tunnel::incoming_requests::{InitLinkRequest, InitLinkResponse},
 };
-
-use std::io::ErrorKind;
 
 use super::super::services::Services;
 
@@ -78,20 +76,20 @@ pub async fn start(
                 handle_channel_request(&services, &session, &mut stream, message).await;
             }
             message_result = stream.read_message::<ServerRequestMessage>() => {
-                        match message_result {
-                            Ok(ok_message) => {
-                                handle_tunnel_message(&services, &session, ok_message).await;
-                            }
-                            Err(e) => match e {
-                                MessageError::ConnectionClosed => {
-                                    info!("Tunnel {} closed connection.", id);
-                                    break;
-                                }
-                                _ => {
-                                    debug!("Error while parsing {:?}", e);
-                                    info!("Failed to read message from tunnel session {}: {}", id, e);
-                                    continue;
-                                }
+                match message_result {
+                    Ok(ok_message) => {
+                        handle_tunnel_message(&services, &session, ok_message).await;
+                    }
+                    Err(e) => match e {
+                        MessageError::ConnectionClosed => {
+                            info!("Tunnel {} closed connection.", id);
+                            break;
+                        }
+                        _ => {
+                            debug!("Error while parsing {:?}", e);
+                            info!("Failed to read message from tunnel session {}: {}", id, e);
+                            continue;
+                        }
 
 
                     }

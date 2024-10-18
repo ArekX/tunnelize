@@ -64,7 +64,6 @@ impl Services {
         self.get_endpoint_manager().await.handle_event(&event).await;
         self.get_client_manager().await.handle_event(&event).await;
         self.get_link_manager().await.handle_event(&event).await;
-        // TODO: force other services to handle the event
     }
 
     pub fn get_config(&self) -> Arc<ServerConfiguration> {

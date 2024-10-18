@@ -1,5 +1,5 @@
 use configuration::{EndpointConfiguration, ServerConfiguration};
-use endpoints::http::{AuthorizeUser, HttpEndpointConfig};
+use endpoints::http::HttpEndpointConfig;
 use log::{debug, info};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
