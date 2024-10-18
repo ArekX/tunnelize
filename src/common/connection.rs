@@ -4,12 +4,11 @@ use std::{
     time::Duration,
 };
 
-use bincode::de;
 use log::debug;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
     io::{self, AsyncReadExt, AsyncWriteExt, Result},
-    net::TcpStream,
+    net::{TcpStream, UdpSocket},
     time::timeout,
 };
 use tokio_rustls::client::TlsStream;
@@ -22,12 +21,20 @@ use super::{
 #[derive(Debug)]
 pub enum ConnectionStream {
     TcpStream(TcpStream),
+    UdpSocket(UdpSocket),
     TlsTcpStream(TlsStream<TcpStream>),
+    // TODO: Add TlsUdpStream
 }
 
 impl From<TcpStream> for ConnectionStream {
     fn from(stream: TcpStream) -> Self {
         Self::TcpStream(stream)
+    }
+}
+
+impl From<UdpSocket> for ConnectionStream {
+    fn from(socket: UdpSocket) -> Self {
+        Self::UdpSocket(socket)
     }
 }
 
@@ -44,6 +51,10 @@ impl ConnectionStream {
         let inner_stream = match self {
             Self::TcpStream(stream) => stream,
             Self::TlsTcpStream(stream) => stream.get_mut().0,
+            Self::UdpSocket(_) => {
+                // TODO: Implement this for UdpSocket
+                return Ok(ControlFlow::Continue(()));
+            }
         };
 
         match inner_stream.peek(&mut buf).await {
@@ -57,6 +68,7 @@ impl ConnectionStream {
         match self {
             Self::TcpStream(stream) => stream.read(buf).await,
             Self::TlsTcpStream(stream) => stream.read(buf).await,
+            Self::UdpSocket(socket) => socket.recv(buf).await,
         }
     }
 
@@ -64,6 +76,7 @@ impl ConnectionStream {
         match self {
             Self::TcpStream(stream) => stream.write_all(buf).await,
             Self::TlsTcpStream(stream) => stream.write_all(buf).await,
+            Self::UdpSocket(socket) => socket.send(buf).await.map(|_| ()),
         }
     }
 
@@ -74,6 +87,9 @@ impl ConnectionStream {
         match self {
             Self::TcpStream(stream) => read_message(stream).await,
             Self::TlsTcpStream(stream) => read_message(stream).await,
+            Self::UdpSocket(_) => {
+                todo!("Implement read_message for UdpSocket");
+            }
         }
     }
 
@@ -130,6 +146,9 @@ impl ConnectionStream {
         match self {
             Self::TcpStream(stream) => write_message(stream, &message).await,
             Self::TlsTcpStream(stream) => write_message(stream, &message).await,
+            Self::UdpSocket(_) => {
+                todo!("Implement write_message for UdpSocket");
+            }
         }
     }
 
@@ -189,6 +208,9 @@ impl ConnectionStream {
                     debug!("Error while closing stream: {:?}", e);
                 }
             }
+            Self::UdpSocket(_) => {
+                // No close for UdpSocket
+            }
         }
     }
 
@@ -230,6 +252,7 @@ impl ConnectionStream {
         match self {
             Self::TcpStream(_) => "tcp",
             Self::TlsTcpStream(_) => "tcp (tls)",
+            Self::UdpSocket(_) => "udp",
         }
     }
 }
