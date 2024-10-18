@@ -4,12 +4,12 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::channel::OkResponse, create_enum_channel, server::incoming_requests::ProxySession,
+    common::channel::OkResponse, create_channel_enum, server::incoming_requests::ProxySession,
 };
 
 use super::http::HttpEndpointInfo;
 
-create_enum_channel!(EndpointRequest -> EndpointResponse, {
+create_channel_enum!(EndpointRequest -> EndpointResponse, {
     RegisterProxyRequest -> RegisterProxyResponse,
     RemoveTunnelRequest -> OkResponse
 });

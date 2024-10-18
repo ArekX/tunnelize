@@ -112,64 +112,7 @@ pub fn create_channel<T: RequestEnum>() -> (RequestSender<T>, RequestReceiver<T>
 }
 
 #[macro_export]
-macro_rules! connect_to_channel {
-    ($request_enum: ident -> $response_enum: ident) => {
-        impl crate::common::channel::RequestEnum for $request_enum {
-            type ResponseEnum = $response_enum;
-        }
-    };
-    ($request_enum: ident <- $request_type: ident <-> $response_type: ident -> $response_enum: ident) => {
-        crate::connect_request_with_enum!($request_type, $request_enum);
-        crate::connect_request_with_response!($request_type, $response_type);
-        crate::connect_response_with_enum!($response_type, $response_enum);
-    };
-}
-
-#[macro_export]
-macro_rules! connect_request_with_enum {
-    ($request_struct: ident, $enum: ident) => {
-        impl Into<$enum> for $request_struct {
-            fn into(self) -> $enum {
-                $enum::$request_struct(self)
-            }
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! connect_request_with_response {
-    ($request_struct: ident, $response_struct: ident) => {
-        impl crate::common::channel::DataResponse for $request_struct {
-            type Response = $response_struct;
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! connect_response_with_enum {
-    ($response_struct: ident, $response_enum: ident) => {
-        impl Into<$response_enum> for $response_struct {
-            fn into(self) -> $response_enum {
-                $response_enum::$response_struct(self)
-            }
-        }
-
-        #[allow(unreachable_patterns)]
-        impl TryFrom<$response_enum> for $response_struct {
-            type Error = ();
-
-            fn try_from(response: $response_enum) -> Result<Self, Self::Error> {
-                match response {
-                    $response_enum::$response_struct(response) => Ok(response),
-                    _ => Err(()),
-                }
-            }
-        }
-    };
-}
-
-#[macro_export]
-macro_rules! create_enum_channel {
+macro_rules! create_channel_enum {
     ($request_enum: ident -> $response_enum: ident, {
         $($request_type: ident -> $response_type: ident),*
     }) => {
@@ -180,7 +123,9 @@ macro_rules! create_enum_channel {
         ),*
         }
 
-        crate::connect_to_channel!($request_enum -> $response_enum);
+        impl crate::common::channel::RequestEnum for $request_enum {
+            type ResponseEnum = $response_enum;
+        }
 
         #[derive(Debug)]
         pub enum $response_enum {
@@ -190,7 +135,36 @@ macro_rules! create_enum_channel {
         }
 
         $(
-            crate::connect_to_channel!($request_enum <- $request_type <-> $response_type -> $response_enum);
+
+            impl Into<$request_enum> for $request_type {
+                fn into(self) -> $request_enum {
+                    $request_enum::$request_type(self)
+                }
+            }
+
+            impl crate::common::channel::DataResponse for $request_type {
+                type Response = $response_type;
+            }
+
+            impl Into<$response_enum> for $response_type {
+                fn into(self) -> $response_enum {
+                    $response_enum::$response_type(self)
+                }
+            }
+
+            #[allow(unreachable_patterns)]
+            impl TryFrom<$response_enum> for $response_type {
+                type Error = ();
+
+                fn try_from(response: $response_enum) -> Result<Self, Self::Error> {
+                    match response {
+                        $response_enum::$response_type(response) => Ok(response),
+                        _ => Err(()),
+                    }
+                }
+            }
+
+
         )*
     };
 }

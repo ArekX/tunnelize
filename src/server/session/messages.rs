@@ -1,8 +1,8 @@
 use uuid::Uuid;
 
-use crate::create_enum_channel;
+use crate::create_channel_enum;
 
-create_enum_channel!(TunnelSessionRequest -> TunnelSessionResponse, {
+create_channel_enum!(TunnelSessionRequest -> TunnelSessionResponse, {
     ClientLinkRequest -> ClientLinkResponse
 });
 
