@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use super::messages::{self, ClientLinkResponse, TunnelSessionRequest};
 use log::{debug, info};
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use crate::{
@@ -14,6 +13,8 @@ use crate::{
     server::incoming_requests::ServerRequestMessage,
     tunnel::incoming_requests::{InitLinkRequest, InitLinkResponse, TunnelRequestMessage},
 };
+
+use std::io::ErrorKind;
 
 use super::super::services::Services;
 

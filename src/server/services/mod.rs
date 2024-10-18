@@ -62,6 +62,8 @@ impl Services {
     pub async fn push_event(&self, event: ServiceEvent) {
         self.get_tunnel_manager().await.handle_event(&event).await;
         self.get_endpoint_manager().await.handle_event(&event).await;
+        self.get_client_manager().await.handle_event(&event).await;
+        self.get_link_manager().await.handle_event(&event).await;
         // TODO: force other services to handle the event
     }
 

@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use log::info;
 use uuid::Uuid;
 
-use crate::common::connection::ConnectionStream;
+use super::{events::ServiceEvent, HandleServiceEvent};
 
 pub struct LinkSession {
     id: Uuid,
@@ -53,6 +54,18 @@ impl LinkManager {
     }
 
     pub fn remove_session(&mut self, id: &Uuid) {
+        info!("Removing link session: {:?}", id);
         self.link_sessions.remove(id);
+    }
+}
+
+impl HandleServiceEvent for LinkManager {
+    async fn handle_event(&mut self, event: &ServiceEvent) {
+        match event {
+            ServiceEvent::LinkDisconnected { session_id, .. } => {
+                self.remove_session(session_id);
+            }
+            _ => {}
+        };
     }
 }

@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 
+use log::info;
 use uuid::Uuid;
 
 use crate::common::connection::ConnectionStream;
+
+use super::{events::ServiceEvent, HandleServiceEvent};
 
 pub struct ClientLink {
     pub stream: ConnectionStream,
@@ -70,6 +73,18 @@ impl ClientManager {
     }
 
     pub fn remove_client(&mut self, id: &Uuid) {
+        info!("Client disconnected: {:?}", id);
         self.clients.remove(id);
+    }
+}
+
+impl HandleServiceEvent for ClientManager {
+    async fn handle_event(&mut self, event: &ServiceEvent) {
+        match event {
+            ServiceEvent::LinkDisconnected { client_id, .. } => {
+                self.remove_client(client_id);
+            }
+            _ => {}
+        };
     }
 }

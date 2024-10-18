@@ -82,8 +82,16 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
         Ok(_) => {
             return Ok(buffer.freeze());
         }
-        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-            debug!("Unexpected EOF while reading message. {:?}", e);
+        Err(e)
+            if e.kind() == std::io::ErrorKind::UnexpectedEof
+                || e.kind() == std::io::ErrorKind::ConnectionAborted
+                || e.kind() == std::io::ErrorKind::ConnectionReset
+                || e.kind() == std::io::ErrorKind::BrokenPipe =>
+        {
+            debug!(
+                "Unexpected EOF while reading message. Ending connection. Details: {:?}",
+                e
+            );
             return Err(MessageError::ConnectionClosed);
         }
         Err(e) => {

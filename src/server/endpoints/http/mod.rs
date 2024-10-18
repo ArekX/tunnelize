@@ -244,13 +244,13 @@ async fn handle_endpoint_message(
             let mut proxy_info = HashMap::<Uuid, EndpointInfo>::new();
 
             for proxy_session in proxy_request.proxy_sessions.iter() {
-                let ProxyConfiguration::Http(http_config) = &proxy_session.config else {
+                let ProxyConfiguration::Http { desired_name } = &proxy_session.config else {
                     debug!("Proxy session configuration passed is not for Http endpoint");
                     continue;
                 };
 
                 let hostname = tunnel_host.register_host(
-                    &http_config.desired_name,
+                    &desired_name,
                     &proxy_request.tunnel_id,
                     &proxy_session.proxy_id,
                 );

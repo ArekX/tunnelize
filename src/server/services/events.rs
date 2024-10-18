@@ -11,4 +11,8 @@ pub enum ServiceEvent {
     TunnelDisconnected {
         tunnel_id: Uuid,
     },
+    LinkDisconnected {
+        client_id: Uuid,
+        session_id: Uuid,
+    },
 }

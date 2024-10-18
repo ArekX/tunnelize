@@ -1,6 +1,7 @@
-use std::{io::ErrorKind, sync::Arc};
+use std::{io::ErrorKind, sync::Arc, time::Duration};
 
-use log::error;
+use log::{error, info};
+use tokio::time::timeout;
 use uuid::Uuid;
 
 use crate::{
@@ -17,16 +18,27 @@ pub async fn start_link_session(
 ) -> tokio::io::Result<()> {
     let config = services.get_config();
 
-    let mut forward_connection = match services
-        .get_proxy_manager()
-        .await
-        .create_forward_connection(&proxy_id)
-        .await
+    info!("Starting link session.");
+    let mut forward_connection = match timeout(
+        Duration::from_secs(5),
+        services
+            .get_proxy_manager()
+            .await
+            .create_forward_connection(&proxy_id),
+    )
+    .await
     {
-        Ok(connection) => connection,
-        Err(e) => {
+        Ok(Ok(connection)) => connection,
+        Ok(Err(e)) => {
             error!("Failed to create forward connection: {:?}", e);
             return Err(e);
+        }
+        Err(_) => {
+            error!("Forward connection creation timed out.");
+            return Err(tokio::io::Error::new(
+                ErrorKind::TimedOut,
+                "Forward connection creation timed out.",
+            ));
         }
     };
 
@@ -53,6 +65,7 @@ pub async fn start_link_session(
     }
 
     tokio::spawn(async move {
+        info!("Starting relay session.");
         if let Err(e) = forward_connection.pipe_to(&mut server_connection).await {
             error!("Relay session failed: {:?}", e);
         }

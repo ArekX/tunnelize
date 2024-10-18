@@ -72,6 +72,7 @@ impl HandleServiceEvent for TunnelManager {
                 debug!("Removing tunnel ID from manager: {:?}", tunnel_id);
                 self.remove_tunnel_session(tunnel_id);
             }
+            _ => {}
         }
     }
 }

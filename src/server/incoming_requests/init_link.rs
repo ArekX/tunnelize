@@ -4,7 +4,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::common::connection::ConnectionStream;
+use crate::{common::connection::ConnectionStream, server::services::events::ServiceEvent};
 
 use super::super::services::Services;
 
@@ -38,6 +38,21 @@ pub async fn process_init_link(
         return;
     };
 
+    start_relay(&services, client_id.clone(), response_stream).await;
+
+    services
+        .push_event(ServiceEvent::LinkDisconnected {
+            client_id,
+            session_id: request.session_id,
+        })
+        .await;
+}
+
+pub async fn start_relay(
+    services: &Arc<Services>,
+    client_id: Uuid,
+    mut response_stream: ConnectionStream,
+) {
     let Some(mut client_link) = services
         .get_client_manager()
         .await
@@ -65,14 +80,4 @@ pub async fn process_init_link(
     if let Err(e) = response_stream.pipe_to(&mut client_link.stream).await {
         debug!("Error linking session: {:?}", e);
     }
-
-    services
-        .get_client_manager()
-        .await
-        .remove_client(&client_id);
-
-    services
-        .get_link_manager()
-        .await
-        .remove_session(&request.session_id);
 }
