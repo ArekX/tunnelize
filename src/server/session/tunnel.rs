@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::messages::{ClientLinkResponse, TunnelSessionRequest};
+use super::messages::{ClientLinkResponse, TunnelChannelRequest};
 use log::{debug, info};
 use uuid::Uuid;
 
@@ -10,7 +10,7 @@ use crate::{
         connection::ConnectionStream,
         transport::MessageError,
     },
-    server::incoming_requests::ServerRequestMessage,
+    server::{incoming_requests::ServerRequestMessage, session::channel_handler},
     tunnel::incoming_requests::{InitLinkRequest, InitLinkResponse},
 };
 
@@ -20,13 +20,13 @@ use super::super::services::Services;
 pub struct TunnelSession {
     id: Uuid,
     has_admin_privileges: bool,
-    channel_tx: RequestSender<TunnelSessionRequest>,
+    channel_tx: RequestSender<TunnelChannelRequest>,
 }
 
 impl TunnelSession {
     pub fn new(
         has_admin_privileges: bool,
-        channel_tx: RequestSender<TunnelSessionRequest>,
+        channel_tx: RequestSender<TunnelChannelRequest>,
     ) -> Self {
         let id = Uuid::new_v4();
         Self {
@@ -36,7 +36,7 @@ impl TunnelSession {
         }
     }
 
-    pub fn get_channel_tx(&self) -> RequestSender<TunnelSessionRequest> {
+    pub fn get_channel_tx(&self) -> RequestSender<TunnelChannelRequest> {
         self.channel_tx.clone()
     }
 
@@ -47,8 +47,8 @@ impl TunnelSession {
 
 pub fn create(
     has_admin_privileges: bool,
-) -> (TunnelSession, RequestReceiver<TunnelSessionRequest>) {
-    let (channel_tx, channel_rx) = create_channel::<TunnelSessionRequest>();
+) -> (TunnelSession, RequestReceiver<TunnelChannelRequest>) {
+    let (channel_tx, channel_rx) = create_channel::<TunnelChannelRequest>();
 
     (
         TunnelSession::new(has_admin_privileges, channel_tx),
@@ -60,7 +60,7 @@ pub async fn start(
     services: Arc<Services>,
     session: TunnelSession,
     mut stream: ConnectionStream,
-    mut channel_rx: RequestReceiver<TunnelSessionRequest>,
+    mut channel_rx: RequestReceiver<TunnelChannelRequest>,
 ) {
     let id = session.get_id();
 
@@ -73,12 +73,13 @@ pub async fn start(
                 };
 
 
-                handle_channel_request(&services, &session, &mut stream, message).await;
+                channel_handler::handle(&services, &session, &mut stream, message).await;
             }
             message_result = stream.read_message::<ServerRequestMessage>() => {
                 match message_result {
                     Ok(ok_message) => {
-                        handle_tunnel_message(&services, &session, ok_message).await;
+                        // TODO: Remove if this not needed in the end.
+                        println!("Received message from tunnel session {}: {:?}", id, ok_message);
                     }
                     Err(e) => match e {
                         MessageError::ConnectionClosed => {
@@ -97,62 +98,4 @@ pub async fn start(
             }
         }
     }
-}
-
-pub async fn handle_channel_request(
-    services: &Arc<Services>,
-    session: &TunnelSession,
-    stream: &mut ConnectionStream,
-    mut request: Request<TunnelSessionRequest>,
-) {
-    match &mut request.data {
-        TunnelSessionRequest::ClientLinkRequest(request_data) => {
-            let link_session_id = services
-                .get_link_manager()
-                .await
-                .create_link_session(session.get_id(), request_data.client_id);
-
-            info!(
-                "Created link session {} for client {}",
-                link_session_id, request_data.client_id
-            );
-
-            let response: InitLinkResponse = match stream
-                .request_message(InitLinkRequest {
-                    tunnel_id: session.get_id(),
-                    proxy_id: request_data.proxy_id,
-                    session_id: link_session_id,
-                })
-                .await
-            {
-                Ok(response) => response,
-                Err(e) => {
-                    info!("Failed to send InitLinkSession request: {}", e);
-                    return;
-                }
-            };
-
-            match response {
-                InitLinkResponse::Accepted => {
-                    request.respond(ClientLinkResponse::Accepted).await;
-                }
-                InitLinkResponse::Rejected { reason } => {
-                    request
-                        .respond(ClientLinkResponse::Rejected { reason })
-                        .await;
-                }
-            }
-        }
-    }
-}
-
-pub async fn handle_tunnel_message(
-    services: &Arc<Services>,
-    session: &TunnelSession,
-    message: ServerRequestMessage,
-) {
-    let id = session.get_id();
-
-    println!("Handling message from tunnel session {}: {:?}", id, message);
-    // TODO: Implement the rest of the tunnel session logic
 }

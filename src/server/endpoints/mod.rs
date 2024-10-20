@@ -7,6 +7,7 @@ use tokio::io::Result;
 
 pub mod http;
 pub mod messages;
+pub mod tcp;
 
 macro_rules! start_endpoint {
     ($service: expr, $services: ident, $name: ident, $config: ident, $channel_rx: ident) => {{
@@ -32,8 +33,11 @@ pub async fn start_endpoints(services: Arc<Services>) -> Result<()> {
         let channel_rx = endpoint_manager.add_endpoint(service_name, endpoint_config);
 
         match endpoint_config {
-            EndpointConfiguration::Http(http_config) => {
-                start_endpoint!(http::start, services, service_name, http_config, channel_rx);
+            EndpointConfiguration::Http(config) => {
+                start_endpoint!(http::start, services, service_name, config, channel_rx);
+            }
+            EndpointConfiguration::Tcp(config) => {
+                start_endpoint!(tcp::start, services, service_name, config, channel_rx);
             }
         }
     }

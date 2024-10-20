@@ -6,7 +6,7 @@ use uuid::Uuid;
 use crate::{
     common::channel::{DataResponse, RequestSender},
     server::session::{
-        messages::{TunnelSessionRequest, TunnelSessionResponse},
+        messages::{TunnelChannelRequest, TunnelChannelResponse},
         tunnel::TunnelSession,
     },
 };
@@ -24,20 +24,20 @@ impl TunnelManager {
         }
     }
 
-    pub fn get_session_tx(&self, id: &Uuid) -> Option<RequestSender<TunnelSessionRequest>> {
+    pub fn get_session_tx(&self, id: &Uuid) -> Option<RequestSender<TunnelChannelRequest>> {
         match self.tunnels.get(id) {
             Some(session) => Some(session.get_channel_tx()),
             None => None,
         }
     }
 
-    pub async fn send_session_request<T: Into<TunnelSessionRequest> + DataResponse>(
+    pub async fn send_session_request<T: Into<TunnelChannelRequest> + DataResponse>(
         &self,
         id: &Uuid,
         request: T,
     ) -> tokio::io::Result<T::Response>
     where
-        T::Response: TryFrom<TunnelSessionResponse>,
+        T::Response: TryFrom<TunnelChannelResponse>,
     {
         let Some(tunnel_tx) = self.get_session_tx(id) else {
             return Err(tokio::io::Error::new(

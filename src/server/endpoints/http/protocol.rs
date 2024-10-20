@@ -103,16 +103,13 @@ impl HttpResponseBuilder {
         instance
     }
 
-    pub fn from_unauthorized(realm: &Option<String>) -> Self {
+    pub fn from_unauthorized(realm: &Option<String>, message: &str) -> Self {
         let realm_string = match realm.as_ref() {
             Some(realm) => realm,
             None => "Production",
         };
 
-        let mut instance = Self::new(
-            HttpStatusCode::Unauthorized,
-            "Access to the requested endpoint is not authorized. Please provide valid credentials.",
-        );
+        let mut instance = Self::new(HttpStatusCode::Unauthorized, message);
 
         instance.with_header(
             "WWW-Authenticate".to_string(),

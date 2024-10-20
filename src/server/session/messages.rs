@@ -2,7 +2,7 @@ use uuid::Uuid;
 
 use crate::create_channel_enum;
 
-create_channel_enum!(TunnelSessionRequest -> TunnelSessionResponse, {
+create_channel_enum!(TunnelChannelRequest -> TunnelChannelResponse, {
     ClientLinkRequest -> ClientLinkResponse
 });
 

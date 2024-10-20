@@ -9,7 +9,7 @@ use crate::{
 
 use super::http::HttpEndpointInfo;
 
-create_channel_enum!(EndpointRequest -> EndpointResponse, {
+create_channel_enum!(EndpointChannelRequest -> EndpointChannelResponse, {
     RegisterProxyRequest -> RegisterProxyResponse,
     RemoveTunnelRequest -> OkResponse
 });

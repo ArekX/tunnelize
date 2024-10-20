@@ -3,12 +3,10 @@ use std::{
     sync::Arc,
 };
 
-pub use configuration::HttpEndpointConfig;
-
+use configuration::TcpEndpointConfig;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use tokio::{io::Result, net::TcpListener};
-use tunnel_host::TunnelHost;
 
 use crate::{
     common::{channel::RequestReceiver, connection::ConnectionStream},
@@ -18,10 +16,8 @@ use crate::{
 use super::messages::EndpointChannelRequest;
 
 mod channel_handler;
-mod configuration;
+pub mod configuration;
 mod data_handler;
-mod protocol;
-mod tunnel_host;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HttpEndpointInfo {
@@ -31,11 +27,9 @@ pub struct HttpEndpointInfo {
 pub async fn start(
     services: Arc<Services>,
     name: String,
-    config: HttpEndpointConfig,
+    config: TcpEndpointConfig,
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
-    let mut tunnel_host = TunnelHost::new(&config);
-
     let listener = match TcpListener::bind(config.get_bind_address()).await {
         Ok(listener) => listener,
         Err(e) => {
@@ -53,7 +47,7 @@ pub async fn start(
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
-                        if let Err(e) = channel_handler::handle(request, &config,  &mut tunnel_host).await {
+                        if let Err(e) = channel_handler::handle(request, &config).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
                     },
@@ -67,7 +61,7 @@ pub async fn start(
                 match client {
                     Ok((stream, stream_address)) => {
                         info!("Accepted connection from client: {}", stream_address);
-                        if let Err(e) = data_handler::handle(ConnectionStream::from(stream), &tunnel_host, &name, &config, &services).await {
+                        if let Err(e) = data_handler::handle(ConnectionStream::from(stream), &name, &config, &services).await {
                             error!("Failed to handle client request: {}", e);
                         }
                     },

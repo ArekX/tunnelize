@@ -6,7 +6,9 @@ use crate::{
     common::channel::{create_channel, DataResponse, RequestReceiver, RequestSender},
     server::{
         configuration::EndpointConfiguration,
-        endpoints::messages::{EndpointRequest, EndpointResponse, RemoveTunnelRequest},
+        endpoints::messages::{
+            EndpointChannelRequest, EndpointChannelResponse, RemoveTunnelRequest,
+        },
     },
 };
 
@@ -16,14 +18,14 @@ use super::{events::ServiceEvent, HandleServiceEvent};
 pub struct Endpoint {
     pub name: String,
     pub definition: EndpointConfiguration,
-    channel_tx: RequestSender<EndpointRequest>,
+    channel_tx: RequestSender<EndpointChannelRequest>,
 }
 
 impl Endpoint {
     pub fn new(
         name: String,
         definition: EndpointConfiguration,
-        channel_tx: RequestSender<EndpointRequest>,
+        channel_tx: RequestSender<EndpointChannelRequest>,
     ) -> Self {
         Self {
             name: name,
@@ -32,7 +34,7 @@ impl Endpoint {
         }
     }
 
-    pub fn get_channel_tx(&self) -> RequestSender<EndpointRequest> {
+    pub fn get_channel_tx(&self) -> RequestSender<EndpointChannelRequest> {
         self.channel_tx.clone()
     }
 }
@@ -52,8 +54,8 @@ impl EndpointManager {
         &mut self,
         service_name: &str,
         config: &EndpointConfiguration,
-    ) -> RequestReceiver<EndpointRequest> {
-        let (channel_tx, channel_rx) = create_channel::<EndpointRequest>();
+    ) -> RequestReceiver<EndpointChannelRequest> {
+        let (channel_tx, channel_rx) = create_channel::<EndpointChannelRequest>();
 
         let endpoint = Endpoint::new(service_name.to_owned(), config.clone(), channel_tx);
 
@@ -65,20 +67,20 @@ impl EndpointManager {
     fn get_endpoint_channel_tx(
         &self,
         service_name: &str,
-    ) -> Option<RequestSender<EndpointRequest>> {
+    ) -> Option<RequestSender<EndpointChannelRequest>> {
         match self.endpoints.get(service_name) {
             Some(endpoint) => Some(endpoint.get_channel_tx()),
             None => None,
         }
     }
 
-    pub async fn send_request<T: Into<EndpointRequest> + DataResponse>(
+    pub async fn send_request<T: Into<EndpointChannelRequest> + DataResponse>(
         &self,
         service_name: &str,
         request: T,
     ) -> tokio::io::Result<T::Response>
     where
-        T::Response: TryFrom<EndpointResponse>,
+        T::Response: TryFrom<EndpointChannelResponse>,
     {
         let Some(tunnel_tx) = self.get_endpoint_channel_tx(service_name) else {
             return Err(tokio::io::Error::new(
