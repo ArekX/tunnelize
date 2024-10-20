@@ -12,7 +12,10 @@ use crate::{
     common::connection::ConnectionStream,
     server::{
         configuration::ServerConfiguration,
-        endpoints::messages::{EndpointInfo, RegisterProxyRequest},
+        endpoints::{
+            self,
+            messages::{EndpointInfo, RegisterProxyRequest},
+        },
         services::events::ServiceEvent,
         session::{self},
     },
@@ -107,8 +110,37 @@ async fn validate_requested_proxies(
     config: &ServerConfiguration,
     response_stream: &mut ConnectionStream,
 ) -> Result<()> {
-    // TODO: Validate requested proxies
-    // TODO: Assign proxy IDs here, this is to be used by endpoints for info, also send the IDs back to tunnel
+    let mut errors: Vec<String> = vec![];
+
+    for proxy in request.proxies.iter() {
+        if let Some(endpoint) = config.endpoints.get(&proxy.endpoint_name) {
+            if !endpoint.matches_proxy_type(&proxy.proxy) {
+                errors.push(format!(
+                    "Requested endpoint '{}' is of type '{}', but requested proxy is of type '{}'",
+                    proxy.endpoint_name,
+                    endpoint.get_type_string(),
+                    proxy.proxy.get_type_string()
+                ));
+            }
+        } else {
+            errors.push(format!(
+                "Requested non-existing endpoint: {}",
+                proxy.endpoint_name
+            ));
+        }
+    }
+
+    if !errors.is_empty() {
+        response_stream
+            .respond_message(&InitTunnelResponse::Rejected {
+                reason: format!("Proxy validation failed: {}", errors.join(", ")),
+            })
+            .await;
+        return Err(Error::new(
+            ErrorKind::Other,
+            "Proxy validation failed.".to_owned(),
+        ));
+    }
 
     Ok(())
 }

@@ -21,3 +21,13 @@ pub enum ProxyConfiguration {
     Tcp { port_from: u16, port_to: u16 },
     Udp { port_from: u16, port_to: u16 },
 }
+
+impl ProxyConfiguration {
+    pub fn get_type_string(&self) -> &'static str {
+        match self {
+            Self::Http { .. } => "Http",
+            Self::Tcp { .. } => "Tcp",
+            Self::Udp { .. } => "Udp",
+        }
+    }
+}

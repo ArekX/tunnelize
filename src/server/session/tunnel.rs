@@ -1,17 +1,16 @@
 use std::sync::Arc;
 
-use super::messages::{ClientLinkResponse, TunnelChannelRequest};
+use super::messages::TunnelChannelRequest;
 use log::{debug, info};
 use uuid::Uuid;
 
 use crate::{
     common::{
-        channel::{create_channel, Request, RequestReceiver, RequestSender},
+        channel::{create_channel, RequestReceiver, RequestSender},
         connection::ConnectionStream,
         transport::MessageError,
     },
     server::{incoming_requests::ServerRequestMessage, session::channel_handler},
-    tunnel::incoming_requests::{InitLinkRequest, InitLinkResponse},
 };
 
 use super::super::services::Services;
