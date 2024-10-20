@@ -123,7 +123,7 @@ macro_rules! create_channel_enum {
         ),*
         }
 
-        impl crate::common::channel::RequestEnum for $request_enum {
+        impl $crate::common::channel::RequestEnum for $request_enum {
             type ResponseEnum = $response_enum;
         }
 
@@ -142,7 +142,7 @@ macro_rules! create_channel_enum {
                 }
             }
 
-            impl crate::common::channel::DataResponse for $request_type {
+            impl $crate::common::channel::DataResponse for $request_type {
                 type Response = $response_type;
             }
 

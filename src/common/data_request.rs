@@ -24,7 +24,7 @@ macro_rules! create_data_enum {
                 }
             }
 
-            impl crate::common::data_request::DataRequest for $request_type {
+            impl $crate::common::data_request::DataRequest for $request_type {
                 type DataEnum = $request_enum;
                 type DataResponse = $response_type;
             }

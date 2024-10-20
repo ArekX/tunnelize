@@ -23,7 +23,7 @@ pub async fn start() -> Result<()> {
         admin_key: None,
         proxies: vec![TunnelProxy {
             endpoint_name: "http".to_string(),
-            forward_address: "0.0.0.0:1234".to_string(),
+            forward_address: "0.0.0.0:8080".to_string(),
             config: ProxyConfiguration::Http {
                 desired_name: Some("test".to_string()),
             },
