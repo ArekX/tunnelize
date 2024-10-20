@@ -5,7 +5,6 @@ use std::{
 
 use configuration::TcpEndpointConfig;
 use log::{debug, error, info};
-use serde::{Deserialize, Serialize};
 use tokio::{io::Result, net::TcpListener};
 
 use crate::{

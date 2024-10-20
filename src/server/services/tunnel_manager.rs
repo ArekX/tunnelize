@@ -56,6 +56,10 @@ impl TunnelManager {
     pub fn remove_tunnel_session(&mut self, id: &Uuid) {
         self.tunnels.remove(&id);
     }
+
+    pub fn get_tunnel_ids(&self) -> Vec<Uuid> {
+        self.tunnels.keys().cloned().collect()
+    }
 }
 
 impl HandleServiceEvent for TunnelManager {

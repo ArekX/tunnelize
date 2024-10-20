@@ -1,5 +1,6 @@
 use configuration::{EndpointConfiguration, ServerConfiguration};
 use endpoints::http::HttpEndpointConfig;
+use endpoints::monitor::configuration::MonitorEndpointConfig;
 use log::{debug, info};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
@@ -38,6 +39,15 @@ pub async fn start() -> Result<()> {
             full_url_template: None,
             allow_custom_hostnames: true,
             require_authorization: None,
+        }),
+    );
+
+    configuration.endpoints.insert(
+        "monitor".to_owned(),
+        EndpointConfiguration::Monitoring(MonitorEndpointConfig {
+            is_secure: false,
+            port: 3000,
+            address: None,
         }),
     );
 
