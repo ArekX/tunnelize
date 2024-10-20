@@ -3,10 +3,10 @@ use std::{
     sync::Arc,
 };
 
-use configuration::TcpEndpointConfig;
+use configuration::UdpEndpointConfig;
 use log::{debug, error, info};
-use serde::{Deserialize, Serialize};
-use tokio::{io::Result, net::TcpListener};
+use tokio::io::Result;
+use tokio::net::UdpSocket;
 
 use crate::{
     common::{channel::RequestReceiver, connection::ConnectionStream},
@@ -22,11 +22,11 @@ mod data_handler;
 pub async fn start(
     services: Arc<Services>,
     name: String,
-    config: TcpEndpointConfig,
+    config: UdpEndpointConfig,
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
-    let listener = match TcpListener::bind(config.get_bind_address()).await {
-        Ok(listener) => listener,
+    let mut listener = match UdpSocket::bind(config.get_bind_address()).await {
+        Ok(listener) => ConnectionStream::from(listener),
         Err(e) => {
             error!("Failed to bind client listener: {}", e);
             return Err(Error::new(
@@ -52,19 +52,10 @@ pub async fn start(
                     }
                 }
             }
-            client = listener.accept() => {
-                match client {
-                    Ok((stream, stream_address)) => {
-                        info!("Accepted connection from client: {}", stream_address);
-                        if let Err(e) = data_handler::handle(ConnectionStream::from(stream), &name, &config, &services).await {
-                            error!("Failed to handle client request: {}", e);
-                        }
-                    },
-                    Err(e) => {
-                        error!("Failed to accept client connection: {}", e);
-                        continue;
-                    }
-                };
+            _ = listener.wait_for_data() => {
+                if let Err(e) = data_handler::handle(&mut listener, &name, &config, &services).await {
+                    error!("Failed to handle data: {}", e);
+                }
             }
         }
     }

@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::tunnel::configuration::ProxyConfiguration;
 
-use super::endpoints::{http::HttpEndpointConfig, tcp::configuration::TcpEndpointConfig};
+use super::endpoints::{
+    http::HttpEndpointConfig, monitor::configuration::MonitorEndpointConfig,
+    tcp::configuration::TcpEndpointConfig, udp::configuration::UdpEndpointConfig,
+};
 
 #[derive(Serialize, Deserialize)]
 pub struct ServerConfiguration {
@@ -19,8 +22,8 @@ pub struct ServerConfiguration {
 pub enum EndpointConfiguration {
     Http(HttpEndpointConfig),
     Tcp(TcpEndpointConfig),
-    // TODO: Udp { port_range: (u16, u16) },
-    // TODO: MonitoringApi { port: u16 },
+    Udp(UdpEndpointConfig),
+    Monitoring(MonitorEndpointConfig),
 }
 
 impl EndpointConfiguration {
@@ -28,7 +31,7 @@ impl EndpointConfiguration {
         match (self, proxy) {
             (Self::Http(_), ProxyConfiguration::Http { .. }) => true,
             (Self::Tcp(_), &ProxyConfiguration::Tcp { .. }) => true,
-            // TODO: (Self::Udp(_), &ProxyConfiguration::Udp { .. }) => true,
+            (Self::Udp(_), &ProxyConfiguration::Udp { .. }) => true,
             _ => false,
         }
     }
@@ -37,7 +40,8 @@ impl EndpointConfiguration {
         match self {
             Self::Http(_) => "Http",
             Self::Tcp(_) => "Tcp",
-            // TODO: Others
+            Self::Udp(_) => "Udp",
+            Self::Monitoring(_) => "Monitoring",
         }
     }
 }
