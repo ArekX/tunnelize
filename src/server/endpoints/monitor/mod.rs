@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use configuration::MonitorEndpointConfig;
 use state::AppState;
@@ -25,7 +25,9 @@ pub async fn start(
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
     // TODO: Add CORS
-    let state = AppState::new(services.clone());
+    let config = Arc::new(config);
+
+    let state = AppState::new(services.clone(), config.clone(), name);
 
     let app = Router::new()
         .layer(from_fn(middleware::handle_default_response))
@@ -38,7 +40,11 @@ pub async fn start(
 
     let listener = TcpListener::bind(config.get_bind_address()).await?;
 
-    axum::serve(listener, app).await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await?;
 
     Ok(())
 }

@@ -5,6 +5,14 @@ pub struct MonitorEndpointConfig {
     pub port: u16,
     pub is_secure: bool,
     pub address: Option<String>,
+    pub authentication: MonitorAuthentication,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum MonitorAuthentication {
+    None,
+    Basic { username: String, password: String },
+    Bearer { token: String },
 }
 
 impl MonitorEndpointConfig {
