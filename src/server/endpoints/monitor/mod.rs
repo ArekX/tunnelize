@@ -1,26 +1,22 @@
-use std::{os::linux::raw::stat, sync::Arc};
+use std::sync::Arc;
 
 use configuration::MonitorEndpointConfig;
-use serde::{Deserialize, Serialize};
-use tokio::io::Result;
-use uuid::Uuid;
+use state::AppState;
+use tokio::{io::Result, net::TcpListener};
+use tunnel_routes::get_tunnel_routes;
 
 use crate::{common::channel::RequestReceiver, server::services::Services};
 
 use super::messages::EndpointChannelRequest;
 use axum::{
-    extract::State,
-    http::StatusCode,
-    routing::{get, post},
-    Json, Router,
+    middleware::{from_fn, from_fn_with_state},
+    Router,
 };
 
 pub mod configuration;
-
-#[derive(Clone)]
-struct AppState {
-    pub services: Arc<Services>,
-}
+mod middleware;
+mod state;
+mod tunnel_routes;
 
 pub async fn start(
     services: Arc<Services>,
@@ -28,34 +24,21 @@ pub async fn start(
     config: MonitorEndpointConfig,
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
-    let state = AppState { services };
+    // TODO: Add CORS
+    let state = AppState::new(services.clone());
 
-    // build our application with a route
     let app = Router::new()
-        // `GET /` goes to `root`
-        .route("/", get(list_tunnels))
-        .with_state(state);
-    // `POST /users` goes to `create_user`
+        .layer(from_fn(middleware::handle_default_response))
+        .layer(from_fn_with_state(
+            state.clone(),
+            middleware::handle_authorization,
+        ))
+        .nest("/tunnel", get_tunnel_routes())
+        .with_state(state.clone());
 
-    // run our app with hyper, listening globally on port 3000
-    let listener = tokio::net::TcpListener::bind(config.get_bind_address())
-        .await
-        .unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = TcpListener::bind(config.get_bind_address()).await?;
+
+    axum::serve(listener, app).await?;
 
     Ok(())
-}
-
-#[derive(Serialize)]
-struct TunnelList {
-    tunnels: Vec<Uuid>,
-}
-
-async fn list_tunnels(State(state): State<AppState>) -> (StatusCode, Json<TunnelList>) {
-    (
-        StatusCode::OK,
-        Json(TunnelList {
-            tunnels: state.services.get_tunnel_manager().await.get_tunnel_ids(),
-        }),
-    )
 }
