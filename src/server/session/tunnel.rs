@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use super::messages::TunnelChannelRequest;
 use log::{debug, info};
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
@@ -10,7 +11,10 @@ use crate::{
         connection::ConnectionStream,
         transport::MessageError,
     },
-    server::{incoming_requests::ServerRequestMessage, session::channel_handler},
+    server::{
+        endpoints::messages::EndpointInfo, incoming_requests::ServerRequestMessage,
+        services::TunnelInfo, session::channel_handler,
+    },
 };
 
 use super::super::services::Services;
@@ -18,18 +22,24 @@ use super::super::services::Services;
 #[derive(Clone, Debug)]
 pub struct TunnelSession {
     id: Uuid,
+    name: Option<String>,
+    proxies: Vec<TunnelProxyInfo>,
     has_admin_privileges: bool,
     channel_tx: RequestSender<TunnelChannelRequest>,
 }
 
 impl TunnelSession {
     pub fn new(
+        id: Uuid,
+        name: Option<String>,
+        proxies: Vec<TunnelProxyInfo>,
         has_admin_privileges: bool,
         channel_tx: RequestSender<TunnelChannelRequest>,
     ) -> Self {
-        let id = Uuid::new_v4();
         Self {
             id,
+            name,
+            proxies,
             has_admin_privileges,
             channel_tx,
         }
@@ -44,13 +54,33 @@ impl TunnelSession {
     }
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct TunnelProxyInfo {
+    pub endpoint: String,
+    pub details: EndpointInfo,
+}
+
+impl Into<TunnelInfo> for &TunnelSession {
+    fn into(self) -> TunnelInfo {
+        TunnelInfo {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            proxies: self.proxies.clone(),
+            has_admin_access: self.has_admin_privileges.clone(),
+        }
+    }
+}
+
 pub fn create(
+    id: Uuid,
+    name: Option<String>,
+    proxies: Vec<TunnelProxyInfo>,
     has_admin_privileges: bool,
 ) -> (TunnelSession, RequestReceiver<TunnelChannelRequest>) {
     let (channel_tx, channel_rx) = create_channel::<TunnelChannelRequest>();
 
     (
-        TunnelSession::new(has_admin_privileges, channel_tx),
+        TunnelSession::new(id, name, proxies, has_admin_privileges, channel_tx),
         channel_rx,
     )
 }

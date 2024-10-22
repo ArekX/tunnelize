@@ -1,6 +1,5 @@
 use std::fmt;
 
-use bincode::{self};
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use log::debug;
 use serde::de::DeserializeOwned;
@@ -8,7 +7,8 @@ use tokio::io::AsyncReadExt;
 
 #[derive(Debug)]
 pub enum MessageError {
-    SerializationError(bincode::Error),
+    EncodeError(rmp_serde::encode::Error),
+    DecodeError(rmp_serde::decode::Error),
     IoError(std::io::Error),
     InvalidLength(u32),
     ConnectionClosed,
@@ -19,7 +19,8 @@ const MAX_MESSAGE_LENGTH: u32 = 10000000; // 10MB
 impl fmt::Display for MessageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MessageError::SerializationError(e) => write!(f, "Serialization error: {}", e),
+            MessageError::EncodeError(e) => write!(f, "Encoding error: {}", e),
+            MessageError::DecodeError(e) => write!(f, "Decoding error: {}", e),
             MessageError::IoError(e) => write!(f, "IO error: {}", e),
             MessageError::InvalidLength(length) => {
                 write!(f, "Message longer than 10MB. Length: {} bytes.", length)
@@ -32,7 +33,8 @@ impl fmt::Display for MessageError {
 impl std::error::Error for MessageError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            MessageError::SerializationError(e) => Some(e),
+            MessageError::EncodeError(e) => Some(e),
+            MessageError::DecodeError(e) => Some(e),
             MessageError::IoError(e) => Some(e),
             MessageError::InvalidLength(_) => None,
             MessageError::ConnectionClosed => None,
@@ -40,9 +42,15 @@ impl std::error::Error for MessageError {
     }
 }
 
-impl From<bincode::Error> for MessageError {
-    fn from(err: bincode::Error) -> MessageError {
-        MessageError::SerializationError(err)
+impl From<rmp_serde::encode::Error> for MessageError {
+    fn from(err: rmp_serde::encode::Error) -> MessageError {
+        MessageError::EncodeError(err)
+    }
+}
+
+impl From<rmp_serde::decode::Error> for MessageError {
+    fn from(err: rmp_serde::decode::Error) -> MessageError {
+        MessageError::DecodeError(err)
     }
 }
 
@@ -56,7 +64,7 @@ fn serialize_message<T>(message: &T) -> Result<Bytes, MessageError>
 where
     T: ?Sized + serde::Serialize,
 {
-    let encoded: Vec<u8> = bincode::serialize(message)?;
+    let encoded: Vec<u8> = rmp_serde::to_vec(message)?;
     let mut bytes = BytesMut::with_capacity(encoded.len());
     bytes.put_slice(&encoded);
     Ok(bytes.freeze())
@@ -66,7 +74,7 @@ fn deserialize_message<T>(bytes: Bytes) -> Result<T, MessageError>
 where
     T: serde::de::DeserializeOwned,
 {
-    Ok(bincode::deserialize(&bytes)?)
+    Ok(rmp_serde::from_slice(&bytes.to_vec())?)
 }
 
 async fn read_exact<T: AsyncReadExt + Unpin>(

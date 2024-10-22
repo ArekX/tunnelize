@@ -48,9 +48,8 @@ pub async fn start() -> Result<()> {
             is_secure: false,
             port: 3000,
             address: None,
-            authentication: endpoints::monitor::configuration::MonitorAuthentication::Basic {
-                username: "admin".to_owned(),
-                password: "admin".to_owned(),
+            authentication: endpoints::monitor::configuration::MonitorAuthentication::Bearer {
+                token: "opop".to_owned(),
             },
         }),
     );

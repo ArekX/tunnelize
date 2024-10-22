@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
 use log::debug;
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{
     common::channel::{DataResponse, RequestSender},
     server::session::{
         messages::{TunnelChannelRequest, TunnelChannelResponse},
-        tunnel::TunnelSession,
+        tunnel::{TunnelProxyInfo, TunnelSession},
     },
 };
 
@@ -15,6 +16,14 @@ use super::{events::ServiceEvent, HandleServiceEvent};
 
 pub struct TunnelManager {
     tunnels: HashMap<Uuid, TunnelSession>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct TunnelInfo {
+    pub id: Uuid,
+    pub name: Option<String>,
+    pub proxies: Vec<TunnelProxyInfo>,
+    pub has_admin_access: bool,
 }
 
 impl TunnelManager {
@@ -57,20 +66,20 @@ impl TunnelManager {
         self.tunnels.remove(&id);
     }
 
-    pub fn get_tunnel_ids(&self) -> Vec<Uuid> {
-        self.tunnels.keys().cloned().collect()
+    pub fn get_tunnel_info(&self) -> Vec<TunnelInfo> {
+        self.tunnels.values().map(|tunnel| tunnel.into()).collect()
     }
 }
 
 impl HandleServiceEvent for TunnelManager {
     async fn handle_event(&mut self, event: &ServiceEvent) {
         match event {
-            ServiceEvent::TunnelConnected {
-                tunnel_session: tunnel,
-                input_proxies: _, // TODO: Add proxy configuration to tunnel list
-            } => {
-                debug!("Registering tunnel ID to manager: {:?}", tunnel.get_id());
-                self.register_tunnel_session(tunnel);
+            ServiceEvent::TunnelConnected { tunnel_session } => {
+                debug!(
+                    "Registering tunnel ID to manager: {:?}",
+                    tunnel_session.get_id()
+                );
+                self.register_tunnel_session(tunnel_session);
             }
             ServiceEvent::TunnelDisconnected { tunnel_id } => {
                 debug!("Removing tunnel ID from manager: {:?}", tunnel_id);

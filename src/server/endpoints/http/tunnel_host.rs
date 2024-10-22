@@ -26,21 +26,47 @@ impl TunnelHost {
         }
     }
 
+    fn generate_new_name(&self, desired_hostname: &Option<String>, append_suffix: bool) -> String {
+        if self.allow_custom_hostnames {
+            if append_suffix {
+                return format!(
+                    "{}-{}",
+                    desired_hostname
+                        .clone()
+                        .unwrap_or_else(|| get_random_letters(5)),
+                    get_random_letters(5)
+                );
+            }
+
+            return desired_hostname
+                .clone()
+                .unwrap_or_else(|| get_random_letters(5));
+        };
+
+        get_random_letters(5)
+    }
+
+    fn generate_unique_hostname(&self, desired_hostname: &Option<String>) -> String {
+        let mut hostname = self
+            .hostname_template
+            .replace("{name}", &self.generate_new_name(desired_hostname, false));
+
+        while self.host_tunnel_map.contains_key(&hostname) {
+            hostname = self
+                .hostname_template
+                .replace("{name}", &self.generate_new_name(desired_hostname, true));
+        }
+
+        hostname
+    }
+
     pub fn register_host(
         &mut self,
         desired_hostname: &Option<String>,
         tunnel_id: &Uuid,
         proxy_id: &Uuid,
     ) -> String {
-        let name = if self.allow_custom_hostnames {
-            desired_hostname
-                .clone()
-                .unwrap_or_else(|| get_random_letters(5))
-        } else {
-            get_random_letters(5)
-        };
-
-        let hostname = self.hostname_template.replace("{name}", &name);
+        let hostname = self.generate_unique_hostname(desired_hostname);
 
         self.host_tunnel_map.insert(
             hostname.clone(),

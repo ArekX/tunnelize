@@ -17,7 +17,7 @@ use crate::{
             messages::{EndpointInfo, RegisterProxyRequest},
         },
         services::events::ServiceEvent,
-        session::{self},
+        session::{self, tunnel::TunnelProxyInfo},
     },
     tunnel::configuration::ProxyConfiguration,
 };
@@ -28,6 +28,7 @@ use tokio::io::Result;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InitTunelRequest {
+    pub name: Option<String>,
     pub endpoint_key: Option<String>,
     pub admin_key: Option<String>,
     pub proxies: Vec<InputProxy>,
@@ -183,8 +184,9 @@ async fn resolve_endpoint_info(
     tunnel_id: Uuid,
     request: &InitTunelRequest,
     services: &Arc<Services>,
-) -> Result<HashMap<Uuid, EndpointInfo>> {
+) -> Result<(Vec<TunnelProxyInfo>, HashMap<Uuid, EndpointInfo>)> {
     let mut service_proxies = HashMap::<String, Vec<ProxySession>>::new();
+    let mut tunnel_proxy_info: Vec<TunnelProxyInfo> = Vec::new();
 
     for proxy in request.proxies.iter() {
         let sessions = {
@@ -232,11 +234,16 @@ async fn resolve_endpoint_info(
         };
 
         for (proxy_id, endpoint_info) in response.proxy_info {
+            tunnel_proxy_info.push(TunnelProxyInfo {
+                details: endpoint_info.clone(),
+                endpoint: service_name.clone(),
+            });
+
             proxy_data.insert(proxy_id, endpoint_info);
         }
     }
 
-    Ok(proxy_data)
+    Ok((tunnel_proxy_info, proxy_data))
 }
 
 async fn start_tunnel_session(
@@ -245,16 +252,24 @@ async fn start_tunnel_session(
     request: InitTunelRequest,
     mut response_stream: ConnectionStream,
 ) {
-    let (tunnel_session, channel_rx) = session::tunnel::create(has_admin_privileges);
+    let tunnel_id = Uuid::new_v4();
+
+    let Ok((proxies, endpoint_info)) = resolve_endpoint_info(tunnel_id, &request, &services).await
+    else {
+        debug!("Error while resolving endpoint info!");
+        return;
+    };
+
+    let (tunnel_session, channel_rx) = session::tunnel::create(
+        tunnel_id.clone(),
+        request.name.clone(),
+        proxies,
+        has_admin_privileges,
+    );
 
     let tunnel_id = tunnel_session.get_id();
 
     info!("Tunnel connected. Assigned ID: {}", tunnel_id);
-
-    let Ok(endpoint_info) = resolve_endpoint_info(tunnel_id, &request, &services).await else {
-        debug!("Error while resolving endpoint info!");
-        return;
-    };
 
     if let Err(e) = response_stream
         .write_message(&InitTunnelResponse::Accepted {
@@ -270,9 +285,10 @@ async fn start_tunnel_session(
     services
         .push_event(ServiceEvent::TunnelConnected {
             tunnel_session: tunnel_session.clone(),
-            input_proxies: request.proxies.clone(),
         })
         .await;
+
+    // TODO: Two problems: 1. hostname is registered for 2 tunnels, 2. tunnel session is hangs after closing and reconnecting tunnel
 
     session::tunnel::start(
         services.clone(),

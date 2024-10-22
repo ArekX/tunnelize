@@ -16,6 +16,7 @@ mod link_manager;
 mod tunnel_manager;
 
 pub use client_manager::Client;
+pub use tunnel_manager::TunnelInfo;
 
 pub trait HandleServiceEvent {
     async fn handle_event(&mut self, event: &ServiceEvent);

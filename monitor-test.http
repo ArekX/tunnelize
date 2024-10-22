@@ -1,0 +1,13 @@
+{{+
+  const token = "opop"
+  exports.defaultHeaders = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+}}
+### 
+
+GET http://localhost:3000
+...defaultHeaders
+  /tunnel
+###

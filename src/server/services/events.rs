@@ -1,18 +1,10 @@
 use uuid::Uuid;
 
-use crate::server::{incoming_requests::InputProxy, session::tunnel::TunnelSession};
+use crate::server::session::tunnel::TunnelSession;
 
 #[derive(Clone, Debug)]
 pub enum ServiceEvent {
-    TunnelConnected {
-        tunnel_session: TunnelSession,
-        input_proxies: Vec<InputProxy>,
-    },
-    TunnelDisconnected {
-        tunnel_id: Uuid,
-    },
-    LinkDisconnected {
-        client_id: Uuid,
-        session_id: Uuid,
-    },
+    TunnelConnected { tunnel_session: TunnelSession },
+    TunnelDisconnected { tunnel_id: Uuid },
+    LinkDisconnected { client_id: Uuid, session_id: Uuid },
 }

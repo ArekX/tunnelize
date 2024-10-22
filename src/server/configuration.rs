@@ -19,6 +19,7 @@ pub struct ServerConfiguration {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum EndpointConfiguration {
     Http(HttpEndpointConfig),
     Tcp(TcpEndpointConfig),
