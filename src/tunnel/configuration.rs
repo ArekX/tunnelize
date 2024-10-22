@@ -27,9 +27,9 @@ pub enum ProxyConfiguration {
 impl ProxyConfiguration {
     pub fn get_type_string(&self) -> &'static str {
         match self {
-            Self::Http { .. } => "Http",
-            Self::Tcp { .. } => "Tcp",
-            Self::Udp { .. } => "Udp",
+            Self::Http { .. } => "http",
+            Self::Tcp { .. } => "tcp",
+            Self::Udp { .. } => "udp",
         }
     }
 }

@@ -39,10 +39,10 @@ impl EndpointConfiguration {
 
     pub fn get_type_string(&self) -> &'static str {
         match self {
-            Self::Http(_) => "Http",
-            Self::Tcp(_) => "Tcp",
-            Self::Udp(_) => "Udp",
-            Self::Monitoring(_) => "Monitoring",
+            Self::Http(_) => "http",
+            Self::Tcp(_) => "tcp",
+            Self::Udp(_) => "udp",
+            Self::Monitoring(_) => "monitoring",
         }
     }
 }
