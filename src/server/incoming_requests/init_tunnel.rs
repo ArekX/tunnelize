@@ -13,7 +13,6 @@ use crate::{
     server::{
         configuration::ServerConfiguration,
         endpoints::{
-            self,
             messages::{EndpointInfo, RegisterProxyRequest},
         },
         services::events::ServiceEvent,
@@ -288,7 +287,6 @@ async fn start_tunnel_session(
         })
         .await;
 
-    // TODO: Two problems: 1. hostname is registered for 2 tunnels, 2. tunnel session is hangs after closing and reconnecting tunnel
 
     session::tunnel::start(
         services.clone(),
@@ -301,4 +299,5 @@ async fn start_tunnel_session(
     services
         .push_event(ServiceEvent::TunnelDisconnected { tunnel_id })
         .await;
+
 }

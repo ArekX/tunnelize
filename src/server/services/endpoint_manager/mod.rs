@@ -98,6 +98,10 @@ impl HandleServiceEvent for EndpointManager {
         match event {
             ServiceEvent::TunnelDisconnected { tunnel_id } => {
                 for endpoint_name in self.endpoints.keys() {
+                    println!(
+                        "Sending RemoveTunnelRequest to endpoint '{}'",
+                        endpoint_name
+                    );
                     if let Err(e) = self
                         .send_request(
                             &endpoint_name,
@@ -112,6 +116,10 @@ impl HandleServiceEvent for EndpointManager {
                             endpoint_name, e
                         );
                     }
+                    println!(
+                        "Removing tunnel ID from endpoint {}: {:?}",
+                        endpoint_name, tunnel_id
+                    );
                 }
             }
             _ => {}

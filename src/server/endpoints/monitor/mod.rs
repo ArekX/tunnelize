@@ -1,6 +1,7 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use configuration::MonitorEndpointConfig;
+use log::{debug, error, info};
 use state::AppState;
 use tokio::{io::Result, net::TcpListener};
 use tunnel_routes::get_tunnel_routes;
@@ -13,6 +14,7 @@ use axum::{
     Router,
 };
 
+mod channel_handler;
 pub mod configuration;
 mod middleware;
 mod state;
@@ -35,10 +37,30 @@ pub async fn start(
             state.clone(),
             middleware::handle_authorization,
         ))
-        .nest("/tunnel", get_tunnel_routes())
+        .nest("/tunnels", get_tunnel_routes())
         .with_state(state.clone());
 
     let listener = TcpListener::bind(config.get_bind_address()).await?;
+
+    tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                request = channel_rx.wait_for_requests() => {
+                    match request {
+                        Some(request) => {
+                            debug!("Received endpoint message");
+                            if let Err(e) = channel_handler::handle(request).await {
+                                error!("Failed to handle endpoint message: {}", e);
+                            }
+                        },
+                        None => {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    });
 
     axum::serve(
         listener,

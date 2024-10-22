@@ -129,9 +129,17 @@ macro_rules! create_channel_enum {
 
         #[derive(Debug)]
         pub enum $response_enum {
+            InvalidResponse,
         $(
             $response_type($response_type)
         ),*
+
+        }
+
+        impl Into<$response_enum> for $crate::common::channel::InvalidResponse {
+            fn into(self) -> $response_enum {
+                $response_enum::InvalidResponse
+            }
         }
 
         $(
@@ -171,3 +179,6 @@ macro_rules! create_channel_enum {
 
 #[derive(Debug, Clone)]
 pub struct OkResponse;
+
+#[derive(Debug, Clone)]
+pub struct InvalidResponse;

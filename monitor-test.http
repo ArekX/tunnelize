@@ -5,9 +5,12 @@
     'Authorization': `Bearer ${token}`
   };
 }}
-### 
 
-GET http://localhost:3000
+@host=http://localhost:3000
+
+###  Tunnels
+
+GET /tunnels
 ...defaultHeaders
-  /tunnel
-###
+  
+
