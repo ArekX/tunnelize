@@ -12,9 +12,7 @@ use crate::{
     common::connection::ConnectionStream,
     server::{
         configuration::ServerConfiguration,
-        endpoints::{
-            messages::{EndpointInfo, RegisterProxyRequest},
-        },
+        endpoints::messages::{EndpointInfo, RegisterProxyRequest},
         services::events::ServiceEvent,
         session::{self, tunnel::TunnelProxyInfo},
     },
@@ -287,7 +285,6 @@ async fn start_tunnel_session(
         })
         .await;
 
-
     session::tunnel::start(
         services.clone(),
         tunnel_session,
@@ -299,5 +296,4 @@ async fn start_tunnel_session(
     services
         .push_event(ServiceEvent::TunnelDisconnected { tunnel_id })
         .await;
-
 }
