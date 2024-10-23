@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    net::IpAddr,
-    sync::{atomic::AtomicU8, Arc},
-};
+use std::{collections::HashMap, net::IpAddr, sync::Arc};
 
 use chrono::Utc;
 use tokio::sync::Mutex;

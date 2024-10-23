@@ -18,10 +18,20 @@ pub async fn handle(
 ) {
     match &mut request.data {
         TunnelChannelRequest::ClientLinkRequest(request_data) => {
-            let link_session_id = services
-                .get_link_manager()
+            let Some(info) = services
+                .get_client_manager()
                 .await
-                .create_link_session(session.get_id(), request_data.client_id);
+                .get_info(&request_data.client_id)
+            else {
+                info!("Client {} not found", request_data.client_id);
+                return;
+            };
+
+            let link_session_id = services.get_link_manager().await.create_link_session(
+                session.get_id(),
+                info,
+                session.cancel_token.child_token(),
+            );
 
             info!(
                 "Created link session {} for client {}",

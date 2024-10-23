@@ -16,6 +16,7 @@ mod link_manager;
 mod tunnel_manager;
 
 pub use client_manager::Client;
+pub use link_manager::LinkInfo;
 pub use tunnel_manager::TunnelInfo;
 
 pub trait HandleServiceEvent {
@@ -46,6 +47,7 @@ impl Services {
     }
 
     pub async fn get_tunnel_manager(&self) -> MutexGuard<TunnelManager> {
+        println!("Get tunnel manager lock");
         self.tunnel_manager.lock().await
     }
 
@@ -58,10 +60,19 @@ impl Services {
     }
 
     pub async fn push_event(&self, event: ServiceEvent) {
+        println!("Send to tunnel manager");
         self.get_tunnel_manager().await.handle_event(&event).await;
+
+        println!("Send to endpoint manager");
         self.get_endpoint_manager().await.handle_event(&event).await;
+
+        println!("Send to client manager");
         self.get_client_manager().await.handle_event(&event).await;
+
+        println!("Send to link manager");
         self.get_link_manager().await.handle_event(&event).await;
+
+        println!("Event handled");
     }
 
     pub fn get_config(&self) -> Arc<ServerConfiguration> {

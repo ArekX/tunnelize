@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use log::info;
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::common::connection::ConnectionStream;
@@ -14,23 +15,35 @@ pub struct ClientLink {
 
 pub struct Client {
     id: Uuid,
-    service_name: String,
-    hostname: String,
+    endpoint_name: String,
     link: Option<ClientLink>,
+}
+
+impl Into<ClientInfo> for &Client {
+    fn into(self) -> ClientInfo {
+        ClientInfo {
+            id: self.id,
+            endpoint_name: self.endpoint_name.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ClientInfo {
+    pub id: Uuid,
+    pub endpoint_name: String,
 }
 
 impl Client {
     pub fn new(
         id: Uuid,
         service_name: String,
-        hostname: String,
         stream: ConnectionStream,
         initial_tunnel_data: Option<Vec<u8>>,
     ) -> Self {
         Self {
             id,
-            service_name,
-            hostname,
+            endpoint_name: service_name,
             link: Some(ClientLink {
                 stream,
                 initial_tunnel_data,
@@ -76,6 +89,10 @@ impl ClientManager {
         info!("Client disconnected: {:?}", id);
         self.clients.remove(id);
     }
+
+    pub fn get_info(&self, id: &Uuid) -> Option<ClientInfo> {
+        self.clients.get(id).map(|client| client.into())
+    }
 }
 
 impl HandleServiceEvent for ClientManager {
@@ -84,6 +101,7 @@ impl HandleServiceEvent for ClientManager {
             ServiceEvent::LinkDisconnected { client_id, .. } => {
                 self.remove_client(client_id);
             }
+
             _ => {}
         };
     }

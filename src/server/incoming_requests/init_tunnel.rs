@@ -66,16 +66,7 @@ pub async fn process_init_tunnel(
         return;
     }
 
-    let has_admin_privileges =
-        match resolve_admin_privileges(&request, &config, &mut response_stream).await {
-            Ok(has_admin_privileges) => has_admin_privileges,
-            Err(e) => {
-                debug!("Error resolving admin privileges: {:?}", e);
-                return;
-            }
-        };
-
-    start_tunnel_session(services, has_admin_privileges, request, response_stream).await;
+    start_tunnel_session(services, request, response_stream).await;
 }
 
 async fn validate_server_access(
@@ -143,6 +134,7 @@ async fn validate_requested_proxies(
     Ok(())
 }
 
+// TODO: Move for monitoring commands check
 async fn resolve_admin_privileges(
     request: &InitTunelRequest,
     config: &Arc<ServerConfiguration>,
@@ -245,7 +237,6 @@ async fn resolve_endpoint_info(
 
 async fn start_tunnel_session(
     services: Arc<Services>,
-    has_admin_privileges: bool,
     request: InitTunelRequest,
     mut response_stream: ConnectionStream,
 ) {
@@ -257,12 +248,8 @@ async fn start_tunnel_session(
         return;
     };
 
-    let (tunnel_session, channel_rx) = session::tunnel::create(
-        tunnel_id.clone(),
-        request.name.clone(),
-        proxies,
-        has_admin_privileges,
-    );
+    let (tunnel_session, channel_rx) =
+        session::tunnel::create(tunnel_id.clone(), request.name.clone(), proxies);
 
     let tunnel_id = tunnel_session.get_id();
 

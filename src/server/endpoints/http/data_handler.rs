@@ -70,7 +70,6 @@ pub async fn handle(
     let client = Client::new(
         client_id,
         name.to_owned(),
-        hostname,
         stream,
         Some(request.get_request_bytes()),
     );

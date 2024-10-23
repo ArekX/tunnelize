@@ -31,6 +31,22 @@ fn to_error_response(status_code: StatusCode, message: &str) -> Response<Body> {
         .into_response()
 }
 
+async fn get_response_string(response: Response<Body>) -> String {
+    match axum::body::to_bytes(response.into_body(), 2048usize).await {
+        Ok(body_bytes) => match String::from_utf8(body_bytes.to_vec()) {
+            Ok(string) => string,
+            Err(e) => {
+                debug!("Error converting response body to string: {}", e);
+                "Unknown error".to_owned()
+            }
+        },
+        Err(e) => {
+            debug!("Error reading response body: {}", e);
+            "Unknown error".to_owned()
+        }
+    }
+}
+
 pub async fn handle_default_response(
     request: Request,
     next: Next,
@@ -45,23 +61,9 @@ pub async fn handle_default_response(
     let message = match status_code {
         StatusCode::NOT_FOUND => "Requested resource not found".to_owned(),
         StatusCode::METHOD_NOT_ALLOWED => "Method not allowed.".to_owned(),
-        StatusCode::BAD_REQUEST => "Bad request".to_owned(),
+        StatusCode::BAD_REQUEST => get_response_string(response).await,
         StatusCode::UNAUTHORIZED => "You are not authorized to access this endpoint.".to_owned(),
-        StatusCode::INTERNAL_SERVER_ERROR => {
-            match axum::body::to_bytes(response.into_body(), 2048usize).await {
-                Ok(body_bytes) => match String::from_utf8(body_bytes.to_vec()) {
-                    Ok(string) => string,
-                    Err(e) => {
-                        debug!("Error converting response body to string: {}", e);
-                        "Unknown error".to_owned()
-                    }
-                },
-                Err(e) => {
-                    debug!("Error reading response body: {}", e);
-                    "Unknown error".to_owned()
-                }
-            }
-        }
+        StatusCode::INTERNAL_SERVER_ERROR => get_response_string(response).await,
         _ => "Unknown error".to_owned(),
     };
 

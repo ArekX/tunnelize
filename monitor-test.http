@@ -10,7 +10,27 @@
 
 ###  Tunnels
 
+# @name tunnels
 GET /tunnels
 ...defaultHeaders
-  
 
+
+GET /tunnels/{{tunnels.records[0].id}}
+...defaultHeaders
+
+DELETE /tunnels/{{tunnels.records[0].id}}
+...defaultHeaders
+
+
+### Clients
+
+
+# @name clients
+GET /clients
+...defaultHeaders
+
+GET /clients/{{clients.records[0].id}}
+...defaultHeaders
+
+DELETE /clients/{{clients.records[0].id}}
+...defaultHeaders

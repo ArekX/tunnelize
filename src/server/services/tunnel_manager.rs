@@ -23,7 +23,6 @@ pub struct TunnelInfo {
     pub id: Uuid,
     pub name: Option<String>,
     pub proxies: Vec<TunnelProxyInfo>,
-    pub has_admin_access: bool,
 }
 
 impl TunnelManager {
@@ -38,6 +37,15 @@ impl TunnelManager {
             Some(session) => Some(session.get_channel_tx()),
             None => None,
         }
+    }
+
+    pub fn cancel_session(&self, id: &Uuid) -> Result<(), String> {
+        if let Some(session) = self.tunnels.get(id) {
+            session.cancel_token.cancel();
+            return Ok(());
+        }
+
+        Err(format!("Tunnel session not found: {:?}", id))
     }
 
     pub async fn send_session_request<T: Into<TunnelChannelRequest> + DataResponse>(
@@ -66,8 +74,12 @@ impl TunnelManager {
         self.tunnels.remove(&id);
     }
 
-    pub fn get_tunnel_info(&self) -> Vec<TunnelInfo> {
+    pub fn list_all_tunnels(&self) -> Vec<TunnelInfo> {
         self.tunnels.values().map(|tunnel| tunnel.into()).collect()
+    }
+
+    pub fn get_tunnel_info(&self, id: &Uuid) -> Option<TunnelInfo> {
+        self.tunnels.get(id).map(|tunnel| tunnel.into())
     }
 }
 

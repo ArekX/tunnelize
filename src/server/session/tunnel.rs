@@ -3,6 +3,7 @@ use std::sync::Arc;
 use super::messages::TunnelChannelRequest;
 use log::{debug, info};
 use serde::Serialize;
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::{
@@ -24,8 +25,8 @@ pub struct TunnelSession {
     id: Uuid,
     name: Option<String>,
     proxies: Vec<TunnelProxyInfo>,
-    has_admin_privileges: bool,
     channel_tx: RequestSender<TunnelChannelRequest>,
+    pub cancel_token: CancellationToken,
 }
 
 impl TunnelSession {
@@ -33,15 +34,14 @@ impl TunnelSession {
         id: Uuid,
         name: Option<String>,
         proxies: Vec<TunnelProxyInfo>,
-        has_admin_privileges: bool,
         channel_tx: RequestSender<TunnelChannelRequest>,
     ) -> Self {
         Self {
             id,
             name,
             proxies,
-            has_admin_privileges,
             channel_tx,
+            cancel_token: CancellationToken::new(),
         }
     }
 
@@ -66,7 +66,6 @@ impl Into<TunnelInfo> for &TunnelSession {
             id: self.id.clone(),
             name: self.name.clone(),
             proxies: self.proxies.clone(),
-            has_admin_access: self.has_admin_privileges.clone(),
         }
     }
 }
@@ -75,12 +74,11 @@ pub fn create(
     id: Uuid,
     name: Option<String>,
     proxies: Vec<TunnelProxyInfo>,
-    has_admin_privileges: bool,
 ) -> (TunnelSession, RequestReceiver<TunnelChannelRequest>) {
     let (channel_tx, channel_rx) = create_channel::<TunnelChannelRequest>();
 
     (
-        TunnelSession::new(id, name, proxies, has_admin_privileges, channel_tx),
+        TunnelSession::new(id, name, proxies, channel_tx),
         channel_rx,
     )
 }
@@ -95,6 +93,10 @@ pub async fn start(
 
     loop {
         tokio::select! {
+            _ = session.cancel_token.cancelled() => {
+                info!("Tunnel {} session has been cancelled.", id);
+                break;
+            }
             data = channel_rx.wait_for_requests() => {
 
                 let Some(message) = data else {

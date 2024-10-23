@@ -1,10 +1,9 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use configuration::MonitorEndpointConfig;
-use log::{debug, error, info};
+use log::{debug, error};
 use state::AppState;
 use tokio::{io::Result, net::TcpListener};
-use tunnel_routes::get_tunnel_routes;
 
 use crate::{common::channel::RequestReceiver, server::services::Services};
 
@@ -15,8 +14,10 @@ use axum::{
 };
 
 mod channel_handler;
+mod client_routes;
 pub mod configuration;
 mod middleware;
+mod response;
 mod state;
 mod tunnel_routes;
 
@@ -32,31 +33,28 @@ pub async fn start(
     let state = AppState::new(services.clone(), config.clone(), name);
 
     let app = Router::new()
-        .layer(from_fn(middleware::handle_default_response))
         .layer(from_fn_with_state(
             state.clone(),
             middleware::handle_authorization,
         ))
-        .nest("/tunnels", get_tunnel_routes())
+        .nest("/tunnels", tunnel_routes::get_router())
+        .nest("/clients", client_routes::get_router())
+        .layer(from_fn(middleware::handle_default_response))
         .with_state(state.clone());
 
     let listener = TcpListener::bind(config.get_bind_address()).await?;
 
     tokio::spawn(async move {
         loop {
-            tokio::select! {
-                request = channel_rx.wait_for_requests() => {
-                    match request {
-                        Some(request) => {
-                            debug!("Received endpoint message");
-                            if let Err(e) = channel_handler::handle(request).await {
-                                error!("Failed to handle endpoint message: {}", e);
-                            }
-                        },
-                        None => {
-                            break;
-                        }
+            match channel_rx.wait_for_requests().await {
+                Some(request) => {
+                    debug!("Received endpoint message");
+                    if let Err(e) = channel_handler::handle(request).await {
+                        error!("Failed to handle endpoint message: {}", e);
                     }
+                }
+                None => {
+                    break;
                 }
             }
         }
