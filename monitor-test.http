@@ -45,3 +45,7 @@ GET /endpoints
 GET /endpoints/{{endpoints.records[1].name}}
 ...defaultHeaders
 
+### System
+
+GET /system/info
+...defaultHeaders

@@ -17,6 +17,7 @@ pub struct AppState {
     pub services: Arc<Services>,
     pub config: Arc<MonitorEndpointConfig>,
     pub name: String,
+    pub start_time: i64,
     bfp_ip_map: Arc<Mutex<HashMap<String, IpAttempt>>>,
 }
 
@@ -26,6 +27,7 @@ impl AppState {
             services,
             config,
             name,
+            start_time: Utc::now().timestamp(),
             bfp_ip_map: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -72,5 +74,18 @@ impl AppState {
         let ip_string = ip.to_string();
 
         map.remove(ip_string.as_str());
+    }
+
+    pub fn get_uptime(&self) -> String {
+        let uptime_seconds = Utc::now().timestamp() - self.start_time;
+        let days = uptime_seconds / 86400;
+        let hours = (uptime_seconds % 86400) / 3600;
+        let minutes = (uptime_seconds % 3600) / 60;
+        let seconds = uptime_seconds % 60;
+        
+        format!(
+            "{} days, {} hours, {} minutes, {} seconds",
+            days, hours, minutes, seconds
+        )
     }
 }

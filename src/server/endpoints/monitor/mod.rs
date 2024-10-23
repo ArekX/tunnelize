@@ -20,6 +20,7 @@ mod endpoint_routes;
 mod middleware;
 mod response;
 mod state;
+mod system_routes;
 mod tunnel_routes;
 
 pub async fn start(
@@ -41,6 +42,7 @@ pub async fn start(
         .nest("/tunnels", tunnel_routes::get_router())
         .nest("/clients", client_routes::get_router())
         .nest("/endpoints", endpoint_routes::get_router())
+        .nest("/system", system_routes::get_router())
         .layer(from_fn(middleware::handle_default_response))
         .with_state(state.clone());
 

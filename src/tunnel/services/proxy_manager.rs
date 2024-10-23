@@ -16,20 +16,6 @@ pub struct ProxySession {
 }
 
 impl ProxySession {
-    pub fn new(
-        proxy_id: Uuid,
-        endpoint_name: String,
-        forward_address: String,
-        protocol: ProxyProtocol,
-    ) -> Self {
-        Self {
-            proxy_id,
-            endpoint_name,
-            forward_address,
-            protocol,
-        }
-    }
-
     pub async fn create_forward_connection(&self) -> Result<ConnectionStream> {
         Ok(match self.protocol {
             ProxyProtocol::Tcp => match TcpStream::connect(self.forward_address.clone()).await {

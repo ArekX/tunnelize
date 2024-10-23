@@ -84,6 +84,10 @@ impl LinkManager {
         self.link_sessions.remove(id);
     }
 
+    pub fn get_count(&self) -> usize {
+        self.link_sessions.len()
+    }
+
     pub fn list_all_sessions(&self) -> Vec<LinkInfo> {
         self.link_sessions
             .values()

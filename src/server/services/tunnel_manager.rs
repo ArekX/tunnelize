@@ -66,6 +66,10 @@ impl TunnelManager {
         tunnel_tx.request(request).await
     }
 
+    pub fn get_count(&self) -> usize {
+        self.tunnels.len()
+    }
+
     pub fn register_tunnel_session(&mut self, tunnel: &TunnelSession) {
         self.tunnels.insert(tunnel.get_id(), tunnel.clone());
     }

@@ -108,6 +108,10 @@ impl EndpointManager {
         tunnel_tx.request(request).await
     }
 
+    pub fn get_count(&self) -> usize {
+        self.endpoints.len()
+    }
+
     pub fn list_endpoints(&self) -> Vec<EndpointInfo> {
         self.endpoints.values().map(|e| e.into()).collect()
     }
