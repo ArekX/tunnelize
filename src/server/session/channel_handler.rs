@@ -30,7 +30,7 @@ pub async fn handle(
             let link_session_id = services.get_link_manager().await.create_link_session(
                 session.get_id(),
                 info,
-                session.cancel_token.child_token(),
+                session.get_child_cancel_token(),
             );
 
             info!(

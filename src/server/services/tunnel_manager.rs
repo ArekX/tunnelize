@@ -41,7 +41,7 @@ impl TunnelManager {
 
     pub fn cancel_session(&self, id: &Uuid) -> Result<(), String> {
         if let Some(session) = self.tunnels.get(id) {
-            session.cancel_token.cancel();
+            session.cancel();
             return Ok(());
         }
 

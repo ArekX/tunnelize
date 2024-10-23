@@ -19,7 +19,7 @@ pub async fn authenticate_tunnel(
             name: config.name.clone(),
             endpoint_key: config.endpoint_key.clone(),
             admin_key: config.admin_key.clone(),
-            proxies: get_input_proxies(services, config).await,
+            proxies: process_input_proxies(services, config).await,
         })
         .await?;
 
@@ -41,7 +41,7 @@ pub async fn authenticate_tunnel(
     Ok(())
 }
 
-async fn get_input_proxies(
+async fn process_input_proxies(
     services: &Arc<Services>,
     config: &Arc<TunnelConfiguration>,
 ) -> Vec<InputProxy> {

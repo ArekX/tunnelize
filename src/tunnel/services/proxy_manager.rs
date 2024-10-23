@@ -8,14 +8,12 @@ use uuid::Uuid;
 use crate::tunnel::configuration::ProxyConfiguration;
 use crate::{common::connection::ConnectionStream, tunnel::configuration::TunnelProxy};
 
-pub struct ProxySession {
-    pub proxy_id: Uuid,
-    pub endpoint_name: String,
+pub struct Proxy {
     pub forward_address: String,
     pub protocol: ProxyProtocol,
 }
 
-impl ProxySession {
+impl Proxy {
     pub async fn create_forward_connection(&self) -> Result<ConnectionStream> {
         Ok(match self.protocol {
             ProxyProtocol::Tcp => match TcpStream::connect(self.forward_address.clone()).await {
@@ -52,18 +50,18 @@ impl From<&ProxyConfiguration> for ProxyProtocol {
 }
 
 pub struct ProxyManager {
-    proxy_session_map: HashMap<Uuid, ProxySession>,
+    proxy_map: HashMap<Uuid, Proxy>,
 }
 
 impl ProxyManager {
     pub fn new() -> Self {
         Self {
-            proxy_session_map: HashMap::new(),
+            proxy_map: HashMap::new(),
         }
     }
 
     pub fn get_forward_address(&self, id: &Uuid) -> Option<String> {
-        self.proxy_session_map
+        self.proxy_map
             .get(id)
             .map(|session| session.forward_address.clone())
     }
@@ -71,22 +69,18 @@ impl ProxyManager {
     pub fn add_proxy(&mut self, proxy: &TunnelProxy) -> Uuid {
         let id = Uuid::new_v4();
 
-        let proxy_session = ProxySession {
-            proxy_id: id,
-            endpoint_name: proxy.endpoint_name.clone(),
+        let proxy = Proxy {
             forward_address: proxy.forward_address.clone(),
             protocol: ProxyProtocol::from(&proxy.config),
         };
 
-        self.proxy_session_map.insert(id, proxy_session);
-
-        println!("Added proxy session: {:?}", id);
+        self.proxy_map.insert(id, proxy);
 
         id
     }
 
     pub async fn create_forward_connection(&self, id: &Uuid) -> Result<ConnectionStream> {
-        if let Some(session) = self.proxy_session_map.get(id) {
+        if let Some(session) = self.proxy_map.get(id) {
             return session.create_forward_connection().await;
         }
 

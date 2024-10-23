@@ -14,7 +14,7 @@ use axum::{
 };
 
 mod channel_handler;
-mod client_routes;
+mod link_routes;
 pub mod configuration;
 mod endpoint_routes;
 mod middleware;
@@ -40,7 +40,7 @@ pub async fn start(
             middleware::handle_authorization,
         ))
         .nest("/tunnels", tunnel_routes::get_router())
-        .nest("/clients", client_routes::get_router())
+        .nest("/links", link_routes::get_router())
         .nest("/endpoints", endpoint_routes::get_router())
         .nest("/system", system_routes::get_router())
         .layer(from_fn(middleware::handle_default_response))

@@ -50,7 +50,7 @@ pub async fn process_init_link(
         )
         .await
         {
-            error!("Failed to start relay: {:?}", e);
+            error!("Failed to start link session: {:?}", e);
 
             let message = if let ErrorKind::ConnectionRefused = e.kind() {
                 format!(
@@ -58,7 +58,7 @@ pub async fn process_init_link(
                     address
                 )
             } else {
-                format!("Failed to start relay: {:?}", e.kind())
+                format!("Failed to start link session: {:?}", e.kind())
             };
 
             response_stream

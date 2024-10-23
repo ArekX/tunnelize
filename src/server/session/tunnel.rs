@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::messages::TunnelChannelRequest;
-use log::{debug, info};
+use log::info;
 use serde::Serialize;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -10,12 +10,8 @@ use crate::{
     common::{
         channel::{create_channel, RequestReceiver, RequestSender},
         connection::ConnectionStream,
-        transport::MessageError,
     },
-    server::{
-        endpoints::messages::EndpointInfo, incoming_requests::ServerRequestMessage,
-        services::TunnelInfo, session::channel_handler,
-    },
+    server::{endpoints::messages::EndpointInfo, services::TunnelInfo, session::channel_handler},
 };
 
 use super::super::services::Services;
@@ -26,7 +22,7 @@ pub struct TunnelSession {
     name: Option<String>,
     proxies: Vec<TunnelProxyInfo>,
     channel_tx: RequestSender<TunnelChannelRequest>,
-    pub cancel_token: CancellationToken,
+    cancel_token: CancellationToken,
 }
 
 impl TunnelSession {
@@ -43,6 +39,22 @@ impl TunnelSession {
             channel_tx,
             cancel_token: CancellationToken::new(),
         }
+    }
+
+    pub fn get_cancel_token(&self) -> CancellationToken {
+        self.cancel_token.clone()
+    }
+
+    pub fn get_child_cancel_token(&self) -> CancellationToken {
+        self.cancel_token.child_token()
+    }
+
+    pub fn cancel(&self) {
+        self.cancel_token.cancel();
+    }
+
+    pub async fn wait_for_cancellation(&self) {
+        self.cancel_token.cancelled().await;
     }
 
     pub fn get_channel_tx(&self) -> RequestSender<TunnelChannelRequest> {
@@ -93,7 +105,7 @@ pub async fn start(
 
     loop {
         tokio::select! {
-            _ = session.cancel_token.cancelled() => {
+            _ = session.wait_for_cancellation() => {
                 info!("Tunnel {} session has been cancelled.", id);
                 break;
             }
@@ -105,27 +117,6 @@ pub async fn start(
 
 
                 channel_handler::handle(&services, &session, &mut stream, message).await;
-            }
-            message_result = stream.read_message::<ServerRequestMessage>() => {
-                match message_result {
-                    Ok(ok_message) => {
-                        // TODO: Remove if this not needed in the end.
-                        println!("Received message from tunnel session {}: {:?}", id, ok_message);
-                    }
-                    Err(e) => match e {
-                        MessageError::ConnectionClosed => {
-                            info!("Tunnel {} closed connection.", id);
-                            break;
-                        }
-                        _ => {
-                            debug!("Error while parsing {:?}", e);
-                            info!("Failed to read message from tunnel session {}: {}", id, e);
-                            continue;
-                        }
-
-
-                    }
-                }
             }
         }
     }

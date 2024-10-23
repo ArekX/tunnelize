@@ -14,7 +14,7 @@ use super::{
     state::AppState,
 };
 
-async fn list_clients(State(state): State<AppState>) -> impl IntoResponse {
+async fn list_links(State(state): State<AppState>) -> impl IntoResponse {
     into_records(state.services.get_link_manager().await.list_all_sessions())
 }
 
@@ -34,7 +34,7 @@ async fn get_link(
     }
 }
 
-async fn disconnect_client(
+async fn disconnect_link(
     Path(session_id): Path<Uuid>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
@@ -44,16 +44,16 @@ async fn disconnect_client(
         .await
         .cancel_session(&session_id)
     {
-        error!("Failed to cancel tunnel session: {}", error);
+        error!("Failed to cancel link session: {}", error);
         return into_message(StatusCode::NOT_FOUND, &error);
     }
 
-    into_message(StatusCode::OK, "Client disconnected")
+    into_message(StatusCode::OK, "Link disconnected")
 }
 
 pub fn get_router() -> Router<AppState> {
     Router::new()
-        .route("/", get(list_clients))
+        .route("/", get(list_links))
         .route("/:id", get(get_link))
-        .route("/:id", delete(disconnect_client))
+        .route("/:id", delete(disconnect_link))
 }
