@@ -34,3 +34,14 @@ GET /clients/{{clients.records[0].id}}
 
 DELETE /clients/{{clients.records[0].id}}
 ...defaultHeaders
+
+### Endpoints
+
+
+# @name endpoints
+GET /endpoints
+...defaultHeaders
+
+GET /endpoints/{{endpoints.records[1].name}}
+...defaultHeaders
+

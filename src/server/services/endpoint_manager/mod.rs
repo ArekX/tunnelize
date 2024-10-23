@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use log::error;
+use serde::Serialize;
 
 use crate::{
     common::channel::{create_channel, DataResponse, RequestReceiver, RequestSender},
@@ -19,6 +20,21 @@ pub struct Endpoint {
     pub name: String,
     pub definition: EndpointConfiguration,
     channel_tx: RequestSender<EndpointChannelRequest>,
+}
+
+impl Into<EndpointInfo> for &Endpoint {
+    fn into(self) -> EndpointInfo {
+        EndpointInfo {
+            name: self.name.clone(),
+            definition: self.definition.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct EndpointInfo {
+    pub name: String,
+    pub definition: EndpointConfiguration,
 }
 
 impl Endpoint {
@@ -90,6 +106,14 @@ impl EndpointManager {
         };
 
         tunnel_tx.request(request).await
+    }
+
+    pub fn list_endpoints(&self) -> Vec<EndpointInfo> {
+        self.endpoints.values().map(|e| e.into()).collect()
+    }
+
+    pub fn get_endpoint_info(&self, service_name: &str) -> Option<EndpointInfo> {
+        self.endpoints.get(service_name).map(|e| e.into())
     }
 }
 

@@ -1,5 +1,4 @@
 use log::error;
-use serde::Serialize;
 
 use axum::{
     extract::{Path, State},

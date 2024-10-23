@@ -9,6 +9,7 @@ pub struct MonitorEndpointConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum MonitorAuthentication {
     None,
     Basic { username: String, password: String },
