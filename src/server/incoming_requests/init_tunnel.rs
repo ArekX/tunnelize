@@ -272,6 +272,7 @@ async fn start_tunnel_session(
         })
         .await;
 
+    info!("Tunnel session started: {}", tunnel_id);
     session::tunnel::start(
         services.clone(),
         tunnel_session,
@@ -280,6 +281,7 @@ async fn start_tunnel_session(
     )
     .await;
 
+    info!("Tunnel session ended: {}", tunnel_id);
     services
         .push_event(ServiceEvent::TunnelDisconnected { tunnel_id })
         .await;

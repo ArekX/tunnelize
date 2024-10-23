@@ -1,4 +1,5 @@
 use log::error;
+use serde::Serialize;
 use tokio::io::Result;
 use tokio::sync::{
     mpsc::{self, Receiver, Sender},
@@ -177,7 +178,7 @@ macro_rules! create_channel_enum {
     };
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct OkResponse;
 
 #[derive(Debug, Clone)]

@@ -64,6 +64,7 @@ pub async fn process_init_link(
             response_stream
                 .respond_message(&InitLinkResponse::Rejected { reason: message })
                 .await;
+            return;
         }
 
         response_stream

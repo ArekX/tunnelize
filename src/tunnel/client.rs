@@ -52,7 +52,11 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
     loop {
         tokio::select! {
             _ = cancel_token.cancelled() => {
+
+                debug!("Ending tunnel...");
+                connection_stream.shutdown().await;
                 debug!("Hub server stopped.");
+
                 return Ok(());
             }
             flow = connection_stream.wait_for_data() => {

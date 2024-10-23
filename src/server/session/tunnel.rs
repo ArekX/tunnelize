@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{ops::ControlFlow, sync::Arc};
 
 use super::messages::TunnelChannelRequest;
 use log::info;
@@ -112,11 +112,17 @@ pub async fn start(
             data = channel_rx.wait_for_requests() => {
 
                 let Some(message) = data else {
+                    session.cancel();
                     break;
                 };
 
 
                 channel_handler::handle(&services, &session, &mut stream, message).await;
+            },
+            Ok(ControlFlow::Break(())) = stream.wait_for_data() => {
+                info!("Tunnel {} session has been closed.", id);
+                session.cancel();
+                break;
             }
         }
     }
