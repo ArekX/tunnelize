@@ -35,7 +35,6 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         tokio::select! {
             _ = cancel_token.cancelled() => {
                 debug!("Hub server stopped.");
-                // TOOD: Close all connections
                 return Ok(());
             }
             client = listener.accept() => {

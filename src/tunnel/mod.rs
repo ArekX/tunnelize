@@ -17,7 +17,7 @@ mod services;
 
 pub async fn start() -> Result<()> {
     let configuration = TunnelConfiguration {
-        name: Some("test".to_string()), // TODO: Useful for API
+        name: Some("test".to_string()),
         server_host: "127.0.0.1:3456".to_string(),
         endpoint_key: None,
         admin_key: None,

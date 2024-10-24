@@ -1,8 +1,17 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, routing::get, Router};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    routing::get,
+    Router,
+};
 use serde_json::json;
 use sysinfo::System;
 
-use super::{response::into_json, state::AppState};
+use super::{
+    response::{into_json, into_not_found, into_records},
+    state::AppState,
+};
 
 async fn get_system_info(State(state): State<AppState>) -> impl IntoResponse {
     let sys = System::new_all();
@@ -34,6 +43,29 @@ async fn get_system_info(State(state): State<AppState>) -> impl IntoResponse {
     )
 }
 
+async fn list_endpoints(State(state): State<AppState>) -> impl IntoResponse {
+    into_records(state.services.get_endpoint_manager().await.list_endpoints())
+}
+
+async fn get_endpoint(
+    Path(name): Path<String>,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let info = state
+        .services
+        .get_endpoint_manager()
+        .await
+        .get_endpoint_info(&name);
+
+    match info {
+        Some(info) => into_json(StatusCode::OK, info),
+        None => into_not_found(),
+    }
+}
+
 pub fn get_router() -> Router<AppState> {
-    Router::new().route("/info", get(get_system_info))
+    Router::new()
+        .route("/endpoints", get(list_endpoints))
+        .route("/endpoints/:name", get(get_endpoint))
+        .route("/info", get(get_system_info))
 }
