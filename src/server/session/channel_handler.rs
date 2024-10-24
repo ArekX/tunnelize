@@ -49,6 +49,10 @@ pub async fn handle(
                 Ok(response) => response,
                 Err(e) => {
                     info!("Failed to send InitLinkSession request: {}", e);
+                    services
+                        .get_link_manager()
+                        .await
+                        .remove_session(&link_session_id);
                     return;
                 }
             };
@@ -58,6 +62,11 @@ pub async fn handle(
                     request.respond(ClientLinkResponse::Accepted).await;
                 }
                 InitLinkResponse::Rejected { reason } => {
+                    services
+                        .get_link_manager()
+                        .await
+                        .remove_session(&link_session_id);
+
                     request
                         .respond(ClientLinkResponse::Rejected { reason })
                         .await;

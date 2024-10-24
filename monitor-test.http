@@ -22,17 +22,17 @@ DELETE /tunnels/{{tunnels.records[0].id}}
 ...defaultHeaders
 
 
-### Clients
+### Links
 
 
-# @name clients
-GET /clients
+# @name links
+GET /links
 ...defaultHeaders
 
-GET /clients/{{clients.records[0].id}}
+GET /links/{{links.records[0].id}}
 ...defaultHeaders
 
-DELETE /clients/{{clients.records[0].id}}
+DELETE /links/{{links.records[0].id}}
 ...defaultHeaders
 
 
