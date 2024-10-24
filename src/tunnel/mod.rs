@@ -7,20 +7,22 @@ use tokio::io::Result;
 
 use tokio_util::sync::CancellationToken;
 
+use crate::common::cli::MonitorCommands;
 use crate::common::tasks::start_cancel_listener;
 
 mod client;
 pub mod configuration;
 pub mod incoming_requests;
+mod monitor;
 mod outgoing_requests;
 mod services;
 
-pub async fn start() -> Result<()> {
-    let configuration = TunnelConfiguration {
+fn get_configuration() -> TunnelConfiguration {
+    TunnelConfiguration {
         name: Some("test".to_string()),
-        server_host: "127.0.0.1:3456".to_string(),
+        server_address: "127.0.0.1:3456".to_string(),
         endpoint_key: None,
-        admin_key: None,
+        monitor_key: Some("key".to_string()),
         proxies: vec![TunnelProxy {
             endpoint_name: "http".to_string(),
             forward_address: "0.0.0.0:8080".to_string(),
@@ -28,7 +30,17 @@ pub async fn start() -> Result<()> {
                 desired_name: Some("test".to_string()),
             },
         }],
-    }; // TODO: This should be a parameter in start
+    }
+}
+
+pub async fn process_monitor_command(command: MonitorCommands) -> Result<()> {
+    monitor::process_monitor_request(get_configuration(), command).await?;
+
+    Ok(())
+}
+
+pub async fn start() -> Result<()> {
+    let configuration = get_configuration();
 
     let services = Arc::new(Services::new(configuration));
     let cancel_token = CancellationToken::new();

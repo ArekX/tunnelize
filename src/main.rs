@@ -3,6 +3,8 @@ use common::{
     logger::initialize_logger,
 };
 use log::{debug, info};
+use serde::de;
+use server::endpoints::monitor;
 
 mod common;
 mod server;
@@ -42,6 +44,9 @@ async fn run_command(command: Commands) -> Result<(), std::io::Error> {
             }
 
             tunnel::start().await?;
+        }
+        Commands::Monitor(m) => {
+            tunnel::process_monitor_command(m).await?;
         }
     }
 

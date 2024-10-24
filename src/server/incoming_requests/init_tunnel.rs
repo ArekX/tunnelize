@@ -12,7 +12,7 @@ use crate::{
     common::connection::ConnectionStream,
     server::{
         configuration::ServerConfiguration,
-        endpoints::messages::{EndpointInfo, RegisterProxyRequest},
+        endpoints::messages::{RegisterProxyRequest, ResolvedEndpointInfo},
         services::events::ServiceEvent,
         session::{self, tunnel::TunnelProxyInfo},
     },
@@ -42,7 +42,7 @@ pub struct InputProxy {
 pub enum InitTunnelResponse {
     Accepted {
         tunnel_id: Uuid,
-        endpoint_info: HashMap<Uuid, EndpointInfo>,
+        endpoint_info: HashMap<Uuid, ResolvedEndpointInfo>,
     },
     Rejected {
         reason: String,
@@ -144,7 +144,7 @@ async fn resolve_endpoint_info(
     tunnel_id: Uuid,
     request: &InitTunelRequest,
     services: &Arc<Services>,
-) -> Result<(Vec<TunnelProxyInfo>, HashMap<Uuid, EndpointInfo>)> {
+) -> Result<(Vec<TunnelProxyInfo>, HashMap<Uuid, ResolvedEndpointInfo>)> {
     let mut service_proxies = HashMap::<String, Vec<ProxySession>>::new();
     let mut tunnel_proxy_info: Vec<TunnelProxyInfo> = Vec::new();
 
@@ -165,7 +165,7 @@ async fn resolve_endpoint_info(
         sessions.push(proxy_session);
     }
 
-    let mut proxy_data = HashMap::<Uuid, EndpointInfo>::new();
+    let mut proxy_data = HashMap::<Uuid, ResolvedEndpointInfo>::new();
 
     for (service_name, proxies) in service_proxies.iter() {
         let Ok(response) = services

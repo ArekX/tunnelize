@@ -1,4 +1,4 @@
-use crate::server::endpoints::monitor::response::into_message;
+use crate::server::{endpoints::monitor::response::into_message, monitoring};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -15,20 +15,14 @@ use super::{
 };
 
 async fn list_links(State(state): State<AppState>) -> impl IntoResponse {
-    into_records(state.services.get_link_manager().await.list_all_sessions())
+    into_records(monitoring::get_link_list(&state.services).await)
 }
 
 async fn get_link(
     Path(session_id): Path<Uuid>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    let tunnel_info = state
-        .services
-        .get_link_manager()
-        .await
-        .get_session_info(&session_id);
-
-    match tunnel_info {
+    match monitoring::get_link_info(&state.services, &session_id).await {
         Some(info) => into_json(StatusCode::OK, info),
         None => into_not_found(),
     }
@@ -38,12 +32,7 @@ async fn disconnect_link(
     Path(session_id): Path<Uuid>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    if let Err(error) = state
-        .services
-        .get_link_manager()
-        .await
-        .cancel_session(&session_id)
-    {
+    if let Err(error) = monitoring::disconnect_link(&state.services, &session_id).await {
         error!("Failed to cancel link session: {}", error);
         return into_message(StatusCode::NOT_FOUND, &error);
     }

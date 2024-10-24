@@ -22,12 +22,12 @@ pub struct RegisterProxyRequest {
 
 #[derive(Clone, Debug)]
 pub struct RegisterProxyResponse {
-    pub proxy_info: HashMap<Uuid, EndpointInfo>,
+    pub proxy_info: HashMap<Uuid, ResolvedEndpointInfo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
-pub enum EndpointInfo {
+pub enum ResolvedEndpointInfo {
     Http(HttpEndpointInfo),
 }
 

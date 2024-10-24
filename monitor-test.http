@@ -50,3 +50,12 @@ GET /system/endpoints
 # @ref endpoints
 GET /system/endpoints/{{endpoints.records[0].name}}
 ...defaultHeaders
+
+### 
+# @name clients
+GET /system/clients
+...defaultHeaders
+
+# @ref clients
+GET /system/clients/{{clients.records[0].name}}
+...defaultHeaders

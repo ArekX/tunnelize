@@ -5,8 +5,9 @@ use axum::{
     routing::get,
     Router,
 };
-use serde_json::json;
-use sysinfo::System;
+use uuid::Uuid;
+
+use crate::server::monitoring::{self};
 
 use super::{
     response::{into_json, into_not_found, into_records},
@@ -14,50 +15,35 @@ use super::{
 };
 
 async fn get_system_info(State(state): State<AppState>) -> impl IntoResponse {
-    let sys = System::new_all();
-
-    let cpu_usages = sys
-        .cpus()
-        .iter()
-        .map(|cpu| format!("{}%", cpu.cpu_usage().round()))
-        .collect::<Vec<String>>();
-
     into_json(
         StatusCode::OK,
-        json!({
-            "cpu_count": sys.cpus().len(),
-            "cpu_usages": cpu_usages,
-            "global_cpu_usage": format!("{}%", sys.global_cpu_usage().round()),
-            "available_memory": sys.available_memory(),
-            "free_memory_percentage": (sys.available_memory() as f64 / sys.total_memory() as f64 * 100f64).round(),
-            "free_swap": sys.total_swap() - sys.used_swap(),
-            "system_name": System::name(),
-            "kernel_version": System::kernel_version(),
-            "os_version": System::os_version(),
-            "hostname": System::host_name(),
-            "uptime": state.get_uptime(),
-            "endpoint_count": state.services.get_endpoint_manager().await.get_count(),
-            "tunnel_count": state.services.get_tunnel_manager().await.get_count(),
-            "link_count": state.services.get_link_manager().await.get_count(),
-        }),
+        monitoring::get_system_info(&state.services).await,
     )
 }
 
 async fn list_endpoints(State(state): State<AppState>) -> impl IntoResponse {
-    into_records(state.services.get_endpoint_manager().await.list_endpoints())
+    into_records(monitoring::get_endpoint_list(&state.services).await)
 }
 
 async fn get_endpoint(
     Path(name): Path<String>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    let info = state
-        .services
-        .get_endpoint_manager()
-        .await
-        .get_endpoint_info(&name);
+    match monitoring::get_endpoint_info(&state.services, &name).await {
+        Some(info) => into_json(StatusCode::OK, info),
+        None => into_not_found(),
+    }
+}
 
-    match info {
+async fn list_clients(State(state): State<AppState>) -> impl IntoResponse {
+    into_records(monitoring::get_client_list(&state.services).await)
+}
+
+async fn get_client(
+    Path(client_id): Path<Uuid>,
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    match monitoring::get_client_info(&state.services, &client_id).await {
         Some(info) => into_json(StatusCode::OK, info),
         None => into_not_found(),
     }
@@ -67,5 +53,7 @@ pub fn get_router() -> Router<AppState> {
     Router::new()
         .route("/endpoints", get(list_endpoints))
         .route("/endpoints/:name", get(get_endpoint))
+        .route("/clients", get(list_clients))
+        .route("/clients/:id", get(get_client))
         .route("/info", get(get_system_info))
 }

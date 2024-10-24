@@ -1,7 +1,7 @@
 use std::ops::ControlFlow;
 use std::sync::Arc;
 
-use log::{debug, error};
+use log::{debug, error, info};
 use tokio::io::{self};
 use tokio::{io::Result, net::TcpStream};
 use tokio_util::sync::CancellationToken;
@@ -16,14 +16,14 @@ use super::configuration::TunnelConfiguration;
 use super::services::Services;
 
 pub async fn create_server_connection(config: &TunnelConfiguration) -> Result<ConnectionStream> {
-    let server_ip = resolve_hostname(&config.server_host)?;
+    let server_ip = resolve_hostname(&config.server_address)?;
 
-    debug!("Resolved server {} -> {}", config.server_host, server_ip);
+    debug!("Resolved server {} -> {}", config.server_address, server_ip);
 
     let server = match TcpStream::connect(server_ip.clone()).await {
         Ok(stream) => stream,
         Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
-            error!("Connection refused by server at {}", config.server_host);
+            error!("Connection refused by server at {}", config.server_address);
             return Err(e);
         }
         Err(e) => {
@@ -32,7 +32,7 @@ pub async fn create_server_connection(config: &TunnelConfiguration) -> Result<Co
         }
     };
 
-    println!("Connected to server at {}", config.server_host);
+    info!("Connected to server at {}", config.server_address);
 
     Ok(ConnectionStream::from(server))
 }

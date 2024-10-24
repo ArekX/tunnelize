@@ -1,58 +1,89 @@
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use serde::{Deserialize, Serialize};
-use tokio::io::{Error, ErrorKind, Result};
-use uuid::Uuid;
 
 use crate::{
-    common::connection::ConnectionStream,
-    server::{configuration::ServerConfiguration, services::Services},
+    common::{address, cli::MonitorCommands, connection::ConnectionStream},
+    server::{
+        configuration::ServerConfiguration,
+        monitoring::{self, SystemInfo},
+        services::Services,
+    },
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProcessMonitoringRequest {
-    pub request: String,
-    pub admin_key: Option<String>,
+    pub command: MonitorCommands,
+    pub monitor_key: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ProcessMonitoringResponse {
-    pub proxy_id: Uuid,
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ProcessMonitoringResponse {
+    SystemInfo(SystemInfo),
+    Rejected { reason: String },
 }
 
-// TODO: Move for monitoring commands check
-async fn resolve_admin_privileges(
+async fn has_monitoring_access(
     request: &ProcessMonitoringRequest,
     config: &Arc<ServerConfiguration>,
-    response_stream: &mut ConnectionStream,
-) -> Result<bool> {
-    if let Some(config_admin_key) = config.admin_key.as_ref() {
-        if let Some(request_admin_key) = request.admin_key.as_ref() {
-            if config_admin_key != request_admin_key {
-                response_stream
-                    .respond_message(&ProcessMonitoringResponse {
-                        proxy_id: Uuid::new_v4(),
-                    })
-                    .await;
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "Administration key is wrong or not valid",
-                ));
-            }
-
-            return Ok(true);
+) -> bool {
+    if let Some(config_monitor_key) = config.monitor_key.as_ref() {
+        if let Some(request_monitor_key) = request.monitor_key.as_ref() {
+            return config_monitor_key == request_monitor_key;
         }
 
-        return Ok(false);
+        return false;
     }
 
-    Ok(true)
+    true
 }
 
 pub async fn process(
     services: Arc<Services>,
     request: ProcessMonitoringRequest,
     mut response_stream: ConnectionStream,
+    address: SocketAddr,
 ) {
     let config = services.get_config();
+
+    let ip_address = address.ip();
+
+    if services.get_bfp_manager().await.is_locked(&ip_address) {
+        response_stream
+            .respond_message(&ProcessMonitoringResponse::Rejected {
+                reason: "Access denied. Too many attempts. Please try later.".to_string(),
+            })
+            .await;
+
+        response_stream.shutdown().await;
+        return;
+    }
+
+    if !has_monitoring_access(&request, &config).await {
+        services.get_bfp_manager().await.log_ip_attempt(&ip_address);
+        response_stream
+            .respond_message(&ProcessMonitoringResponse::Rejected {
+                reason: "Access denied. Invalid monitor key.".to_string(),
+            })
+            .await;
+
+        response_stream.shutdown().await;
+        return;
+    }
+
+    services
+        .get_bfp_manager()
+        .await
+        .clear_ip_attempts(&ip_address);
+
+    match request.command {
+        MonitorCommands::SystemInfo => {
+            response_stream
+                .respond_message(&ProcessMonitoringResponse::SystemInfo(
+                    monitoring::get_system_info(&services).await,
+                ))
+                .await;
+        }
+    }
 }

@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use configuration::MonitorEndpointConfig;
-use log::{debug, error};
+use log::error;
 use state::AppState;
 use tokio::{io::Result, net::TcpListener};
 
@@ -50,7 +50,6 @@ pub async fn start(
         loop {
             match channel_rx.wait_for_requests().await {
                 Some(request) => {
-                    debug!("Received endpoint message");
                     if let Err(e) = channel_handler::handle(request).await {
                         error!("Failed to handle endpoint message: {}", e);
                     }

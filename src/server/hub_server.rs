@@ -64,7 +64,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         let services = services.clone();
 
         tokio::spawn(async move {
-            incoming_requests::handle(services, connection_stream, message).await;
+            incoming_requests::handle(services, connection_stream, address, message).await;
         });
     }
 }

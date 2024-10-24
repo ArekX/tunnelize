@@ -14,7 +14,7 @@ pub struct ServerConfiguration {
     pub server_port: u16,
     pub max_tunnel_input_wait: u16,
     pub endpoint_key: Option<String>,
-    pub admin_key: Option<String>,
+    pub monitor_key: Option<String>,
     pub endpoints: HashMap<String, EndpointConfiguration>,
 }
 

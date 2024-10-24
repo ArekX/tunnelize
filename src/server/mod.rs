@@ -16,13 +16,14 @@ mod configuration;
 pub mod endpoints;
 mod hub_server;
 pub mod incoming_requests;
+mod monitoring;
 mod services;
 mod session;
 
 pub async fn start() -> Result<()> {
     let mut configuration = ServerConfiguration {
         server_port: 3456,
-        admin_key: None,
+        monitor_key: Some("key".to_owned()),
         max_tunnel_input_wait: 30,
         endpoint_key: None,
         endpoints: HashMap::new(),

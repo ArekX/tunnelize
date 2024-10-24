@@ -11,7 +11,9 @@ use crate::{
         channel::{create_channel, RequestReceiver, RequestSender},
         connection::ConnectionStream,
     },
-    server::{endpoints::messages::EndpointInfo, services::TunnelInfo, session::channel_handler},
+    server::{
+        endpoints::messages::ResolvedEndpointInfo, services::TunnelInfo, session::channel_handler,
+    },
 };
 
 use super::super::services::Services;
@@ -69,7 +71,7 @@ impl TunnelSession {
 #[derive(Debug, Serialize, Clone)]
 pub struct TunnelProxyInfo {
     pub endpoint: String,
-    pub details: EndpointInfo,
+    pub details: ResolvedEndpointInfo,
 }
 
 impl Into<TunnelInfo> for &TunnelSession {

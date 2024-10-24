@@ -18,7 +18,7 @@ pub async fn authenticate_tunnel(
         .request_message(InitTunelRequest {
             name: config.name.clone(),
             endpoint_key: config.endpoint_key.clone(),
-            admin_key: config.admin_key.clone(),
+            admin_key: config.monitor_key.clone(),
             proxies: process_input_proxies(services, config).await,
         })
         .await?;

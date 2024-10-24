@@ -25,7 +25,7 @@ mod tunnel_host;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HttpEndpointInfo {
-    assigned_url: String,
+    pub assigned_url: String,
 }
 
 pub async fn start(

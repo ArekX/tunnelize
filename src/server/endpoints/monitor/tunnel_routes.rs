@@ -9,7 +9,7 @@ use axum::{
 };
 use uuid::Uuid;
 
-use crate::server::endpoints::monitor::response::into_message;
+use crate::server::{endpoints::monitor::response::into_message, monitoring};
 
 use super::{
     response::{into_json, into_not_found, into_records},
@@ -17,20 +17,14 @@ use super::{
 };
 
 async fn list_tunnels(State(state): State<AppState>) -> impl IntoResponse {
-    into_records(state.services.get_tunnel_manager().await.list_all_tunnels())
+    into_records(monitoring::get_tunnel_list(&state.services).await)
 }
 
 async fn get_tunnel(
     Path(tunnel_id): Path<Uuid>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    let tunnel_info = state
-        .services
-        .get_tunnel_manager()
-        .await
-        .get_tunnel_info(&tunnel_id);
-
-    match tunnel_info {
+    match monitoring::get_tunnel_info(&state.services, &tunnel_id).await {
         Some(info) => into_json(StatusCode::OK, info),
         None => into_not_found(),
     }
@@ -40,12 +34,7 @@ async fn disconnect_tunnel(
     Path(tunnel_id): Path<Uuid>,
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    if let Err(error) = state
-        .services
-        .get_tunnel_manager()
-        .await
-        .cancel_session(&tunnel_id)
-    {
+    if let Err(error) = monitoring::disconnect_tunnel(&state.services, &tunnel_id).await {
         error!("Failed to cancel tunnel session: {}", error);
         return into_message(StatusCode::NOT_FOUND, &error);
     }

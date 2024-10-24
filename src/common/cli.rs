@@ -25,6 +25,13 @@ pub enum Commands {
         #[arg(long, default_value_t = false)]
         verbose: bool,
     },
+    #[command(subcommand)]
+    Monitor(MonitorCommands),
+}
+
+#[derive(Subcommand, Debug, serde::Serialize, serde::Deserialize, Clone)]
+pub enum MonitorCommands {
+    SystemInfo,
 }
 
 pub fn parse_command() -> Commands {

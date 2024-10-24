@@ -77,10 +77,6 @@ pub async fn handle_authorization(
     next: Next,
 ) -> std::result::Result<impl IntoResponse, Response> {
     let Some(authorization) = request.headers().get("Authorization") else {
-        if let MonitorAuthentication::None = state.config.authentication {
-            return Ok(next.run(request).await);
-        }
-
         return Ok(to_auth_error_response(
             &state.config.authentication,
             &state.name,
@@ -88,7 +84,9 @@ pub async fn handle_authorization(
         ));
     };
 
-    if state.is_locked(&addr.ip()).await {
+    let mut bfp_manager = state.services.get_bfp_manager().await;
+
+    if bfp_manager.is_locked(&addr.ip()) {
         return Ok(to_error_response(
             StatusCode::TOO_MANY_REQUESTS,
             "Too many failed attempts. Please try again later.",
@@ -110,11 +108,11 @@ pub async fn handle_authorization(
     Ok(
         match check_authentication(&auth_value, &state.config.authentication) {
             Ok(_) => {
-                state.clear_ip_attempts(&addr.ip()).await;
+                bfp_manager.clear_ip_attempts(&addr.ip());
                 next.run(request).await
             }
             Err(e) => {
-                state.log_ip_attempt(&addr.ip()).await;
+                bfp_manager.log_ip_attempt(&addr.ip());
                 to_auth_error_response(&state.config.authentication, &state.name, e.as_str())
                     .into_response()
             }
@@ -144,7 +142,6 @@ fn check_authentication(
     authentication: &MonitorAuthentication,
 ) -> std::result::Result<(), String> {
     match authentication {
-        MonitorAuthentication::None => Ok(()),
         MonitorAuthentication::Basic { username, password } => {
             let expected_authorization =
                 general_purpose::STANDARD.encode(format!("{}:{}", username, password));

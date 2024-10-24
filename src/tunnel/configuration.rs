@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TunnelConfiguration {
     pub name: Option<String>,
-    pub server_host: String,
+    pub server_address: String,
     pub endpoint_key: Option<String>,
-    pub admin_key: Option<String>,
+    pub monitor_key: Option<String>,
     pub proxies: Vec<TunnelProxy>,
 }
 

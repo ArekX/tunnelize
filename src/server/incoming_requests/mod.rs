@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 
 use crate::{common::connection::ConnectionStream, create_data_enum};
 
@@ -10,7 +10,7 @@ mod monitoring_request;
 
 pub use init_link::{InitLinkRequest, InitLinkResponse};
 pub use init_tunnel::{InitTunelRequest, InitTunnelResponse, InputProxy, ProxySession};
-use monitoring_request::{ProcessMonitoringRequest, ProcessMonitoringResponse};
+pub use monitoring_request::{ProcessMonitoringRequest, ProcessMonitoringResponse};
 
 create_data_enum!(ServerRequestMessage, {
     InitTunelRequest -> InitTunnelResponse,
@@ -21,6 +21,7 @@ create_data_enum!(ServerRequestMessage, {
 pub async fn handle(
     services: Arc<Services>,
     stream: ConnectionStream,
+    address: SocketAddr,
     message: ServerRequestMessage,
 ) {
     match message {
@@ -31,7 +32,7 @@ pub async fn handle(
             init_link::process(services, request, stream).await
         }
         ServerRequestMessage::ProcessMonitoringRequest(request) => {
-            monitoring_request::process(services, request, stream).await
+            monitoring_request::process(services, request, stream, address).await
         }
     }
 }

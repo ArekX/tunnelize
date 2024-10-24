@@ -93,6 +93,14 @@ impl ClientManager {
     pub fn get_info(&self, id: &Uuid) -> Option<ClientInfo> {
         self.clients.get(id).map(|client| client.into())
     }
+
+    pub fn list_all_clients(&self) -> Vec<ClientInfo> {
+        self.clients.values().map(|client| client.into()).collect()
+    }
+
+    pub fn get_count(&self) -> usize {
+        self.clients.len()
+    }
 }
 
 impl HandleServiceEvent for ClientManager {

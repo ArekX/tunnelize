@@ -10,7 +10,7 @@ use crate::{
     server::endpoints::{
         http::HttpEndpointInfo,
         messages::{
-            EndpointChannelRequest, EndpointInfo, RegisterProxyResponse, RemoveTunnelRequest,
+            EndpointChannelRequest, ResolvedEndpointInfo, RegisterProxyResponse, RemoveTunnelRequest,
         },
     },
     tunnel::configuration::ProxyConfiguration,
@@ -23,7 +23,7 @@ pub async fn handle(
 ) -> Result<()> {
     match &request.data {
         EndpointChannelRequest::RegisterProxyRequest(proxy_request) => {
-            let mut proxy_info = HashMap::<Uuid, EndpointInfo>::new();
+            let mut proxy_info = HashMap::<Uuid, ResolvedEndpointInfo>::new();
 
             for proxy_session in proxy_request.proxy_sessions.iter() {
                 let ProxyConfiguration::Http { desired_name } = &proxy_session.config else {
@@ -44,7 +44,7 @@ pub async fn handle(
 
                 proxy_info.insert(
                     proxy_session.proxy_id,
-                    EndpointInfo::Http(HttpEndpointInfo {
+                    ResolvedEndpointInfo::Http(HttpEndpointInfo {
                         assigned_url: config.get_full_url(&hostname),
                     }),
                 );
