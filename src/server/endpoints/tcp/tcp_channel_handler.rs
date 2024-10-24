@@ -9,7 +9,7 @@ use tokio::io::Result;
 
 pub async fn handle(
     mut request: Request<TcpChannelRequest>,
-    config: &TcpEndpointConfig,
+    config: &Arc<TcpEndpointConfig>,
     tunnel_host: &mut TunnelHost,
     services: &Arc<Services>,
 ) -> Result<()> {

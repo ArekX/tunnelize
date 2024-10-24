@@ -28,14 +28,18 @@ pub async fn start(
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
     let mut tunnel_host = TunnelHost::new();
+    let tcp_config = Arc::new(config);
 
     let (leaf_hub_tx, mut leaf_hub_rx) = create_channel::<TcpChannelRequest>();
 
-    for i in config.reserve_ports_from..=config.reserve_ports_to {
+    for port in tcp_config.reserve_ports_from..=tcp_config.reserve_ports_to {
         let hub_tx = leaf_hub_tx.clone();
-        let cancel_token = services.get_cancel_token();
+        let services = services.clone();
+        let config = tcp_config.clone();
         tokio::spawn(async move {
-            if let Err(e) = leaf_endpoint::create_leaf_endpoint(i, hub_tx, cancel_token).await {
+            if let Err(e) =
+                leaf_endpoint::create_leaf_endpoint(port, hub_tx, config, services).await
+            {
                 error!("Failed to create leaf endpoint: {}", e);
             }
         });
@@ -53,7 +57,7 @@ pub async fn start(
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
-                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host, &config).await {
+                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host, &tcp_config).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
                     },
@@ -68,7 +72,7 @@ pub async fn start(
                 match leaf_request {
                     Some(request) => {
                         debug!("Received leaf endpoint message");
-                        if let Err(e) = tcp_channel_handler::handle(request, &config, &mut tunnel_host, &services).await {
+                        if let Err(e) = tcp_channel_handler::handle(request, &tcp_config, &mut tunnel_host, &services).await {
                             error!("Failed to handle leaf endpoint message: {}", e);
                         }
                     },

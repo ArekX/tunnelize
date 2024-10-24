@@ -3,8 +3,6 @@ use common::{
     logger::initialize_logger,
 };
 use log::{debug, info};
-use serde::de;
-use server::endpoints::monitor;
 
 mod common;
 mod server;
