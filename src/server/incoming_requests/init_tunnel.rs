@@ -49,7 +49,7 @@ pub enum InitTunnelResponse {
     },
 }
 
-pub async fn process_init_tunnel(
+pub async fn process(
     services: Arc<Services>,
     request: InitTunelRequest,
     mut response_stream: ConnectionStream,
@@ -132,35 +132,6 @@ async fn validate_requested_proxies(
     }
 
     Ok(())
-}
-
-// TODO: Move for monitoring commands check
-async fn resolve_admin_privileges(
-    request: &InitTunelRequest,
-    config: &Arc<ServerConfiguration>,
-    response_stream: &mut ConnectionStream,
-) -> Result<bool> {
-    if let Some(config_admin_key) = config.admin_key.as_ref() {
-        if let Some(request_admin_key) = request.admin_key.as_ref() {
-            if config_admin_key != request_admin_key {
-                response_stream
-                    .respond_message(&InitTunnelResponse::Rejected {
-                        reason: "Administration key is wrong or not valid".to_string(),
-                    })
-                    .await;
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "Administration key is wrong or not valid",
-                ));
-            }
-
-            return Ok(true);
-        }
-
-        return Ok(false);
-    }
-
-    Ok(true)
 }
 
 #[derive(Debug, Clone)]

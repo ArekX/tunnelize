@@ -3,19 +3,19 @@ use std::sync::Arc;
 use crate::{common::connection::ConnectionStream, create_data_enum};
 
 use super::services::Services;
-use init_link::process_init_link;
-use init_tunnel::process_init_tunnel;
-use serde::{Deserialize, Serialize};
 
 mod init_link;
 mod init_tunnel;
+mod monitoring_request;
 
 pub use init_link::{InitLinkRequest, InitLinkResponse};
 pub use init_tunnel::{InitTunelRequest, InitTunnelResponse, InputProxy, ProxySession};
+use monitoring_request::{ProcessMonitoringRequest, ProcessMonitoringResponse};
 
 create_data_enum!(ServerRequestMessage, {
     InitTunelRequest -> InitTunnelResponse,
-    InitLinkRequest -> InitLinkResponse
+    InitLinkRequest -> InitLinkResponse,
+    ProcessMonitoringRequest -> ProcessMonitoringResponse
 });
 
 pub async fn handle(
@@ -25,10 +25,13 @@ pub async fn handle(
 ) {
     match message {
         ServerRequestMessage::InitTunelRequest(request) => {
-            process_init_tunnel(services, request, stream).await
+            init_tunnel::process(services, request, stream).await
         }
         ServerRequestMessage::InitLinkRequest(request) => {
-            process_init_link(services, request, stream).await
+            init_link::process(services, request, stream).await
+        }
+        ServerRequestMessage::ProcessMonitoringRequest(request) => {
+            monitoring_request::process(services, request, stream).await
         }
     }
 }

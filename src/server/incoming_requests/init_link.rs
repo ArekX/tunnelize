@@ -22,7 +22,7 @@ pub enum InitLinkResponse {
     Rejected { reason: String },
 }
 
-pub async fn process_init_link(
+pub async fn process(
     services: Arc<Services>,
     request: InitLinkRequest,
     mut response_stream: ConnectionStream,
