@@ -1,14 +1,13 @@
-use std::{
-    io::{Error, ErrorKind},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use configuration::TcpEndpointConfig;
 use log::{debug, error, info};
-use tokio::{io::Result, net::TcpListener};
+use messages::TcpChannelRequest;
+use tokio::{io::Result, sync::Mutex};
+use tunnel_host::TunnelHost;
 
 use crate::{
-    common::{channel::RequestReceiver, connection::ConnectionStream},
+    common::channel::{create_channel, RequestReceiver},
     server::services::Services,
 };
 
@@ -17,6 +16,10 @@ use super::messages::EndpointChannelRequest;
 mod channel_handler;
 pub mod configuration;
 mod data_handler;
+mod leaf_endpoint;
+mod messages;
+mod tcp_channel_handler;
+mod tunnel_host;
 
 pub async fn start(
     services: Arc<Services>,
@@ -24,46 +27,57 @@ pub async fn start(
     config: TcpEndpointConfig,
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
-    let listener = match TcpListener::bind(config.get_bind_address()).await {
-        Ok(listener) => listener,
-        Err(e) => {
-            error!("Failed to bind client listener: {}", e);
-            return Err(Error::new(
-                ErrorKind::Other,
-                "Failed to bind client listener",
-            ));
-        }
-    };
+    let mut tunnel_host = TunnelHost::new();
+
+    let (leaf_hub_tx, mut leaf_hub_rx) = create_channel::<TcpChannelRequest>();
+
+    for i in config.reserve_ports_from..=config.reserve_ports_to {
+        let hub_tx = leaf_hub_tx.clone();
+        let cancel_token = services.get_cancel_token();
+        tokio::spawn(async move {
+            if let Err(e) = leaf_endpoint::create_leaf_endpoint(i, hub_tx, cancel_token).await {
+                error!("Failed to create leaf endpoint: {}", e);
+            }
+        });
+    }
+
+    let cancel_token = services.get_cancel_token();
 
     loop {
         tokio::select! {
+            _ = cancel_token.cancelled() => {
+                info!("Endpoint '{}' has been shutdown", name);
+                return Ok(());
+            }
             request = channel_rx.wait_for_requests() => {
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
-                        if let Err(e) = channel_handler::handle(request, &config).await {
+                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host, &config).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
                     },
                     None => {
                         info!("Endpoint '{}' channel has been shutdown", name);
+                        cancel_token.cancel();
                         return Ok(());
                     }
                 }
             }
-            client = listener.accept() => {
-                match client {
-                    Ok((stream, stream_address)) => {
-                        info!("Accepted connection from client: {}", stream_address);
-                        if let Err(e) = data_handler::handle(ConnectionStream::from(stream), &name, &config, &services).await {
-                            error!("Failed to handle client request: {}", e);
+            leaf_request = leaf_hub_rx.wait_for_requests() => {
+                match leaf_request {
+                    Some(request) => {
+                        debug!("Received leaf endpoint message");
+                        if let Err(e) = tcp_channel_handler::handle(request, &config, &mut tunnel_host, &services).await {
+                            error!("Failed to handle leaf endpoint message: {}", e);
                         }
                     },
-                    Err(e) => {
-                        error!("Failed to accept client connection: {}", e);
-                        continue;
+                    None => {
+                        info!("Leaf endpoint channel has been shutdown");
+                        cancel_token.cancel();
+                        return Ok(());
                     }
-                };
+                }
             }
         }
     }

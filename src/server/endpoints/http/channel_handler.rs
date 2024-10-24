@@ -10,7 +10,8 @@ use crate::{
     server::endpoints::{
         http::HttpEndpointInfo,
         messages::{
-            EndpointChannelRequest, ResolvedEndpointInfo, RegisterProxyResponse, RemoveTunnelRequest,
+            EndpointChannelRequest, RegisterTunnelResponse, RemoveTunnelRequest,
+            ResolvedEndpointInfo,
         },
     },
     tunnel::configuration::ProxyConfiguration,
@@ -22,10 +23,10 @@ pub async fn handle(
     tunnel_host: &mut TunnelHost,
 ) -> Result<()> {
     match &request.data {
-        EndpointChannelRequest::RegisterProxyRequest(proxy_request) => {
+        EndpointChannelRequest::RegisterTunnelRequest(tunnel_request) => {
             let mut proxy_info = HashMap::<Uuid, ResolvedEndpointInfo>::new();
 
-            for proxy_session in proxy_request.proxy_sessions.iter() {
+            for proxy_session in tunnel_request.proxy_sessions.iter() {
                 let ProxyConfiguration::Http { desired_name } = &proxy_session.config else {
                     debug!("Proxy session configuration passed is not for Http endpoint");
                     continue;
@@ -33,13 +34,13 @@ pub async fn handle(
 
                 let hostname = tunnel_host.register_host(
                     &desired_name,
-                    &proxy_request.tunnel_id,
+                    &tunnel_request.tunnel_id,
                     &proxy_session.proxy_id,
                 );
 
                 info!(
                     "Tunnel ID '{}' connected to http endpoint with hostname '{}'",
-                    proxy_request.tunnel_id, hostname
+                    tunnel_request.tunnel_id, hostname
                 );
 
                 proxy_info.insert(
@@ -50,7 +51,7 @@ pub async fn handle(
                 );
             }
 
-            request.respond(RegisterProxyResponse { proxy_info }).await;
+            request.respond(RegisterTunnelResponse { proxy_info }).await;
         }
         EndpointChannelRequest::RemoveTunnelRequest(RemoveTunnelRequest { tunnel_id }) => {
             info!("Removing tunnel ID '{}' from http endpoint.", tunnel_id);

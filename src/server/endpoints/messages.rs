@@ -10,18 +10,18 @@ use crate::{
 use super::http::HttpEndpointInfo;
 
 create_channel_enum!(EndpointChannelRequest -> EndpointChannelResponse, {
-    RegisterProxyRequest -> RegisterProxyResponse,
+    RegisterTunnelRequest -> RegisterTunnelResponse,
     RemoveTunnelRequest -> OkResponse
 });
 
 #[derive(Clone, Debug)]
-pub struct RegisterProxyRequest {
+pub struct RegisterTunnelRequest {
     pub tunnel_id: Uuid,
     pub proxy_sessions: Vec<ProxySession>,
 }
 
 #[derive(Clone, Debug)]
-pub struct RegisterProxyResponse {
+pub struct RegisterTunnelResponse {
     pub proxy_info: HashMap<Uuid, ResolvedEndpointInfo>,
 }
 

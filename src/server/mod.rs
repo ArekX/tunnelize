@@ -55,9 +55,8 @@ pub async fn start() -> Result<()> {
         }),
     );
 
-    let services = Arc::new(Services::new(configuration));
-
     let cancel_token = CancellationToken::new();
+    let services = Arc::new(Services::new(configuration, cancel_token.clone()));
 
     let server_future = {
         let services = services.clone();

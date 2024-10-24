@@ -7,6 +7,7 @@ use endpoint_manager::EndpointManager;
 use events::ServiceEvent;
 use link_manager::LinkManager;
 use tokio::sync::{Mutex, MutexGuard};
+use tokio_util::sync::CancellationToken;
 use tunnel_manager::TunnelManager;
 
 use super::configuration::ServerConfiguration;
@@ -34,11 +35,12 @@ pub struct Services {
     link_manager: Mutex<LinkManager>,
     bfp_manager: Mutex<BfpManager>,
     config: Arc<ServerConfiguration>,
+    cancel_token: CancellationToken,
     start_time: i64,
 }
 
 impl Services {
-    pub fn new(config: ServerConfiguration) -> Self {
+    pub fn new(config: ServerConfiguration, cancel_token: CancellationToken) -> Self {
         Self {
             client_manager: Mutex::new(ClientManager::new()),
             tunnel_manager: Mutex::new(TunnelManager::new()),
@@ -47,6 +49,7 @@ impl Services {
             bfp_manager: Mutex::new(BfpManager::new()),
             config: Arc::new(config),
             start_time: Utc::now().timestamp(),
+            cancel_token,
         }
     }
 
@@ -92,5 +95,9 @@ impl Services {
             "{} days, {} hours, {} minutes, {} seconds",
             days, hours, minutes, seconds
         )
+    }
+
+    pub fn get_cancel_token(&self) -> CancellationToken {
+        self.cancel_token.clone()
     }
 }

@@ -12,7 +12,7 @@ use crate::{
     common::connection::ConnectionStream,
     server::{
         configuration::ServerConfiguration,
-        endpoints::messages::{RegisterProxyRequest, ResolvedEndpointInfo},
+        endpoints::messages::{RegisterTunnelRequest, ResolvedEndpointInfo},
         services::events::ServiceEvent,
         session::{self, tunnel::TunnelProxyInfo},
     },
@@ -173,7 +173,7 @@ async fn resolve_endpoint_info(
             .await
             .send_request(
                 service_name,
-                RegisterProxyRequest {
+                RegisterTunnelRequest {
                     tunnel_id,
                     proxy_sessions: proxies.clone(),
                 },
