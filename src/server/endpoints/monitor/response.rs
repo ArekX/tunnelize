@@ -7,10 +7,7 @@ use axum::{
 use serde::Serialize;
 use serde_json::json;
 
-#[derive(Serialize)]
-struct Records<T: Serialize> {
-    records: Vec<T>,
-}
+use crate::server::monitoring::Records;
 
 pub fn into_json(status: StatusCode, data: impl Serialize) -> Response<Body> {
     (status, Json(data)).into_response()

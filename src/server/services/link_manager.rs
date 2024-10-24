@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use log::info;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -24,7 +24,7 @@ impl Into<LinkInfo> for &LinkSession {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct LinkInfo {
     pub id: Uuid,
     pub endpoint_name: String,

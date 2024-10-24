@@ -1,4 +1,5 @@
 use clap::{command, Parser, Subcommand};
+use uuid::Uuid;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -32,6 +33,15 @@ pub enum Commands {
 #[derive(Subcommand, Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub enum MonitorCommands {
     SystemInfo,
+    ListEndpoints,
+    ListTunnels,
+    GetTunnel { id: Uuid },
+    DisconnectTunnel { id: Uuid },
+    ListClients,
+    GetClient { id: Uuid },
+    ListLinks,
+    GetLink { id: Uuid },
+    DisconnectLink { id: Uuid },
 }
 
 pub fn parse_command() -> Commands {

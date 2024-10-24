@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use sysinfo::System;
@@ -23,6 +23,17 @@ pub struct SystemInfo {
     tunnel_count: usize,
     client_count: usize,
     link_count: usize,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Records<T> {
+    pub records: Vec<T>,
+}
+
+impl<T> From<Vec<T>> for Records<T> {
+    fn from(records: Vec<T>) -> Self {
+        Self { records }
+    }
 }
 
 impl SystemInfo {

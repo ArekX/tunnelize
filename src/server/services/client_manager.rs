@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use log::info;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::common::connection::ConnectionStream;
@@ -28,7 +28,7 @@ impl Into<ClientInfo> for &Client {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClientInfo {
     pub id: Uuid,
     pub endpoint_name: String,

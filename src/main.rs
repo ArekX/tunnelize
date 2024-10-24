@@ -45,8 +45,8 @@ async fn run_command(command: Commands) -> Result<(), std::io::Error> {
 
             tunnel::start().await?;
         }
-        Commands::Monitor(m) => {
-            tunnel::process_monitor_command(m).await?;
+        Commands::Monitor(monitor_command) => {
+            tunnel::process_monitor_command(monitor_command).await?;
         }
     }
 

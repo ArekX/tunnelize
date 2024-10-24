@@ -2,7 +2,7 @@ use std::{ops::ControlFlow, sync::Arc};
 
 use super::messages::TunnelChannelRequest;
 use log::info;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -68,7 +68,7 @@ impl TunnelSession {
     }
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TunnelProxyInfo {
     pub endpoint: String,
     pub details: ResolvedEndpointInfo,

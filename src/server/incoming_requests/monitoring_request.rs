@@ -3,11 +3,11 @@ use std::{net::SocketAddr, sync::Arc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::{address, cli::MonitorCommands, connection::ConnectionStream},
+    common::{cli::MonitorCommands, connection::ConnectionStream},
     server::{
         configuration::ServerConfiguration,
-        monitoring::{self, SystemInfo},
-        services::Services,
+        monitoring::{self, Records, SystemInfo},
+        services::{ClientInfo, EndpointInfo, LinkInfo, Services, TunnelInfo},
     },
 };
 
@@ -21,6 +21,15 @@ pub struct ProcessMonitoringRequest {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProcessMonitoringResponse {
     SystemInfo(SystemInfo),
+    ListEndpoints(Records<EndpointInfo>),
+    ListClients(Records<ClientInfo>),
+    GetClient(ClientInfo),
+    ListTunnels(Records<TunnelInfo>),
+    GetTunnel(TunnelInfo),
+    TunnelDisconnected,
+    ListLinks(Records<LinkInfo>),
+    GetLink(LinkInfo),
+    LinkDisconnected,
     Rejected { reason: String },
 }
 
@@ -83,6 +92,100 @@ pub async fn process(
                 .respond_message(&ProcessMonitoringResponse::SystemInfo(
                     monitoring::get_system_info(&services).await,
                 ))
+                .await;
+        }
+        MonitorCommands::ListTunnels => {
+            response_stream
+                .respond_message(&ProcessMonitoringResponse::ListTunnels(
+                    monitoring::get_tunnel_list(&services).await.into(),
+                ))
+                .await;
+        }
+        MonitorCommands::GetTunnel { id } => {
+            let Some(result) = monitoring::get_tunnel_info(&services, &id).await else {
+                response_stream
+                    .respond_message(&ProcessMonitoringResponse::Rejected {
+                        reason: "Tunnel not found for this ID".to_string(),
+                    })
+                    .await;
+                return;
+            };
+
+            response_stream
+                .respond_message(&ProcessMonitoringResponse::GetTunnel(result))
+                .await;
+        }
+        MonitorCommands::DisconnectTunnel { id } => {
+            if let Err(error) = services.get_tunnel_manager().await.cancel_session(&id) {
+                response_stream
+                    .respond_message(&ProcessMonitoringResponse::Rejected { reason: error })
+                    .await;
+                return;
+            };
+
+            response_stream
+                .respond_message(&ProcessMonitoringResponse::TunnelDisconnected)
+                .await;
+        }
+        MonitorCommands::ListEndpoints => {
+            response_stream
+                .respond_message(&ProcessMonitoringResponse::ListEndpoints(
+                    monitoring::get_endpoint_list(&services).await.into(),
+                ))
+                .await;
+        }
+        MonitorCommands::ListClients => {
+            response_stream
+                .respond_message(&ProcessMonitoringResponse::ListClients(
+                    monitoring::get_client_list(&services).await.into(),
+                ))
+                .await;
+        }
+        MonitorCommands::GetClient { id } => {
+            let Some(result) = monitoring::get_client_info(&services, &id).await else {
+                response_stream
+                    .respond_message(&ProcessMonitoringResponse::Rejected {
+                        reason: "Client not found for this ID".to_string(),
+                    })
+                    .await;
+                return;
+            };
+
+            response_stream
+                .respond_message(&ProcessMonitoringResponse::GetClient(result))
+                .await;
+        }
+        MonitorCommands::ListLinks => {
+            response_stream
+                .respond_message(&ProcessMonitoringResponse::ListLinks(
+                    monitoring::get_link_list(&services).await.into(),
+                ))
+                .await;
+        }
+        MonitorCommands::GetLink { id } => {
+            let Some(result) = monitoring::get_link_info(&services, &id).await else {
+                response_stream
+                    .respond_message(&ProcessMonitoringResponse::Rejected {
+                        reason: "Link not found for this ID".to_string(),
+                    })
+                    .await;
+                return;
+            };
+
+            response_stream
+                .respond_message(&ProcessMonitoringResponse::GetLink(result))
+                .await;
+        }
+        MonitorCommands::DisconnectLink { id } => {
+            if let Err(error) = monitoring::disconnect_link(&services, &id).await {
+                response_stream
+                    .respond_message(&ProcessMonitoringResponse::Rejected { reason: error })
+                    .await;
+                return;
+            };
+
+            response_stream
+                .respond_message(&ProcessMonitoringResponse::LinkDisconnected)
                 .await;
         }
     }

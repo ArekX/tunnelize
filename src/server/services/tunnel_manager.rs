@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use log::debug;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
@@ -18,7 +18,7 @@ pub struct TunnelManager {
     tunnels: HashMap<Uuid, TunnelSession>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TunnelInfo {
     pub id: Uuid,
     pub name: Option<String>,

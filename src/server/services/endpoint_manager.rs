@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use log::error;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     common::channel::{create_channel, DataResponse, RequestReceiver, RequestSender},
@@ -31,7 +31,7 @@ impl Into<EndpointInfo> for &Endpoint {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EndpointInfo {
     pub name: String,
     pub definition: EndpointConfiguration,
