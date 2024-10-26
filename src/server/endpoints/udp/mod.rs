@@ -48,6 +48,8 @@ pub async fn start(
         });
     }
 
+    // TODO: Add a supervisor to cleanup timed out UDP connections
+
     let cancel_token = services.get_cancel_token();
 
     loop {
@@ -70,7 +72,7 @@ pub async fn start(
                     }
                 }
             }
-                        leaf_request = leaf_hub_rx.wait_for_requests() => {
+            leaf_request = leaf_hub_rx.wait_for_requests() => {
                 match leaf_request {
                     Some(request) => {
                         debug!("Received leaf endpoint message");

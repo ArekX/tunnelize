@@ -1,5 +1,6 @@
 use std::{
     io::{Error, ErrorKind},
+    net::SocketAddr,
     ops::ControlFlow,
     time::Duration,
 };
@@ -141,6 +142,13 @@ impl ConnectionStream {
                 socket.send(buf.to_vec()).await?;
                 Ok(())
             }
+        }
+    }
+
+    pub async fn write_all_to(&mut self, buf: &[u8], address: &SocketAddr) -> Result<()> {
+        match self {
+            Self::UdpSocket(socket) => socket.send_to(buf, address).await.map(|_| ()),
+            _ => return self.write_all(buf).await,
         }
     }
 

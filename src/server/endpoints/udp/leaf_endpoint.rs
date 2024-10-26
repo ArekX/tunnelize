@@ -22,6 +22,8 @@ pub async fn start(
 ) -> Result<()> {
     let cancel_token = services.get_cancel_token();
 
+    let mut target_address: Option<SocketAddr> = None;
+
     let mut connection = match UdpSocket::bind(config.get_bind_address(port)).await {
         Ok(socket) => ConnectionStream::from(socket),
         Err(e) => {
@@ -47,10 +49,19 @@ pub async fn start(
                     continue;
                 };
 
+                if let Some(check_addr) = target_address {
+                    if check_addr != address {
+                        error!("Received UDP datagram from other address '{}' while assigned to address '{}'.", address, check_addr);
+                        continue;
+                    }
+                }
+
                 debug!(
                     "Accepted UDP connection from client '{}' at port {}",
                     address, port
                 );
+
+                target_address = Some(address);
 
                 let Ok(_) = hub_tx
                     .request(ClientConnect {
@@ -67,14 +78,21 @@ pub async fn start(
                 debug!("Sent leaf connection request.");
             },
             data = leaf_data_rx.recv() => {
-                if let Some(data) = data {
-                    // TODO: This part probably won't work as expected, we dont know address of the client yet
-                    // we need to keep the proper address so that we know where we are sending the data to
-                    // and to reject any other data that comes from different address
-                    let Ok(_) = connection.write_all(&data).await else {
-                        error!("Failed to send data to client.");
+                match data {
+                    Some(data) => {
+                        if let Some(address) = target_address {
+                            if let Err(e) = connection.write_all_to(&data, &address).await {
+                                debug!("Failed to send data to client. Reason: {}", e);
+                                continue;
+                            };
+                        } else {
+                            error!("No target address set, cannot send UDP datagram at port '{}'.", port);
+                        }
+                    }
+                    None => {
+                        target_address = None;
                         continue;
-                    };
+                    }
                 }
             }
         }
