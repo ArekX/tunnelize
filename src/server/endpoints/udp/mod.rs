@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use client_host::ClientHost;
 use configuration::UdpEndpointConfig;
 use log::{debug, error, info};
 use messages::UdpChannelRequest;
 use serde::{Deserialize, Serialize};
-use tokio::io::Result;
+use tokio::{io::Result, sync::Mutex};
 use tunnel_host::TunnelHost;
 
 use crate::{
@@ -15,6 +16,7 @@ use crate::{
 use super::messages::EndpointChannelRequest;
 
 mod channel_handler;
+mod client_host;
 pub mod configuration;
 mod leaf_endpoint;
 mod messages;
@@ -33,6 +35,7 @@ pub async fn start(
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
     let mut tunnel_host = TunnelHost::new(&config);
+    let client_host = Arc::new(Mutex::new(ClientHost::new()));
     let udp_config = Arc::new(config);
 
     let (leaf_hub_tx, mut leaf_hub_rx) = create_channel::<UdpChannelRequest>();
@@ -41,8 +44,10 @@ pub async fn start(
         let hub_tx = leaf_hub_tx.clone();
         let services = services.clone();
         let config = udp_config.clone();
+        let client_host = client_host.clone();
         tokio::spawn(async move {
-            if let Err(e) = leaf_endpoint::start(port, hub_tx, config, services).await {
+            if let Err(e) = leaf_endpoint::start(port, hub_tx, config, client_host, services).await
+            {
                 error!("Failed to create leaf endpoint: {}", e);
             }
         });

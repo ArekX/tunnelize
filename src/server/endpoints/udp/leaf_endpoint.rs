@@ -4,6 +4,8 @@ use std::sync::Arc;
 use log::{debug, error};
 use tokio::io::{Error, ErrorKind, Result};
 use tokio::net::UdpSocket;
+use tokio::sync::mpsc::Sender;
+use tokio::sync::Mutex;
 
 use crate::common::channel::RequestSender;
 use crate::common::channel_socket::ChannelSocket;
@@ -11,6 +13,7 @@ use crate::common::connection::ConnectionStream;
 use crate::server::endpoints::udp::messages::ClientConnect;
 use crate::server::services::Services;
 
+use super::client_host::ClientHost;
 use super::configuration::UdpEndpointConfig;
 use super::messages::UdpChannelRequest;
 
@@ -18,11 +21,16 @@ pub async fn start(
     port: u16,
     hub_tx: RequestSender<UdpChannelRequest>,
     config: Arc<UdpEndpointConfig>,
+    client_host: Arc<Mutex<ClientHost>>,
     services: Arc<Services>,
 ) -> Result<()> {
     let cancel_token = services.get_cancel_token();
 
     let mut target_address: Option<SocketAddr> = None;
+    let mut socket_tx: Option<Sender<Vec<u8>>> = None;
+
+    // TODO: each leaf has to have its own channel
+    // TODO: on first connect add to client host, on cleanup tell the leaf_tx that client is gone
 
     let mut connection = match UdpSocket::bind(config.get_bind_address(port)).await {
         Ok(socket) => ConnectionStream::from(socket),
@@ -54,6 +62,17 @@ pub async fn start(
                         error!("Received UDP datagram from other address '{}' while assigned to address '{}'.", address, check_addr);
                         continue;
                     }
+
+                    let Some(socket_tx) = &socket_tx else {
+                        error!("No socket to send data to client.");
+                        continue;
+                    };
+
+                    if let Err(e) = socket_tx.send(data).await {
+                        error!("Failed to send data to client. Reason: {}", e);
+                    }
+
+                    continue;
                 }
 
                 debug!(
@@ -63,10 +82,18 @@ pub async fn start(
 
                 target_address = Some(address);
 
+                let cleanup_token = cancel_token.child_token();
+
+                let channel_socket = ChannelSocket::new(leaf_data_tx.clone(), cleanup_token.clone());
+
+                socket_tx = Some(channel_socket.get_socket_tx());
+
+                // TODO: Add cleanup for the channel socket
+
                 let Ok(_) = hub_tx
                     .request(ClientConnect {
                         initial_data: Some(data),
-                        stream: Some(ConnectionStream::from(ChannelSocket::new(leaf_data_tx.clone()))),
+                        stream: Some(ConnectionStream::from(channel_socket)),
                         port,
                     })
                     .await

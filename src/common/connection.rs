@@ -86,7 +86,7 @@ impl ConnectionStream {
             Self::TlsTcpStream(stream) => stream.read(buf).await,
             Self::UdpSocket(socket) => socket.recv(buf).await,
             Self::ChannelSocket(socket) => {
-                let data = socket.receive().await;
+                let data = socket.receive().await?;
                 let data_len = data.len();
 
                 buf[..data_len].copy_from_slice(&data);
@@ -164,16 +164,9 @@ impl ConnectionStream {
                 "Reading messages from UDP connection is not supported.",
             ))),
             Self::ChannelSocket(socket) => {
-                let data = socket.receive().await;
-                let message = match rmp_serde::from_slice(&data) {
-                    Ok(message) => message,
-                    Err(e) => {
-                        debug!("Error while deserializing message: {:?}", e);
-                        return Err(MessageError::DecodeError(e));
-                    }
-                };
+                let data = socket.receive().await?;
 
-                Ok(message)
+                Ok(rmp_serde::from_slice(&data)?)
             }
         }
     }
