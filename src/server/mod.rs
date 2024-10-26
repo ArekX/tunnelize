@@ -1,6 +1,7 @@
 use configuration::{EndpointConfiguration, ServerConfiguration};
 use endpoints::http::HttpEndpointConfig;
 use endpoints::monitor::configuration::MonitorEndpointConfig;
+use endpoints::tcp::configuration::TcpEndpointConfig;
 use log::{debug, info};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
@@ -52,6 +53,16 @@ pub async fn start() -> Result<()> {
             authentication: endpoints::monitor::configuration::MonitorAuthentication::Bearer {
                 token: "opop".to_owned(),
             },
+        }),
+    );
+
+    configuration.endpoints.insert(
+        "tcp".to_owned(),
+        EndpointConfiguration::Tcp(TcpEndpointConfig {
+            is_secure: false,
+            reserve_ports_from: 4000,
+            reserve_ports_to: 4100,
+            address: None,
         }),
     );
 

@@ -23,13 +23,22 @@ fn get_configuration() -> TunnelConfiguration {
         server_address: "127.0.0.1:3456".to_string(),
         endpoint_key: None,
         monitor_key: Some("key".to_string()),
-        proxies: vec![TunnelProxy {
-            endpoint_name: "http".to_string(),
-            forward_address: "0.0.0.0:8080".to_string(),
-            config: ProxyConfiguration::Http {
-                desired_name: Some("test".to_string()),
+        proxies: vec![
+            TunnelProxy {
+                endpoint_name: "http".to_string(),
+                forward_address: "0.0.0.0:8081".to_string(),
+                config: ProxyConfiguration::Http {
+                    desired_name: Some("test".to_string()),
+                },
             },
-        }],
+            TunnelProxy {
+                endpoint_name: "tcp".to_string(),
+                forward_address: "0.0.0.0:8080".to_string(),
+                config: ProxyConfiguration::Tcp {
+                    desired_port: Some(4050),
+                },
+            },
+        ],
     }
 }
 
