@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use log::{debug, error};
-use rmp_serde::config;
 use tokio::io::{Error, ErrorKind, Result};
 use tokio::net::TcpListener;
 
@@ -12,7 +11,7 @@ use crate::server::services::Services;
 use super::configuration::TcpEndpointConfig;
 use super::messages::{ClientConnect, TcpChannelRequest};
 
-pub async fn create_leaf_endpoint(
+pub async fn start(
     port: u16,
     hub_tx: RequestSender<TcpChannelRequest>,
     config: Arc<TcpEndpointConfig>,
@@ -48,15 +47,18 @@ pub async fn create_leaf_endpoint(
                     address, port
                 );
 
-                if let Err(e) = hub_tx
+                let Ok(_) = hub_tx
                     .request(ClientConnect {
                         stream: Some(ConnectionStream::from(stream)),
                         port,
                     })
                     .await
-                {
-                    error!("Failed to send leaf connection request: {:?}", e);
-                }
+                else {
+                    error!("Failed to send leaf connection request.");
+                    continue;
+                };
+
+                debug!("Sent leaf connection request.");
             }
         }
     }

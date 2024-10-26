@@ -23,7 +23,7 @@ mod tunnel_host;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TcpEndpointInfo {
-    pub assigned_port: String,
+    pub assigned_port: u16,
 }
 
 pub async fn start(
@@ -32,7 +32,7 @@ pub async fn start(
     config: TcpEndpointConfig,
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
-    let mut tunnel_host = TunnelHost::new();
+    let mut tunnel_host = TunnelHost::new(&config);
     let tcp_config = Arc::new(config);
 
     let (leaf_hub_tx, mut leaf_hub_rx) = create_channel::<TcpChannelRequest>();
@@ -42,9 +42,7 @@ pub async fn start(
         let services = services.clone();
         let config = tcp_config.clone();
         tokio::spawn(async move {
-            if let Err(e) =
-                leaf_endpoint::create_leaf_endpoint(port, hub_tx, config, services).await
-            {
+            if let Err(e) = leaf_endpoint::start(port, hub_tx, config, services).await {
                 error!("Failed to create leaf endpoint: {}", e);
             }
         });
@@ -62,7 +60,7 @@ pub async fn start(
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
-                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host, &tcp_config).await {
+                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
                     },
@@ -77,7 +75,7 @@ pub async fn start(
                 match leaf_request {
                     Some(request) => {
                         debug!("Received leaf endpoint message");
-                        if let Err(e) = tcp_channel_handler::handle(request, &tcp_config, &mut tunnel_host, &services).await {
+                        if let Err(e) = tcp_channel_handler::handle(request, &name, &mut tunnel_host, &services).await {
                             error!("Failed to handle leaf endpoint message: {}", e);
                         }
                     },

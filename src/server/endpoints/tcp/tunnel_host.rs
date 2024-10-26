@@ -70,7 +70,7 @@ impl TunnelHost {
             },
         );
 
-        port
+        Ok(port)
     }
 
     pub fn remove_tunnel(&mut self, tunnel_id: &Uuid) {

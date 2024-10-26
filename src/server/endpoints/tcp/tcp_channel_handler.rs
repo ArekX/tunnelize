@@ -9,13 +9,11 @@ use crate::{
     server::session::messages::{ClientLinkRequest, ClientLinkResponse},
 };
 
-use super::{
-    configuration::TcpEndpointConfig, messages::TcpChannelRequest, tunnel_host::TunnelHost,
-};
+use super::{messages::TcpChannelRequest, tunnel_host::TunnelHost};
 
 pub async fn handle(
     mut request: Request<TcpChannelRequest>,
-    _config: &Arc<TcpEndpointConfig>,
+    name: &str,
     tunnel_host: &mut TunnelHost,
     services: &Arc<Services>,
 ) -> Result<()> {
@@ -23,6 +21,11 @@ pub async fn handle(
         TcpChannelRequest::ClientConnect(client_request) => {
             let Some(tunnel) = tunnel_host.get_tunnel(client_request.port) else {
                 error!("No tunnel found for port {}", client_request.port);
+
+                if let Some(mut stream) = client_request.stream.take() {
+                    stream.shutdown().await;
+                }
+
                 request.respond(OkResponse).await;
                 return Ok(());
             };
@@ -37,7 +40,7 @@ pub async fn handle(
                 return Ok(());
             };
             let client_id = Uuid::new_v4();
-            let client = Client::new(client_id, "tcp".to_owned(), stream, None);
+            let client = Client::new(client_id, name.to_owned(), stream, None);
 
             services.get_client_manager().await.subscribe_client(client);
 
