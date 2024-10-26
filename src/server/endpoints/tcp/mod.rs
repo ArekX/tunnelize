@@ -3,7 +3,8 @@ use std::sync::Arc;
 use configuration::TcpEndpointConfig;
 use log::{debug, error, info};
 use messages::TcpChannelRequest;
-use tokio::{io::Result, sync::Mutex};
+use serde::{Deserialize, Serialize};
+use tokio::io::Result;
 use tunnel_host::TunnelHost;
 
 use crate::{
@@ -15,11 +16,15 @@ use super::messages::EndpointChannelRequest;
 
 mod channel_handler;
 pub mod configuration;
-mod data_handler;
 mod leaf_endpoint;
 mod messages;
 mod tcp_channel_handler;
 mod tunnel_host;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TcpEndpointInfo {
+    pub assigned_port: String,
+}
 
 pub async fn start(
     services: Arc<Services>,

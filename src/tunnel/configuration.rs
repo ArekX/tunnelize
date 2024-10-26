@@ -20,7 +20,7 @@ pub struct TunnelProxy {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProxyConfiguration {
     Http { desired_name: Option<String> },
-    Tcp { port_from: u16, port_to: u16 },
+    Tcp { desired_port: Option<u16> },
     Udp { port_from: u16, port_to: u16 },
 }
 

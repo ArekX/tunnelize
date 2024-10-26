@@ -7,7 +7,7 @@ use crate::{
     common::channel::OkResponse, create_channel_enum, server::incoming_requests::ProxySession,
 };
 
-use super::http::HttpEndpointInfo;
+use super::{http::HttpEndpointInfo, tcp::TcpEndpointInfo};
 
 create_channel_enum!(EndpointChannelRequest -> EndpointChannelResponse, {
     RegisterTunnelRequest -> RegisterTunnelResponse,
@@ -21,14 +21,20 @@ pub struct RegisterTunnelRequest {
 }
 
 #[derive(Clone, Debug)]
-pub struct RegisterTunnelResponse {
-    pub proxy_info: HashMap<Uuid, ResolvedEndpointInfo>,
+pub enum RegisterTunnelResponse {
+    Accepted {
+        proxy_info: HashMap<Uuid, ResolvedEndpointInfo>,
+    },
+    Rejected {
+        reason: String,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ResolvedEndpointInfo {
     Http(HttpEndpointInfo),
+    Tcp(TcpEndpointInfo),
 }
 
 #[derive(Clone, Debug)]

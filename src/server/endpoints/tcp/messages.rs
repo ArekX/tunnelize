@@ -9,6 +9,6 @@ create_channel_enum!(TcpChannelRequest -> TcpChannelResponse, {
 
 #[derive(Debug)]
 pub struct ClientConnect {
-    pub stream: ConnectionStream,
+    pub stream: Option<ConnectionStream>,
     pub port: u16,
 }

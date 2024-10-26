@@ -19,7 +19,6 @@ pub async fn create_leaf_endpoint(
     services: Arc<Services>,
 ) -> Result<()> {
     let cancel_token = services.get_cancel_token();
-    
 
     let listener = match TcpListener::bind(config.get_bind_address(port)).await {
         Ok(listener) => listener,
@@ -51,7 +50,7 @@ pub async fn create_leaf_endpoint(
 
                 if let Err(e) = hub_tx
                     .request(ClientConnect {
-                        stream: ConnectionStream::from(stream),
+                        stream: Some(ConnectionStream::from(stream)),
                         port,
                     })
                     .await

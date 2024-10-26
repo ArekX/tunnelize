@@ -51,7 +51,9 @@ pub async fn handle(
                 );
             }
 
-            request.respond(RegisterTunnelResponse { proxy_info }).await;
+            request
+                .respond(RegisterTunnelResponse::Accepted { proxy_info })
+                .await;
         }
         EndpointChannelRequest::RemoveTunnelRequest(RemoveTunnelRequest { tunnel_id }) => {
             info!("Removing tunnel ID '{}' from http endpoint.", tunnel_id);

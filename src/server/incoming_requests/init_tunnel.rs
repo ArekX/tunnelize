@@ -12,7 +12,9 @@ use crate::{
     common::connection::ConnectionStream,
     server::{
         configuration::ServerConfiguration,
-        endpoints::messages::{RegisterTunnelRequest, ResolvedEndpointInfo},
+        endpoints::messages::{
+            RegisterTunnelRequest, RegisterTunnelResponse, ResolvedEndpointInfo,
+        },
         services::events::ServiceEvent,
         session::{self, tunnel::TunnelProxyInfo},
     },
@@ -193,7 +195,15 @@ async fn resolve_endpoint_info(
             ));
         };
 
-        for (proxy_id, endpoint_info) in response.proxy_info {
+        let RegisterTunnelResponse::Accepted { proxy_info } = response else {
+            debug!("Endpoint '{}' rejected tunnel registration", service_name);
+            return Err(Error::new(
+                ErrorKind::Other,
+                format!("Endpoint '{}' rejected tunnel registration", service_name),
+            ));
+        };
+
+        for (proxy_id, endpoint_info) in proxy_info {
             tunnel_proxy_info.push(TunnelProxyInfo {
                 details: endpoint_info.clone(),
                 endpoint: service_name.clone(),
