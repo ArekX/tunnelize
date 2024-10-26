@@ -23,7 +23,7 @@ mod tunnel_host;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TcpEndpointInfo {
-    pub assigned_port: u16,
+    pub assigned_hostname: String,
 }
 
 pub async fn start(
@@ -60,7 +60,7 @@ pub async fn start(
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
-                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host).await {
+                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host, &tcp_config).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
                     },

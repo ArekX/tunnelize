@@ -34,9 +34,7 @@ fn get_configuration() -> TunnelConfiguration {
             TunnelProxy {
                 endpoint_name: "tcp".to_string(),
                 forward_address: "0.0.0.0:8080".to_string(),
-                config: ProxyConfiguration::Tcp {
-                    desired_port: Some(4050),
-                },
+                config: ProxyConfiguration::Tcp { desired_port: None },
             },
         ],
     }

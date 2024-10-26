@@ -7,7 +7,7 @@ use crate::{
     common::channel::OkResponse, create_channel_enum, server::incoming_requests::ProxySession,
 };
 
-use super::{http::HttpEndpointInfo, tcp::TcpEndpointInfo};
+use super::{http::HttpEndpointInfo, tcp::TcpEndpointInfo, udp::UdpEndpointInfo};
 
 create_channel_enum!(EndpointChannelRequest -> EndpointChannelResponse, {
     RegisterTunnelRequest -> RegisterTunnelResponse,
@@ -35,6 +35,7 @@ pub enum RegisterTunnelResponse {
 pub enum ResolvedEndpointInfo {
     Http(HttpEndpointInfo),
     Tcp(TcpEndpointInfo),
+    Udp(UdpEndpointInfo),
 }
 
 #[derive(Clone, Debug)]

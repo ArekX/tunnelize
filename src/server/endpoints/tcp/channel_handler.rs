@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     common::channel::{OkResponse, Request},
@@ -8,7 +8,7 @@ use crate::{
     tunnel::configuration::ProxyConfiguration,
 };
 
-use super::{tunnel_host::TunnelHost, TcpEndpointInfo};
+use super::{configuration::TcpEndpointConfig, tunnel_host::TunnelHost, TcpEndpointInfo};
 use log::{debug, info};
 use tokio::io::Result;
 use uuid::Uuid;
@@ -16,6 +16,7 @@ use uuid::Uuid;
 pub async fn handle(
     mut request: Request<EndpointChannelRequest>,
     tunnel_host: &mut TunnelHost,
+    config: &Arc<TcpEndpointConfig>,
 ) -> Result<()> {
     match &mut request.data {
         EndpointChannelRequest::RegisterTunnelRequest(register_request) => {
@@ -63,7 +64,7 @@ pub async fn handle(
                 proxy_info.insert(
                     session.proxy_id,
                     ResolvedEndpointInfo::Tcp(TcpEndpointInfo {
-                        assigned_port: port,
+                        assigned_hostname: config.get_assigned_hostname(port),
                     }),
                 );
             }

@@ -14,6 +14,7 @@ use tokio::{
 use tokio_rustls::client::TlsStream;
 
 use super::{
+    channel_socket::ChannelSocket,
     data_request::DataRequest,
     transport::{read_message, write_message, MessageError},
 };
@@ -23,7 +24,7 @@ pub enum ConnectionStream {
     TcpStream(TcpStream),
     UdpSocket(UdpSocket),
     TlsTcpStream(TlsStream<TcpStream>),
-    // TODO: Add TlsUdpStream
+    ChannelSocket(ChannelSocket),
 }
 
 impl From<TcpStream> for ConnectionStream {
@@ -44,6 +45,12 @@ impl From<TlsStream<TcpStream>> for ConnectionStream {
     }
 }
 
+impl From<ChannelSocket> for ConnectionStream {
+    fn from(socket: ChannelSocket) -> Self {
+        Self::ChannelSocket(socket)
+    }
+}
+
 impl ConnectionStream {
     pub async fn wait_for_data(&mut self) -> Result<ControlFlow<()>> {
         let mut buf = [0; 1];
@@ -52,8 +59,16 @@ impl ConnectionStream {
             Self::TcpStream(stream) => stream,
             Self::TlsTcpStream(stream) => stream.get_mut().0,
             Self::UdpSocket(_) => {
-                // TODO: Implement this for UdpSocket
-                return Ok(ControlFlow::Continue(()));
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    "UDP sockets cannot wait on stream connection.",
+                ))
+            }
+            Self::ChannelSocket(_) => {
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    "Channel sockets cannot wait on stream connection.",
+                ))
             }
         };
 
@@ -69,6 +84,51 @@ impl ConnectionStream {
             Self::TcpStream(stream) => stream.read(buf).await,
             Self::TlsTcpStream(stream) => stream.read(buf).await,
             Self::UdpSocket(socket) => socket.recv(buf).await,
+            Self::ChannelSocket(socket) => {
+                let data = socket.receive().await;
+                let data_len = data.len();
+
+                buf[..data_len].copy_from_slice(&data);
+
+                Ok(data_len)
+            }
+        }
+    }
+
+    pub async fn read_with_address(
+        &mut self,
+        buf: &mut [u8],
+    ) -> Result<(usize, std::net::SocketAddr)> {
+        match self {
+            Self::TcpStream(stream) => {
+                let Ok(peer_addr) = stream.peer_addr() else {
+                    return Err(Error::new(ErrorKind::Other, "Failed to get peer address"));
+                };
+
+                let Ok(read_count) = self.read(buf).await else {
+                    return Err(Error::new(ErrorKind::Other, "Failed to read from stream"));
+                };
+
+                Ok((read_count, peer_addr))
+            }
+            Self::TlsTcpStream(stream) => {
+                let Ok(peer_addr) = stream.get_ref().0.peer_addr() else {
+                    return Err(Error::new(ErrorKind::Other, "Failed to get peer address"));
+                };
+
+                let Ok(read_count) = self.read(buf).await else {
+                    return Err(Error::new(ErrorKind::Other, "Failed to read from stream"));
+                };
+
+                Ok((read_count, peer_addr))
+            }
+            Self::UdpSocket(socket) => socket.recv_from(buf).await,
+            Self::ChannelSocket(_) => {
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    "Channel sockets cannot read with address.",
+                ))
+            }
         }
     }
 
@@ -77,6 +137,10 @@ impl ConnectionStream {
             Self::TcpStream(stream) => stream.write_all(buf).await,
             Self::TlsTcpStream(stream) => stream.write_all(buf).await,
             Self::UdpSocket(socket) => socket.send(buf).await.map(|_| ()),
+            Self::ChannelSocket(socket) => {
+                socket.send(buf.to_vec()).await?;
+                Ok(())
+            }
         }
     }
 
@@ -87,8 +151,21 @@ impl ConnectionStream {
         match self {
             Self::TcpStream(stream) => read_message(stream).await,
             Self::TlsTcpStream(stream) => read_message(stream).await,
-            Self::UdpSocket(_) => {
-                todo!("Implement read_message for UdpSocket");
+            Self::UdpSocket(_) => Err(MessageError::IoError(Error::new(
+                ErrorKind::Other,
+                "Reading messages from UDP connection is not supported.",
+            ))),
+            Self::ChannelSocket(socket) => {
+                let data = socket.receive().await;
+                let message = match rmp_serde::from_slice(&data) {
+                    Ok(message) => message,
+                    Err(e) => {
+                        debug!("Error while deserializing message: {:?}", e);
+                        return Err(MessageError::DecodeError(e));
+                    }
+                };
+
+                Ok(message)
             }
         }
     }
@@ -146,8 +223,22 @@ impl ConnectionStream {
         match self {
             Self::TcpStream(stream) => write_message(stream, &message).await,
             Self::TlsTcpStream(stream) => write_message(stream, &message).await,
-            Self::UdpSocket(_) => {
-                todo!("Implement write_message for UdpSocket");
+            Self::UdpSocket(_) => Err(MessageError::IoError(Error::new(
+                ErrorKind::Other,
+                "Writing messages to UDP connection is not supported.",
+            ))),
+            Self::ChannelSocket(socket) => {
+                let data = match rmp_serde::to_vec(&message) {
+                    Ok(data) => data,
+                    Err(e) => {
+                        debug!("Error while serializing message: {:?}", e);
+                        return Err(MessageError::EncodeError(e));
+                    }
+                };
+
+                socket.send(data).await?;
+
+                Ok(())
             }
         }
     }
@@ -211,6 +302,9 @@ impl ConnectionStream {
             Self::UdpSocket(_) => {
                 // No close for UdpSocket
             }
+            Self::ChannelSocket(socket) => {
+                socket.shutdown();
+            }
         }
     }
 
@@ -253,6 +347,7 @@ impl ConnectionStream {
             Self::TcpStream(_) => "tcp",
             Self::TlsTcpStream(_) => "tcp (tls)",
             Self::UdpSocket(_) => "udp",
+            Self::ChannelSocket(_) => "channel socket",
         }
     }
 }

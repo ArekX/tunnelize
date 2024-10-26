@@ -1,15 +1,14 @@
-use std::{
-    io::{Error, ErrorKind},
-    sync::Arc,
-};
+use std::sync::Arc;
 
 use configuration::UdpEndpointConfig;
 use log::{debug, error, info};
+use messages::UdpChannelRequest;
+use serde::{Deserialize, Serialize};
 use tokio::io::Result;
-use tokio::net::UdpSocket;
+use tunnel_host::TunnelHost;
 
 use crate::{
-    common::{channel::RequestReceiver, connection::ConnectionStream},
+    common::channel::{create_channel, RequestReceiver},
     server::services::Services,
 };
 
@@ -17,7 +16,15 @@ use super::messages::EndpointChannelRequest;
 
 mod channel_handler;
 pub mod configuration;
-mod data_handler;
+mod leaf_endpoint;
+mod messages;
+mod tunnel_host;
+mod udp_channel_handler;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct UdpEndpointInfo {
+    pub assigned_hostname: String,
+}
 
 pub async fn start(
     services: Arc<Services>,
@@ -25,24 +32,35 @@ pub async fn start(
     config: UdpEndpointConfig,
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
-    let mut listener = match UdpSocket::bind(config.get_bind_address()).await {
-        Ok(listener) => ConnectionStream::from(listener),
-        Err(e) => {
-            error!("Failed to bind client listener: {}", e);
-            return Err(Error::new(
-                ErrorKind::Other,
-                "Failed to bind client listener",
-            ));
-        }
-    };
+    let mut tunnel_host = TunnelHost::new(&config);
+    let udp_config = Arc::new(config);
+
+    let (leaf_hub_tx, mut leaf_hub_rx) = create_channel::<UdpChannelRequest>();
+
+    for port in udp_config.reserve_ports_from..=udp_config.reserve_ports_to {
+        let hub_tx = leaf_hub_tx.clone();
+        let services = services.clone();
+        let config = udp_config.clone();
+        tokio::spawn(async move {
+            if let Err(e) = leaf_endpoint::start(port, hub_tx, config, services).await {
+                error!("Failed to create leaf endpoint: {}", e);
+            }
+        });
+    }
+
+    let cancel_token = services.get_cancel_token();
 
     loop {
         tokio::select! {
+            _ = cancel_token.cancelled() => {
+                info!("Endpoint '{}' has been shutdown", name);
+                return Ok(());
+            }
             request = channel_rx.wait_for_requests() => {
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
-                        if let Err(e) = channel_handler::handle(request, &config).await {
+                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host, &udp_config).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
                     },
@@ -52,11 +70,22 @@ pub async fn start(
                     }
                 }
             }
-            _ = listener.wait_for_data() => {
-                if let Err(e) = data_handler::handle(&mut listener, &name, &config, &services).await {
-                    error!("Failed to handle data: {}", e);
+                        leaf_request = leaf_hub_rx.wait_for_requests() => {
+                match leaf_request {
+                    Some(request) => {
+                        debug!("Received leaf endpoint message");
+                        if let Err(e) = udp_channel_handler::handle(request, &name, &mut tunnel_host, &services).await {
+                            error!("Failed to handle leaf endpoint message: {}", e);
+                        }
+                    },
+                    None => {
+                        info!("Leaf endpoint channel has been shutdown");
+                        cancel_token.cancel();
+                        return Ok(());
+                    }
                 }
             }
+
         }
     }
 }

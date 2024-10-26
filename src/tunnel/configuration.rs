@@ -21,7 +21,7 @@ pub struct TunnelProxy {
 pub enum ProxyConfiguration {
     Http { desired_name: Option<String> },
     Tcp { desired_port: Option<u16> },
-    Udp { port_from: u16, port_to: u16 },
+    Udp { desired_port: Option<u16> },
 }
 
 impl ProxyConfiguration {

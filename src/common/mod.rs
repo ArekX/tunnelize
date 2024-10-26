@@ -1,5 +1,6 @@
 pub mod address;
 pub mod channel;
+pub mod channel_socket;
 pub mod cli;
 pub mod connection;
 pub mod data_request;

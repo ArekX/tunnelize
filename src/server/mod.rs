@@ -59,9 +59,9 @@ pub async fn start() -> Result<()> {
     configuration.endpoints.insert(
         "tcp".to_owned(),
         EndpointConfiguration::Tcp(TcpEndpointConfig {
-            is_secure: false,
             reserve_ports_from: 4000,
             reserve_ports_to: 4100,
+            full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
             address: None,
         }),
     );
