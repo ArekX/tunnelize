@@ -4,8 +4,11 @@ Self-Hosted Tunnel Server and Client written in Rust.
 
 **Note:** This application is still not in stable phase but it can be used to host a HTTP tunnel.
 
-Supported Tunnels:
-* HTTP
+Supported services:
+* HTTP Tunnel
+* TCP Tunnel
+* UDP Tunnel
+* Monitoring API
 
 # Building
 
