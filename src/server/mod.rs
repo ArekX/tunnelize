@@ -2,6 +2,7 @@ use configuration::{EndpointConfiguration, ServerConfiguration};
 use endpoints::http::HttpEndpointConfig;
 use endpoints::monitor::configuration::MonitorEndpointConfig;
 use endpoints::tcp::configuration::TcpEndpointConfig;
+use endpoints::udp::configuration::UdpEndpointConfig;
 use log::{debug, info};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
@@ -61,6 +62,17 @@ pub async fn start() -> Result<()> {
         EndpointConfiguration::Tcp(TcpEndpointConfig {
             reserve_ports_from: 4000,
             reserve_ports_to: 4100,
+            full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
+            address: None,
+        }),
+    );
+
+    configuration.endpoints.insert(
+        "udp".to_owned(),
+        EndpointConfiguration::Udp(UdpEndpointConfig {
+            reserve_ports_from: 5000,
+            reserve_ports_to: 5100,
+            inactivity_timeout: 60,
             full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
             address: None,
         }),

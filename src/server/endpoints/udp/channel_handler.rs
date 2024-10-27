@@ -79,6 +79,7 @@ pub async fn handle(
                 remove_request.tunnel_id
             );
             tunnel_host.remove_tunnel(&remove_request.tunnel_id);
+            // TODO: Cleanup connected UDP clients
             request.respond(OkResponse).await;
         }
     }

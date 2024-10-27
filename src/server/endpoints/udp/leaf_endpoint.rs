@@ -1,11 +1,13 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use log::{debug, error, warn};
 use tokio::io::{Error, ErrorKind, Result};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex;
+use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -133,9 +135,7 @@ pub async fn start(
                     }
                 }
             },
-            _ = track_target_client(&mut target_client) => {
-                debug!("Target client cancelled.");
-            }
+            _ = track_target_client(&mut target_client) => {}
         }
     }
 
@@ -146,7 +146,10 @@ async fn track_target_client(target_client: &mut Option<TargetClient>) -> Result
     if let Some(client) = target_client.as_ref() {
         client.cancel_token.cancelled().await;
         target_client.take();
+        debug!("Target client cancelled.");
     }
+
+    interval(Duration::from_secs(3600)).tick().await;
 
     Ok(())
 }
