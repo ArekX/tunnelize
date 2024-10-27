@@ -8,7 +8,7 @@ use std::{
 use log::debug;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
-    io::{self, AsyncReadExt, AsyncWriteExt, Result},
+    io::{AsyncReadExt, AsyncWriteExt, Result},
     net::{TcpStream, UdpSocket},
     time::timeout,
 };
@@ -16,6 +16,7 @@ use tokio_rustls::client::TlsStream;
 
 use super::{
     channel_socket::ChannelSocket,
+    data_bridge::DataBridge,
     data_request::DataRequest,
     transport::{read_message, write_message, MessageError},
 };
@@ -317,56 +318,6 @@ impl ConnectionStream {
         self.shutdown().await;
     }
 
-    pub async fn pipe_to(&mut self, destination: &mut Self) -> Result<()> {
-        match (self, destination) {
-            (Self::TcpStream(src), Self::TcpStream(dst)) => {
-                match io::copy_bidirectional(src, dst).await {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            }
-            (Self::TlsTcpStream(src), Self::TlsTcpStream(dst)) => {
-                match io::copy_bidirectional(src, dst).await {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            }
-            (Self::TcpStream(src), Self::TlsTcpStream(dst)) => {
-                match io::copy_bidirectional(src, dst).await {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            }
-            (Self::TlsTcpStream(src), Self::TcpStream(dst)) => {
-                match io::copy_bidirectional(src, dst).await {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(e),
-                }
-            }
-            (Self::UdpSocket(src), Self::TcpStream(dst)) => {
-                // TODO: Need create bridge connections between protocols: UDP -> TCP, TCP -> UDP, UDP -> TCP (TLS)
-                // should be separate file in common
-                Err(Error::new(
-                    ErrorKind::Other,
-                    "Cannot pipe UDP to TCP connection.",
-                ))
-            }
-            (Self::TcpStream(src), Self::UdpSocket(dst)) => Err(Error::new(
-                ErrorKind::Other,
-                "Cannot pipe TCP to UDP connection.",
-            )),
-
-            (a, b) => Err(Error::new(
-                ErrorKind::Other,
-                format!(
-                    "Incompatible Protocol Types for pipe '{}' and '{}'",
-                    a.get_protocol(),
-                    b.get_protocol()
-                ),
-            )),
-        }
-    }
-
     pub fn get_protocol(&self) -> &str {
         match self {
             Self::TcpStream(_) => "tcp",
@@ -374,5 +325,45 @@ impl ConnectionStream {
             Self::UdpSocket(_) => "udp",
             Self::ChannelSocket(_) => "channel socket",
         }
+    }
+}
+
+macro_rules! allow_bridges {
+    ($self_item: ident, $destination: ident, {
+        $($from: ident -> $to: ident),*
+    }) => {
+        match ($self_item, $destination) {
+            $(
+                (ConnectionStream::$from(src), ConnectionStream::$to(dst)) => src.bridge_to(dst, None).await,
+            )*
+            (a, b) => Err(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!(
+                    "Incompatible Protocol Types for pipe '{}' and '{}'",
+                    a.get_protocol(),
+                    b.get_protocol()
+                ),
+            )),
+        }
+    };
+}
+
+impl DataBridge<ConnectionStream> for ConnectionStream {
+    type Context = ();
+    async fn bridge_to(
+        &mut self,
+        to: &mut ConnectionStream,
+        _context: Option<Self::Context>,
+    ) -> Result<()> {
+        allow_bridges!(self, to, {
+            TcpStream -> TcpStream,
+            TcpStream -> TlsTcpStream,
+            TlsTcpStream -> TcpStream,
+            TlsTcpStream -> TlsTcpStream,
+            UdpSocket -> TcpStream,
+            TcpStream -> UdpSocket,
+            UdpSocket -> TlsTcpStream,
+            TlsTcpStream -> UdpSocket
+        })
     }
 }

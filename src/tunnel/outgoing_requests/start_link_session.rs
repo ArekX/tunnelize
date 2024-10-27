@@ -5,6 +5,7 @@ use tokio::time::timeout;
 use uuid::Uuid;
 
 use crate::{
+    common::data_bridge::DataBridge,
     server::incoming_requests::{
         InitLinkRequest as ServerInitLinkRequest, InitLinkResponse as ServerInitLinkResponse,
     },
@@ -66,7 +67,10 @@ pub async fn start_link_session(
 
     tokio::spawn(async move {
         info!("Starting relay session.");
-        if let Err(e) = forward_connection.pipe_to(&mut server_connection).await {
+        if let Err(e) = forward_connection
+            .bridge_to(&mut server_connection, None)
+            .await
+        {
             error!("Relay session failed: {:?}", e);
         }
     });

@@ -5,7 +5,7 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::{
-    common::connection::ConnectionStream,
+    common::{connection::ConnectionStream, data_bridge::DataBridge},
     server::{incoming_requests::InitLinkResponse, services::Services},
 };
 
@@ -43,7 +43,7 @@ pub async fn start(
         _ = cancel_token.cancelled() => {
             debug!("Link session cancelled");
         }
-        result = response_stream.pipe_to(&mut client_link.stream) => {
+        result = response_stream.bridge_to(&mut client_link.stream, None) => {
             if let Err(e) = result {
                 debug!("Error linking session: {:?}", e);
             }
