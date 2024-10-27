@@ -149,6 +149,7 @@ async fn track_target_client(target_client: &mut Option<TargetClient>) -> Result
         debug!("Target client cancelled.");
     }
 
+    // TODO: Do this better.
     interval(Duration::from_secs(3600)).tick().await;
 
     Ok(())
