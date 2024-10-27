@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UdpEndpointConfig {
     pub address: Option<String>,
+    pub inactivity_timeout: u64,
     pub reserve_ports_from: u16,
     pub reserve_ports_to: u16,
     pub full_hostname_template: Option<String>,

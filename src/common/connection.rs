@@ -317,9 +317,8 @@ impl ConnectionStream {
         self.shutdown().await;
     }
 
-    pub async fn pipe_to(&mut self, other: &mut Self) -> Result<()> {
-        // TODO: TcpStream to TlsStream will probably need to be handled differently
-        match (self, other) {
+    pub async fn pipe_to(&mut self, destination: &mut Self) -> Result<()> {
+        match (self, destination) {
             (Self::TcpStream(src), Self::TcpStream(dst)) => {
                 match io::copy_bidirectional(src, dst).await {
                     Ok(_) => Ok(()),
@@ -327,15 +326,40 @@ impl ConnectionStream {
                 }
             }
             (Self::TlsTcpStream(src), Self::TlsTcpStream(dst)) => {
-                match io::copy_bidirectional(&mut src.get_mut().0, &mut dst.get_mut().0).await {
+                match io::copy_bidirectional(src, dst).await {
                     Ok(_) => Ok(()),
                     Err(e) => Err(e),
                 }
             }
+            (Self::TcpStream(src), Self::TlsTcpStream(dst)) => {
+                match io::copy_bidirectional(src, dst).await {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(e),
+                }
+            }
+            (Self::TlsTcpStream(src), Self::TcpStream(dst)) => {
+                match io::copy_bidirectional(src, dst).await {
+                    Ok(_) => Ok(()),
+                    Err(e) => Err(e),
+                }
+            }
+            (Self::UdpSocket(src), Self::TcpStream(dst)) => {
+                // TODO: Need create bridge connections between protocols: UDP -> TCP, TCP -> UDP, UDP -> TCP (TLS)
+                // should be separate file in common
+                Err(Error::new(
+                    ErrorKind::Other,
+                    "Cannot pipe UDP to TCP connection.",
+                ))
+            }
+            (Self::TcpStream(src), Self::UdpSocket(dst)) => Err(Error::new(
+                ErrorKind::Other,
+                "Cannot pipe TCP to UDP connection.",
+            )),
+
             (a, b) => Err(Error::new(
                 ErrorKind::Other,
                 format!(
-                    "Incompatible Protocol Types '{}' and '{}'",
+                    "Incompatible Protocol Types for pipe '{}' and '{}'",
                     a.get_protocol(),
                     b.get_protocol()
                 ),

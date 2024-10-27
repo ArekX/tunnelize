@@ -1,11 +1,13 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use log::{debug, error};
+use log::{debug, error, warn};
 use tokio::io::{Error, ErrorKind, Result};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
 
 use crate::common::channel::RequestSender;
 use crate::common::channel_socket::ChannelSocket;
@@ -13,24 +15,27 @@ use crate::common::connection::ConnectionStream;
 use crate::server::endpoints::udp::messages::ClientConnect;
 use crate::server::services::Services;
 
-use super::client_host::ClientHost;
+use super::activity_tracker::ActivityTracker;
 use super::configuration::UdpEndpointConfig;
 use super::messages::UdpChannelRequest;
+
+pub struct TargetClient {
+    id: Uuid,
+    address: SocketAddr,
+    socket_tx: Sender<Vec<u8>>,
+    cancel_token: CancellationToken,
+}
 
 pub async fn start(
     port: u16,
     hub_tx: RequestSender<UdpChannelRequest>,
     config: Arc<UdpEndpointConfig>,
-    client_host: Arc<Mutex<ClientHost>>,
+    activity_tracker: Arc<Mutex<ActivityTracker>>,
     services: Arc<Services>,
 ) -> Result<()> {
     let cancel_token = services.get_cancel_token();
 
-    let mut target_address: Option<SocketAddr> = None;
-    let mut socket_tx: Option<Sender<Vec<u8>>> = None;
-
-    // TODO: each leaf has to have its own channel
-    // TODO: on first connect add to client host, on cleanup tell the leaf_tx that client is gone
+    let mut target_client: Option<TargetClient> = None;
 
     let mut connection = match UdpSocket::bind(config.get_bind_address(port)).await {
         Ok(socket) => ConnectionStream::from(socket),
@@ -57,18 +62,15 @@ pub async fn start(
                     continue;
                 };
 
-                if let Some(check_addr) = target_address {
-                    if check_addr != address {
-                        error!("Received UDP datagram from other address '{}' while assigned to address '{}'.", address, check_addr);
+                if let Some(client) = target_client.as_ref() {
+                    if client.address != address {
+                        warn!("Received UDP datagram from other address '{}' while assigned to address '{}'.", address, client.address);
                         continue;
                     }
 
-                    let Some(socket_tx) = &socket_tx else {
-                        error!("No socket to send data to client.");
-                        continue;
-                    };
 
-                    if let Err(e) = socket_tx.send(data).await {
+                    activity_tracker.lock().await.update_activity(&client.id);
+                    if let Err(e) = client.socket_tx.send(data).await {
                         error!("Failed to send data to client. Reason: {}", e);
                     }
 
@@ -80,15 +82,18 @@ pub async fn start(
                     address, port
                 );
 
-                target_address = Some(address);
+                let cancel_token = cancel_token.child_token();
 
-                let cleanup_token = cancel_token.child_token();
+                let channel_socket = ChannelSocket::new(leaf_data_tx.clone(), cancel_token.clone());
 
-                let channel_socket = ChannelSocket::new(leaf_data_tx.clone(), cleanup_token.clone());
+                let id = activity_tracker.lock().await.add(cancel_token.clone());
 
-                socket_tx = Some(channel_socket.get_socket_tx());
-
-                // TODO: Add cleanup for the channel socket
+                target_client = Some(TargetClient {
+                    id,
+                    address,
+                    socket_tx: channel_socket.get_socket_tx(),
+                    cancel_token,
+                });
 
                 let Ok(_) = hub_tx
                     .request(ClientConnect {
@@ -107,8 +112,9 @@ pub async fn start(
             data = leaf_data_rx.recv() => {
                 match data {
                     Some(data) => {
-                        if let Some(address) = target_address {
-                            if let Err(e) = connection.write_all_to(&data, &address).await {
+                        if let Some(client) = target_client.as_ref() {
+                            activity_tracker.lock().await.update_activity(&client.id);
+                            if let Err(e) = connection.write_all_to(&data, &client.address).await {
                                 debug!("Failed to send data to client. Reason: {}", e);
                                 continue;
                             };
@@ -117,12 +123,24 @@ pub async fn start(
                         }
                     }
                     None => {
-                        target_address = None;
+                        target_client = None;
                         continue;
                     }
                 }
+            },
+            _ = track_target_client(&mut target_client) => {
+                debug!("Target client cancelled.");
             }
         }
+    }
+
+    Ok(())
+}
+
+async fn track_target_client(target_client: &mut Option<TargetClient>) -> Result<()> {
+    if let Some(client) = target_client.as_ref() {
+        client.cancel_token.cancelled().await;
+        target_client.take();
     }
 
     Ok(())

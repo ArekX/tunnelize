@@ -1,11 +1,11 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use client_host::ClientHost;
+use activity_tracker::ActivityTracker;
 use configuration::UdpEndpointConfig;
 use log::{debug, error, info};
 use messages::UdpChannelRequest;
 use serde::{Deserialize, Serialize};
-use tokio::{io::Result, sync::Mutex};
+use tokio::{io::Result, sync::Mutex, time::interval};
 use tunnel_host::TunnelHost;
 
 use crate::{
@@ -15,8 +15,8 @@ use crate::{
 
 use super::messages::EndpointChannelRequest;
 
+mod activity_tracker;
 mod channel_handler;
-mod client_host;
 pub mod configuration;
 mod leaf_endpoint;
 mod messages;
@@ -35,7 +35,7 @@ pub async fn start(
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
     let mut tunnel_host = TunnelHost::new(&config);
-    let client_host = Arc::new(Mutex::new(ClientHost::new()));
+    let activity_tracker = Arc::new(Mutex::new(ActivityTracker::new()));
     let udp_config = Arc::new(config);
 
     let (leaf_hub_tx, mut leaf_hub_rx) = create_channel::<UdpChannelRequest>();
@@ -44,16 +44,20 @@ pub async fn start(
         let hub_tx = leaf_hub_tx.clone();
         let services = services.clone();
         let config = udp_config.clone();
-        let client_host = client_host.clone();
+        let activity_tracker = activity_tracker.clone();
         tokio::spawn(async move {
-            if let Err(e) = leaf_endpoint::start(port, hub_tx, config, client_host, services).await
+            if let Err(e) =
+                leaf_endpoint::start(port, hub_tx, config, activity_tracker, services).await
             {
                 error!("Failed to create leaf endpoint: {}", e);
             }
         });
     }
 
-    // TODO: Add a supervisor to cleanup timed out UDP connections
+    tokio::spawn(start_cleanup_handler(
+        udp_config.clone(),
+        activity_tracker.clone(),
+    ));
 
     let cancel_token = services.get_cancel_token();
 
@@ -94,5 +98,22 @@ pub async fn start(
             }
 
         }
+    }
+}
+
+async fn start_cleanup_handler(
+    confg: Arc<UdpEndpointConfig>,
+    activity_tracker: Arc<Mutex<ActivityTracker>>,
+) {
+    let mut interval = interval(Duration::from_secs(confg.inactivity_timeout));
+
+    loop {
+        interval.tick().await;
+
+        activity_tracker
+            .lock()
+            .await
+            .cancel_all_after_timeout(confg.inactivity_timeout)
+            .await
     }
 }
