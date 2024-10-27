@@ -4,9 +4,14 @@ use tokio::io::Result;
 use uuid::Uuid;
 
 use crate::{
-    common::channel::{OkResponse, Request},
-    server::services::{Client, Services},
-    server::session::messages::{ClientLinkRequest, ClientLinkResponse},
+    common::{
+        channel::{OkResponse, Request},
+        connection::ConnectionStreamContext,
+    },
+    server::{
+        services::{Client, Services},
+        session::messages::{ClientLinkRequest, ClientLinkResponse},
+    },
 };
 
 use super::{messages::UdpChannelRequest, tunnel_host::TunnelHost};
@@ -37,10 +42,16 @@ pub async fn handle(
                 return Ok(());
             };
 
+            let Some(session) = client_request.session.take() else {
+                error!("No session found for client.");
+                return Ok(());
+            };
+
             let client = Client::new(
                 client_id,
                 name.to_owned(),
                 stream,
+                Some(ConnectionStreamContext::Udp(session)),
                 client_request.initial_data.take(),
             );
 

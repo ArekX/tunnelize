@@ -43,7 +43,7 @@ pub async fn start(
         _ = cancel_token.cancelled() => {
             debug!("Link session cancelled");
         }
-        result = response_stream.bridge_to(&mut client_link.stream, None) => {
+        result = response_stream.bridge_to(&mut client_link.stream, client_link.context) => {
             if let Err(e) = result {
                 debug!("Error linking session: {:?}", e);
             }

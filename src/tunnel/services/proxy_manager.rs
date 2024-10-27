@@ -3,8 +3,11 @@ use std::collections::HashMap;
 use log::error;
 use tokio::net::TcpStream;
 use tokio::{io::Result, net::UdpSocket};
+use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+use crate::common::connection::ConnectionStreamContext;
+use crate::common::data_bridge::UdpSession;
 use crate::tunnel::configuration::ProxyConfiguration;
 use crate::{common::connection::ConnectionStream, tunnel::configuration::TunnelProxy};
 
@@ -31,6 +34,16 @@ impl Proxy {
                 }
             },
         })
+    }
+
+    pub fn create_forward_connection_context(&self) -> Option<ConnectionStreamContext> {
+        match self.protocol {
+            ProxyProtocol::Tcp => None,
+            ProxyProtocol::Udp => Some(ConnectionStreamContext::Udp(UdpSession {
+                address: self.forward_address.parse().unwrap(),
+                cancel_token: CancellationToken::new(),
+            })),
+        }
     }
 }
 
@@ -79,9 +92,19 @@ impl ProxyManager {
         id
     }
 
-    pub async fn create_forward_connection(&self, id: &Uuid) -> Result<ConnectionStream> {
+    pub async fn create_forward_connection(
+        &self,
+        id: &Uuid,
+    ) -> Result<(ConnectionStream, Option<ConnectionStreamContext>)> {
         if let Some(session) = self.proxy_map.get(id) {
-            return session.create_forward_connection().await;
+            let Ok(connection) = session.create_forward_connection().await else {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "Failed to create forward connection",
+                ));
+            };
+
+            return Ok((connection, session.create_forward_connection_context()));
         }
 
         error!("Failed to find proxy session with id: {}", id);

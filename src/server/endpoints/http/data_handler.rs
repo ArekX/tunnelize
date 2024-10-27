@@ -71,6 +71,7 @@ pub async fn handle(
         client_id,
         name.to_owned(),
         stream,
+        None,
         Some(request.get_request_bytes()),
     );
 

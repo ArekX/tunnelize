@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::common::channel::RequestSender;
 use crate::common::channel_socket::ChannelSocket;
 use crate::common::connection::ConnectionStream;
+use crate::common::data_bridge::UdpSession;
 use crate::server::endpoints::udp::messages::ClientConnect;
 use crate::server::services::Services;
 
@@ -92,13 +93,17 @@ pub async fn start(
                     id,
                     address,
                     socket_tx: channel_socket.get_socket_tx(),
-                    cancel_token,
+                    cancel_token: cancel_token.clone(),
                 });
 
                 let Ok(_) = hub_tx
                     .request(ClientConnect {
                         initial_data: Some(data),
                         stream: Some(ConnectionStream::from(channel_socket)),
+                        session: Some(UdpSession {
+                            address,
+                            cancel_token
+                        }),
                         port,
                     })
                     .await

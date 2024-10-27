@@ -40,7 +40,7 @@ pub async fn handle(
                 return Ok(());
             };
             let client_id = Uuid::new_v4();
-            let client = Client::new(client_id, name.to_owned(), stream, None);
+            let client = Client::new(client_id, name.to_owned(), stream, None, None);
 
             services.get_client_manager().await.subscribe_client(client);
 

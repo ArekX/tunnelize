@@ -20,7 +20,7 @@ pub async fn start_link_session(
     let config = services.get_config();
 
     info!("Starting link session.");
-    let mut forward_connection = match timeout(
+    let (mut forward_connection, context) = match timeout(
         Duration::from_secs(5),
         services
             .get_proxy_manager()
@@ -65,10 +65,12 @@ pub async fn start_link_session(
         return Err(tokio::io::Error::new(ErrorKind::Other, reason));
     }
 
+    // TODO: Consider cleanup on UDP socket
+
     tokio::spawn(async move {
         info!("Starting relay session.");
         if let Err(e) = forward_connection
-            .bridge_to(&mut server_connection, None)
+            .bridge_to(&mut server_connection, context)
             .await
         {
             error!("Relay session failed: {:?}", e);

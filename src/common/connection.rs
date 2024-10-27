@@ -16,7 +16,7 @@ use tokio_rustls::client::TlsStream;
 
 use super::{
     channel_socket::ChannelSocket,
-    data_bridge::DataBridge,
+    data_bridge::{DataBridge, UdpSession},
     data_request::DataRequest,
     transport::{read_message, write_message, MessageError},
 };
@@ -329,12 +329,12 @@ impl ConnectionStream {
 }
 
 macro_rules! allow_bridges {
-    ($self_item: ident, $destination: ident, {
+    ($self_item: ident, $destination: ident, $context: ident, {
         $($from: ident -> $to: ident),*
     }) => {
         match ($self_item, $destination) {
             $(
-                (ConnectionStream::$from(src), ConnectionStream::$to(dst)) => src.bridge_to(dst, None).await,
+                (ConnectionStream::$from(src), ConnectionStream::$to(dst)) => src.bridge_to(dst, $context.map(|c| c.into())).await,
             )*
             (a, b) => Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -348,14 +348,30 @@ macro_rules! allow_bridges {
     };
 }
 
+pub enum ConnectionStreamContext {
+    Udp(UdpSession),
+}
+
+impl From<ConnectionStreamContext> for UdpSession {
+    fn from(context: ConnectionStreamContext) -> Self {
+        match context {
+            ConnectionStreamContext::Udp(session) => session,
+        }
+    }
+}
+
+impl From<ConnectionStreamContext> for () {
+    fn from(_: ConnectionStreamContext) -> Self {}
+}
+
 impl DataBridge<ConnectionStream> for ConnectionStream {
-    type Context = ();
+    type Context = ConnectionStreamContext;
     async fn bridge_to(
         &mut self,
         to: &mut ConnectionStream,
-        _context: Option<Self::Context>,
+        context: Option<Self::Context>,
     ) -> Result<()> {
-        allow_bridges!(self, to, {
+        allow_bridges!(self, to, context, {
             TcpStream -> TcpStream,
             TcpStream -> TlsTcpStream,
             TlsTcpStream -> TcpStream,

@@ -106,6 +106,7 @@ impl DataBridge<UdpSocket> for TlsStream<TcpStream> {
     }
 }
 
+#[derive(Debug)]
 pub struct UdpSession {
     pub address: SocketAddr,
     pub cancel_token: CancellationToken,

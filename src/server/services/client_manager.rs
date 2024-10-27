@@ -4,12 +4,13 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::common::connection::ConnectionStream;
+use crate::common::connection::{ConnectionStream, ConnectionStreamContext};
 
 use super::{events::ServiceEvent, HandleServiceEvent};
 
 pub struct ClientLink {
     pub stream: ConnectionStream,
+    pub context: Option<ConnectionStreamContext>,
     pub initial_tunnel_data: Option<Vec<u8>>,
 }
 
@@ -39,6 +40,7 @@ impl Client {
         id: Uuid,
         service_name: String,
         stream: ConnectionStream,
+        context: Option<ConnectionStreamContext>,
         initial_tunnel_data: Option<Vec<u8>>,
     ) -> Self {
         Self {
@@ -46,6 +48,7 @@ impl Client {
             endpoint_name: service_name,
             link: Some(ClientLink {
                 stream,
+                context,
                 initial_tunnel_data,
             }),
         }
