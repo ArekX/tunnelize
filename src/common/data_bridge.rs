@@ -12,6 +12,8 @@ use tokio::{
 use tokio_rustls::client::TlsStream;
 use tokio_util::sync::CancellationToken;
 
+use super::channel_socket::ChannelSocket;
+
 pub trait DataBridge<To> {
     type Context;
     async fn bridge_to(&mut self, to: &mut To, context: Option<Self::Context>) -> Result<()>;
@@ -147,8 +149,8 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
     let mut udp_buffer = BytesMut::with_capacity(2048);
     udp_buffer.resize(2048, 0);
 
-    let mut tcp_buffer = BytesMut::with_capacity(2048);
-    tcp_buffer.resize(2048, 0);
+    let mut writable_buffer = BytesMut::with_capacity(2048);
+    writable_buffer.resize(2048, 0);
 
     loop {
         tokio::select! {
@@ -157,15 +159,16 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
             }
             result = udp_socket.recv_from(&mut udp_buffer) => {
                 match result {
-                    Ok((n, address)) => {
+                    Ok((n, _address)) => {
 
-                        if address != context.address {
-                            error!("Received data from unexpected address: {}", address);
-                            continue;
-                        }
+                        // TODO: See if we can figure how to properly check this. Issue -> 127.0.0.1:8089 != 0.0.0.0:8089
+                        // if address != context.address {
+                        //     error!("Received data from unexpected address '{}', expected '{}'", address, context.address);
+                        //     continue;
+                        // }
 
                         if let Err(e) = writable.write_all(&udp_buffer[..n]).await {
-                            error!("Failed to send data to TCP stream: {}", e);
+                            error!("Failed to send data to Writable stream: {}", e);
                         }
                     }
                     Err(e)
@@ -174,7 +177,7 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
                             || e.kind() == std::io::ErrorKind::ConnectionReset
                             || e.kind() == std::io::ErrorKind::BrokenPipe =>
                     {
-                        debug!("TCP <-> UDP connection ended: {:?}", e);
+                        debug!("Writable <-> UDP connection ended: {:?}", e);
                         context.cancel_token.cancel();
                         break;
                     }
@@ -183,14 +186,14 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
                     }
                 }
             }
-            result = writable.read(&mut tcp_buffer) => {
+            result = writable.read(&mut writable_buffer) => {
                 match result {
                     Ok(0) => {
                         context.cancel_token.cancel();
                         break;
                     },
                     Ok(n) => {
-                        if let Err(e) = udp_socket.send_to(&tcp_buffer[..n], context.address).await {
+                        if let Err(e) = udp_socket.send_to(&writable_buffer[..n], context.address).await {
                             error!("Failed to send data to UDP socket: {}", e);
                         }
                     }
@@ -200,12 +203,82 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
                             || e.kind() == std::io::ErrorKind::ConnectionReset
                             || e.kind() == std::io::ErrorKind::BrokenPipe =>
                     {
-                        debug!("TCP <-> UDP connection ended: {:?}", e);
+                        debug!("Writable <-> UDP connection ended: {:?}", e);
                         context.cancel_token.cancel();
                         break;
                     }
                     Err(e) => {
-                        error!("Failed to receive data from TCP stream: {}", e);
+                        error!("Failed to receive data from Writable stream: {}", e);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+impl DataBridge<ChannelSocket> for TcpStream {
+    type Context = ();
+
+    async fn bridge_to(
+        &mut self,
+        to: &mut ChannelSocket,
+        _context: Option<Self::Context>,
+    ) -> Result<()> {
+        bridge_channel_socket_with_writable(to, self).await
+    }
+}
+
+async fn bridge_channel_socket_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
+    channel_socket: &mut ChannelSocket,
+    writable: &mut T,
+) -> Result<()> {
+    let mut writable_buffer = BytesMut::with_capacity(2048);
+    writable_buffer.resize(2048, 0);
+
+    loop {
+        tokio::select! {
+            result = channel_socket.receive() => {
+                match result {
+                    Ok(bytes) => {
+                        if let Err(e) = writable.write_all(&bytes).await {
+                            error!("Failed to send data to Writable stream: {}", e);
+                        }
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::ConnectionAborted =>
+                    {
+                        debug!("Writable <-> Channel socket connection ended: {:?}", e);
+                        break;
+                    }
+                    Err(e) => {
+                        error!("Failed to receive data from Channel socket: {}", e);
+                    }
+                }
+            }
+            result = writable.read(&mut writable_buffer) => {
+                match result {
+                    Ok(0) => {
+                        channel_socket.shutdown();
+                        break;
+                    },
+                    Ok(_) => {
+                        if let Err(e) = channel_socket.send(writable_buffer.to_vec()).await {
+                            error!("Failed to send data to UDP socket: {}", e);
+                        }
+                    }
+                    Err(e)
+                        if e.kind() == std::io::ErrorKind::UnexpectedEof
+                            || e.kind() == std::io::ErrorKind::ConnectionAborted
+                            || e.kind() == std::io::ErrorKind::ConnectionReset
+                            || e.kind() == std::io::ErrorKind::BrokenPipe =>
+                    {
+                        debug!("TCP <-> Channel Socket connection ended: {:?}", e);
+                        channel_socket.shutdown();
+                        break;
+                    }
+                    Err(e) => {
+                        error!("Failed to receive data from Writable stream: {}", e);
                     }
                 }
             }

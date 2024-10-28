@@ -379,7 +379,8 @@ impl DataBridge<ConnectionStream> for ConnectionStream {
             UdpSocket -> TcpStream,
             TcpStream -> UdpSocket,
             UdpSocket -> TlsTcpStream,
-            TlsTcpStream -> UdpSocket
+            TlsTcpStream -> UdpSocket,
+            TcpStream -> ChannelSocket
         })
     }
 }
