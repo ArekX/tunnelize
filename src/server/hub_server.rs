@@ -4,7 +4,7 @@ use log::{debug, error};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    common::tcp_server::{ServerEncryption, TcpServer},
+    common::tcp_server::TcpServer,
     server::incoming_requests::{self, ServerRequestMessage},
 };
 use tokio::io::Result;

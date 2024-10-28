@@ -1,5 +1,5 @@
 use rustls::{
-    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer},
+    pki_types::{pem::PemObject, CertificateDer, IpAddr, Ipv4Addr, PrivateKeyDer, ServerName},
     ClientConfig, RootCertStore,
 };
 
@@ -63,8 +63,15 @@ impl ClientTlsEncryption {
         ClientTlsEncryption { connector }
     }
 
-    pub async fn connect<'a>(&self, stream: TcpStream, domain: String) -> Result<ConnectionStream> {
-        let domain = "localhost".try_into().unwrap();
+    pub async fn connect(&self, stream: TcpStream, domain: String) -> Result<ConnectionStream> {
+        let domain = match domain.try_into() {
+            Ok(domain) => domain,
+            Err(e) => {
+                log::error!("Failed to convert domain: {}", e);
+                // TODO: Correctly check if the domain is an IP address
+                ServerName::IpAddress(IpAddr::V4(Ipv4Addr::try_from("127.0.0.1").unwrap()))
+            }
+        };
         let stream = self.connector.connect(domain, stream).await?;
 
         Ok(ConnectionStream::from(stream))
