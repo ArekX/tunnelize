@@ -56,7 +56,7 @@ pub async fn start(
     loop {
         tokio::select! {
             _ = cancel_token.cancelled() => {
-                debug!("Leaf endpoint for port '{}' cancelled.", port);
+                debug!("Leaf endpoint for UDP port '{}' cancelled.", port);
                 break;
             }
             result = wait_for_client(&mut connection) => {
