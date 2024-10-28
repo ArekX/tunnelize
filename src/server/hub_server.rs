@@ -1,11 +1,10 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::sync::Arc;
 
 use log::{debug, error};
-use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    common::connection::ConnectionStream,
+    common::tcp_server::{ServerEncryption, TcpServer},
     server::incoming_requests::{self, ServerRequestMessage},
 };
 use tokio::io::Result;
@@ -15,7 +14,13 @@ use super::{endpoints, services::Services};
 pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> Result<()> {
     let config = services.get_config();
 
-    let listener = match TcpListener::bind(format!("0.0.0.0:{}", config.server_port)).await {
+    let server = match TcpServer::new(
+        config.get_server_address(),
+        config.server_port,
+        ServerEncryption::None,
+    )
+    .await
+    {
         Ok(listener) => listener,
         Err(e) => {
             error!("Failed to bind client listener: {}", e);
@@ -29,19 +34,29 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
     }
 
     loop {
-        let mut connection_stream: ConnectionStream;
-        let address: SocketAddr;
-
         tokio::select! {
             _ = cancel_token.cancelled() => {
                 debug!("Hub server stopped.");
                 return Ok(());
             }
-            client = listener.accept() => {
-                match client {
-                    Ok((stream, stream_address)) => {
-                        connection_stream = ConnectionStream::from(stream);
-                        address = stream_address;
+            result = server.listen_for_connection() => {
+                match result {
+                    Ok((mut connection_stream, address)) => {
+                        debug!("Accepted connection from client: {}", address);
+
+                        let message: ServerRequestMessage = match connection_stream.read_message().await {
+                            Ok(message) => message,
+                            Err(e) => {
+                                error!("Failed to read message from client: {}", e);
+                                continue;
+                            }
+                        };
+
+                        let services = services.clone();
+
+                        tokio::spawn(async move {
+                            incoming_requests::handle(services, connection_stream, address, message).await;
+                        });
                     },
                     Err(e) => {
                         error!("Failed to accept client connection: {}", e);
@@ -50,21 +65,5 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
                 };
             }
         }
-
-        debug!("Accepted connection from client: {}", address);
-
-        let message: ServerRequestMessage = match connection_stream.read_message().await {
-            Ok(message) => message,
-            Err(e) => {
-                error!("Failed to read message from client: {}", e);
-                continue;
-            }
-        };
-
-        let services = services.clone();
-
-        tokio::spawn(async move {
-            incoming_requests::handle(services, connection_stream, address, message).await;
-        });
     }
 }

@@ -6,6 +6,7 @@ pub mod connection;
 pub mod data_bridge;
 pub mod data_request;
 pub mod logger;
+pub mod tcp_server;
 pub mod tasks;
 pub mod text;
 pub mod transport;

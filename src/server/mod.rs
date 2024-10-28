@@ -25,6 +25,7 @@ mod session;
 pub async fn start() -> Result<()> {
     let mut configuration = ServerConfiguration {
         server_port: 3456,
+        server_address: None,
         monitor_key: Some("key".to_owned()),
         max_tunnel_input_wait: 30,
         endpoint_key: None,
