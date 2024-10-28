@@ -3,6 +3,7 @@ use std::{
     net::SocketAddr,
 };
 
+use bytes::BytesMut;
 use log::{debug, error};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, Result},
@@ -143,8 +144,11 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
         return Err(Error::new(ErrorKind::Other, "Context not provided"));
     };
 
-    let mut udp_buffer = [0u8; 65537];
-    let mut tcp_buffer = [0u8; 65537];
+    let mut udp_buffer = BytesMut::with_capacity(2048);
+    udp_buffer.resize(2048, 0);
+
+    let mut tcp_buffer = BytesMut::with_capacity(2048);
+    tcp_buffer.resize(2048, 0);
 
     loop {
         tokio::select! {

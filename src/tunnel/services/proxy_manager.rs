@@ -26,13 +26,24 @@ impl Proxy {
                     return Err(e);
                 }
             },
-            ProxyProtocol::Udp => match UdpSocket::bind(self.forward_address.clone()).await {
-                Ok(socket) => ConnectionStream::from(socket),
-                Err(e) => {
-                    error!("Failed to bind to forward address: {}", e);
-                    return Err(e);
+            ProxyProtocol::Udp => {
+                // TODO: Do this properly
+
+                match UdpSocket::bind("0.0.0.0:0".to_string()).await {
+                    Ok(socket) => {
+                        if let Err(e) = socket.connect(self.forward_address.clone()).await {
+                            error!("Failed to connect to forward address: {}", e);
+                            return Err(e);
+                        }
+
+                        ConnectionStream::from(socket)
+                    }
+                    Err(e) => {
+                        error!("Failed to bind to forward address: {}", e);
+                        return Err(e);
+                    }
                 }
-            },
+            }
         })
     }
 

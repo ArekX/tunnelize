@@ -57,21 +57,21 @@ pub async fn start() -> Result<()> {
         }),
     );
 
-    configuration.endpoints.insert(
-        "tcp".to_owned(),
-        EndpointConfiguration::Tcp(TcpEndpointConfig {
-            reserve_ports_from: 4000,
-            reserve_ports_to: 4100,
-            full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
-            address: None,
-        }),
-    );
+    // configuration.endpoints.insert(
+    //     "tcp".to_owned(),
+    //     EndpointConfiguration::Tcp(TcpEndpointConfig {
+    //         reserve_ports_from: 4000,
+    //         reserve_ports_to: 4100,
+    //         full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
+    //         address: None,
+    //     }),
+    // );
 
     configuration.endpoints.insert(
         "udp".to_owned(),
         EndpointConfiguration::Udp(UdpEndpointConfig {
             reserve_ports_from: 5000,
-            reserve_ports_to: 5100,
+            reserve_ports_to: 5002,
             inactivity_timeout: 60,
             full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
             address: None,

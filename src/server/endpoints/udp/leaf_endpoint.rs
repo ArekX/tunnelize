@@ -143,14 +143,18 @@ pub async fn start(
 }
 
 async fn track_target_client(target_client: &mut Option<TargetClient>) -> Result<()> {
-    if let Some(client) = target_client.as_ref() {
-        client.cancel_token.cancelled().await;
-        target_client.take();
-        debug!("Target client cancelled.");
-    }
+    let mut interval = interval(Duration::from_secs(30));
 
-    // TODO: Do this better.
-    interval(Duration::from_secs(3600)).tick().await;
+    loop {
+        interval.tick().await;
+
+        if let Some(client) = target_client.as_ref() {
+            client.cancel_token.cancelled().await;
+            target_client.take();
+            debug!("Target client cancelled.");
+            break;
+        }
+    }
 
     Ok(())
 }

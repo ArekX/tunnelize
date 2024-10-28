@@ -31,11 +31,11 @@ fn get_configuration() -> TunnelConfiguration {
                     desired_name: Some("test".to_string()),
                 },
             },
-            TunnelProxy {
-                endpoint_name: "tcp".to_string(),
-                forward_address: "0.0.0.0:8080".to_string(),
-                config: ProxyConfiguration::Tcp { desired_port: None },
-            },
+            // TunnelProxy {
+            //     endpoint_name: "tcp".to_string(),
+            //     forward_address: "0.0.0.0:8080".to_string(),
+            //     config: ProxyConfiguration::Tcp { desired_port: None },
+            // },
             TunnelProxy {
                 endpoint_name: "udp".to_string(),
                 forward_address: "0.0.0.0:8089".to_string(),
