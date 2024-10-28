@@ -1,4 +1,4 @@
-use configuration::{ProxyConfiguration, TunnelConfiguration, TunnelProxy};
+use configuration::{Encryption, ProxyConfiguration, TunnelConfiguration, TunnelProxy};
 use log::debug;
 use services::Services;
 use std::io::{Error, ErrorKind};
@@ -21,7 +21,9 @@ fn get_configuration() -> TunnelConfiguration {
     TunnelConfiguration {
         name: Some("test".to_string()),
         server_address: "127.0.0.1:3456".to_string(),
-        use_tls: false,
+        encryption: Encryption::Tls {
+            cert: "certs/ca.crt".to_string(),
+        },
         endpoint_key: None,
         monitor_key: Some("key".to_string()),
         proxies: vec![

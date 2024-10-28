@@ -13,6 +13,7 @@ use services::Services;
 use tokio_util::sync::CancellationToken;
 
 use crate::common::tasks::start_cancel_listener;
+use crate::common::tcp_server::ServerEncryption;
 
 mod configuration;
 pub mod endpoints;
@@ -30,6 +31,10 @@ pub async fn start() -> Result<()> {
         max_tunnel_input_wait: 30,
         endpoint_key: None,
         endpoints: HashMap::new(),
+        encryption: ServerEncryption::Tls {
+            cert: "certs/server.crt".to_string(),
+            key: "certs/server.key".to_string(),
+        },
     }; // TODO: This should be a parameter in start
 
     configuration.endpoints.insert(

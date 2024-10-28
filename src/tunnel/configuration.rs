@@ -4,10 +4,17 @@ use serde::{Deserialize, Serialize};
 pub struct TunnelConfiguration {
     pub name: Option<String>,
     pub server_address: String,
-    pub use_tls: bool,
+    pub encryption: Encryption,
     pub endpoint_key: Option<String>,
     pub monitor_key: Option<String>,
     pub proxies: Vec<TunnelProxy>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum Encryption {
+    None,
+    Tls { cert: String },
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

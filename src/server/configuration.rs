@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::tunnel::configuration::ProxyConfiguration;
+use crate::{common::tcp_server::ServerEncryption, tunnel::configuration::ProxyConfiguration};
 
 use super::endpoints::{
     http::HttpEndpointConfig, monitor::configuration::MonitorEndpointConfig,
@@ -17,6 +17,7 @@ pub struct ServerConfiguration {
     pub endpoint_key: Option<String>,
     pub monitor_key: Option<String>,
     pub endpoints: HashMap<String, EndpointConfiguration>,
+    pub encryption: ServerEncryption,
 }
 
 impl ServerConfiguration {

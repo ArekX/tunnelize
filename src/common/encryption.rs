@@ -42,8 +42,18 @@ pub struct ClientTlsEncryption {
 }
 
 impl ClientTlsEncryption {
-    pub async fn new() -> Self {
-        let root_store = RootCertStore::empty();
+    pub async fn new(cert_path: String) -> Self {
+        let mut root_store = RootCertStore::empty();
+
+        let cert_reader = CertificateDer::pem_file_iter(cert_path).unwrap();
+        let certs: Vec<CertificateDer> = cert_reader.map(|i| i.unwrap()).collect();
+
+        for cert in certs {
+            root_store
+                .add(cert)
+                .expect("Failed to add certificate to root store");
+        }
+
         let client_config = ClientConfig::builder()
             .with_root_certificates(root_store)
             .with_no_client_auth();
@@ -54,7 +64,7 @@ impl ClientTlsEncryption {
     }
 
     pub async fn connect<'a>(&self, stream: TcpStream, domain: String) -> Result<ConnectionStream> {
-        let domain = domain.try_into().unwrap();
+        let domain = "localhost".try_into().unwrap();
         let stream = self.connector.connect(domain, stream).await?;
 
         Ok(ConnectionStream::from(stream))

@@ -17,7 +17,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
     let server = match TcpServer::new(
         config.get_server_address(),
         config.server_port,
-        ServerEncryption::None,
+        config.encryption.clone(),
     )
     .await
     {
@@ -42,7 +42,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
             result = server.listen_for_connection() => {
                 match result {
                     Ok((mut connection_stream, address)) => {
-                        debug!("Accepted connection from client: {}", address);
+                        debug!("Accepted connection from client: {}, protocol: {}", address, connection_stream.get_protocol());
 
                         let message: ServerRequestMessage = match connection_stream.read_message().await {
                             Ok(message) => message,

@@ -9,6 +9,7 @@ use tokio_util::sync::CancellationToken;
 use crate::common::address::resolve_hostname;
 use crate::common::connection::ConnectionStream;
 use crate::common::encryption::ClientTlsEncryption;
+use crate::tunnel::configuration::Encryption;
 use crate::tunnel::incoming_requests;
 use crate::tunnel::incoming_requests::TunnelRequestMessage;
 use crate::tunnel::outgoing_requests;
@@ -23,8 +24,8 @@ pub async fn create_server_connection(config: &TunnelConfiguration) -> Result<Co
 
     match TcpStream::connect(server_ip.clone()).await {
         Ok(stream) => {
-            if config.use_tls {
-                let tls = ClientTlsEncryption::new().await;
+            if let Encryption::Tls { ref cert } = config.encryption {
+                let tls = ClientTlsEncryption::new(cert.clone()).await;
 
                 info!("Connected to (TLS) server at {}", config.server_address);
 
