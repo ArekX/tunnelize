@@ -8,6 +8,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::common::address::resolve_hostname;
 use crate::common::connection::ConnectionStream;
+use crate::common::encryption::ClientTlsEncryption;
 use crate::tunnel::incoming_requests;
 use crate::tunnel::incoming_requests::TunnelRequestMessage;
 use crate::tunnel::outgoing_requests;
@@ -20,8 +21,20 @@ pub async fn create_server_connection(config: &TunnelConfiguration) -> Result<Co
 
     debug!("Resolved server {} -> {}", config.server_address, server_ip);
 
-    let server = match TcpStream::connect(server_ip.clone()).await {
-        Ok(stream) => stream,
+    match TcpStream::connect(server_ip.clone()).await {
+        Ok(stream) => {
+            if config.use_tls {
+                let tls = ClientTlsEncryption::new().await;
+
+                info!("Connected to (TLS) server at {}", config.server_address);
+
+                // TODO: needs testing and fixing
+                return Ok(tls.connect(stream, config.server_address.clone()).await?);
+            } else {
+                info!("Connected to server at {}", config.server_address);
+                return Ok(ConnectionStream::from(stream));
+            }
+        }
         Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
             error!("Connection refused by server at {}", config.server_address);
             return Err(e);
@@ -30,11 +43,7 @@ pub async fn create_server_connection(config: &TunnelConfiguration) -> Result<Co
             debug!("Error connecting to server: {:?}", e);
             return Err(e);
         }
-    };
-
-    info!("Connected to server at {}", config.server_address);
-
-    Ok(ConnectionStream::from(server))
+    }
 }
 
 pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> Result<()> {

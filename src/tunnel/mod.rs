@@ -21,6 +21,7 @@ fn get_configuration() -> TunnelConfiguration {
     TunnelConfiguration {
         name: Some("test".to_string()),
         server_address: "127.0.0.1:3456".to_string(),
+        use_tls: false,
         endpoint_key: None,
         monitor_key: Some("key".to_string()),
         proxies: vec![

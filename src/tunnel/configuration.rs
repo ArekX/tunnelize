@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct TunnelConfiguration {
     pub name: Option<String>,
     pub server_address: String,
+    pub use_tls: bool,
     pub endpoint_key: Option<String>,
     pub monitor_key: Option<String>,
     pub proxies: Vec<TunnelProxy>,
