@@ -45,6 +45,10 @@ impl DataBridge<ServerTlsStream<TcpStream>> for TcpStream {
     ) -> Result<()> {
         match tokio::io::copy_bidirectional(self, to).await {
             Ok(_) => Ok(()),
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                debug!("Server TLS connection ended: {:?}", e);
+                Ok(())
+            }
             Err(e) => {
                 error!("Failed to bridge data: {}", e);
                 Err(e)
@@ -62,6 +66,10 @@ impl DataBridge<ClientTlsStream<TcpStream>> for TcpStream {
     ) -> Result<()> {
         match tokio::io::copy_bidirectional(self, to).await {
             Ok(_) => Ok(()),
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                debug!("Client TLS connection ended: {:?}", e);
+                Ok(())
+            }
             Err(e) => {
                 error!("Failed to bridge data: {}", e);
                 Err(e)
@@ -131,6 +139,17 @@ impl DataBridge<ServerTlsStream<TcpStream>> for UdpSocket {
     async fn bridge_to(
         &mut self,
         to: &mut ServerTlsStream<TcpStream>,
+        context: Option<Self::Context>,
+    ) -> Result<()> {
+        bridge_udp_with_writable(self, to, context).await
+    }
+}
+
+impl DataBridge<ClientTlsStream<TcpStream>> for UdpSocket {
+    type Context = UdpSession;
+    async fn bridge_to(
+        &mut self,
+        to: &mut ClientTlsStream<TcpStream>,
         context: Option<Self::Context>,
     ) -> Result<()> {
         bridge_udp_with_writable(self, to, context).await
@@ -219,6 +238,18 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
 }
 
 impl DataBridge<ChannelSocket> for TcpStream {
+    type Context = ();
+
+    async fn bridge_to(
+        &mut self,
+        to: &mut ChannelSocket,
+        _context: Option<Self::Context>,
+    ) -> Result<()> {
+        bridge_channel_socket_with_writable(to, self).await
+    }
+}
+
+impl DataBridge<ChannelSocket> for ServerTlsStream<TcpStream> {
     type Context = ();
 
     async fn bridge_to(
