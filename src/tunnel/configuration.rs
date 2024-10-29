@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::common::encryption::ClientEncryptionType;
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TunnelConfiguration {
     pub name: Option<String>,
@@ -15,6 +17,19 @@ pub struct TunnelConfiguration {
 pub enum Encryption {
     None,
     Tls { cert: String },
+    NativeTls,
+}
+
+impl Encryption {
+    pub fn to_encryption_type(&self) -> ClientEncryptionType {
+        match &self {
+            Encryption::None => ClientEncryptionType::NativeTls,
+            Encryption::Tls { cert } => ClientEncryptionType::CustomTls {
+                ca_cert_path: cert.clone(),
+            },
+            Encryption::NativeTls => ClientEncryptionType::NativeTls,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

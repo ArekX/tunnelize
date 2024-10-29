@@ -24,16 +24,20 @@ pub async fn create_server_connection(config: &TunnelConfiguration) -> Result<Co
 
     match TcpStream::connect(server_ip.clone()).await {
         Ok(stream) => {
-            if let Encryption::Tls { ref cert } = config.encryption {
-                let tls = ClientTlsEncryption::new(cert.clone()).await;
+            match config.encryption {
+                Encryption::Tls { .. } | Encryption::NativeTls => {
+                    let tls =
+                        ClientTlsEncryption::new(config.encryption.to_encryption_type()).await;
 
-                info!("Connected to (TLS) server at {}", config.server_address);
+                    info!("Connected to (TLS) server at {}", config.server_address);
 
-                // TODO: needs testing and fixing
-                return Ok(tls.connect(stream, config.server_address.clone()).await?);
-            } else {
-                info!("Connected to server at {}", config.server_address);
-                return Ok(ConnectionStream::from(stream));
+                    // TODO: needs testing and fixing
+                    return Ok(tls.connect(stream, config.server_address.clone()).await?);
+                }
+                Encryption::None => {
+                    info!("Connected to server at {}", config.server_address);
+                    return Ok(ConnectionStream::from(stream));
+                }
             }
         }
         Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
