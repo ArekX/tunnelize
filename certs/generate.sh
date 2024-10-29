@@ -14,3 +14,6 @@ openssl x509 -req -days 365 -in server.csr \
     -CA ca.crt -CAkey ca.key -CAcreateserial \
     -out server.crt \
     -extfile server.conf -extensions v3_req
+
+# Remove the CSR and SRL as they are not needed for testing self-signed certificates
+rm server.csr ca.srl ca.key
