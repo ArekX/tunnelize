@@ -28,7 +28,7 @@ use tokio::io::Result;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct InitTunelRequest {
     pub name: Option<String>,
-    pub endpoint_key: Option<String>,
+    pub tunnel_key: Option<String>,
     pub admin_key: Option<String>,
     pub proxies: Vec<InputProxy>,
 }
@@ -77,7 +77,7 @@ async fn validate_server_access(
     response_stream: &mut ConnectionStream,
 ) -> Result<()> {
     if let Some(endpoint_key) = config.endpoint_key.as_ref() {
-        if let Some(request_endpoint_key) = request.endpoint_key.as_ref() {
+        if let Some(request_endpoint_key) = request.tunnel_key.as_ref() {
             if endpoint_key != request_endpoint_key {
                 response_stream
                     .respond_message(&InitTunnelResponse::Rejected {

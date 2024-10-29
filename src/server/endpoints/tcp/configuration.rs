@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TcpEndpointConfig {
     pub address: Option<String>,
+    pub allow_desired_port: bool, // TODO: Implement this
     pub reserve_ports_from: u16,
     pub reserve_ports_to: u16,
     pub full_hostname_template: Option<String>,
@@ -21,5 +22,24 @@ impl TcpEndpointConfig {
         }
 
         self.get_bind_address(port)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct TcpPublicEndpointConfig {
+    pub address: Option<String>,
+    pub allow_desired_port: bool,
+    pub reserve_ports_from: u16,
+    pub reserve_ports_to: u16,
+}
+
+impl From<&TcpEndpointConfig> for TcpPublicEndpointConfig {
+    fn from(config: &TcpEndpointConfig) -> Self {
+        Self {
+            address: config.address.clone(),
+            allow_desired_port: config.allow_desired_port.clone(),
+            reserve_ports_from: config.reserve_ports_from.clone(),
+            reserve_ports_to: config.reserve_ports_to.clone(),
+        }
     }
 }

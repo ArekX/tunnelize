@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UdpEndpointConfig {
     pub address: Option<String>,
+    pub allow_desired_port: bool,
     pub inactivity_timeout: u64,
     pub reserve_ports_from: u16,
     pub reserve_ports_to: u16,
@@ -22,5 +23,24 @@ impl UdpEndpointConfig {
         }
 
         self.get_bind_address(port)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UdpPublicEndpointConfig {
+    pub address: Option<String>,
+    pub allow_desired_port: bool,
+    pub reserve_ports_from: u16,
+    pub reserve_ports_to: u16,
+}
+
+impl From<&UdpEndpointConfig> for UdpPublicEndpointConfig {
+    fn from(config: &UdpEndpointConfig) -> Self {
+        Self {
+            address: config.address.clone(),
+            allow_desired_port: config.allow_desired_port.clone(),
+            reserve_ports_from: config.reserve_ports_from.clone(),
+            reserve_ports_to: config.reserve_ports_to.clone(),
+        }
     }
 }

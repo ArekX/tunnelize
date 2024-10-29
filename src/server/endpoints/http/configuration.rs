@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpEndpointConfig {
     pub port: u16,
-    pub is_secure: bool,
+    pub is_secure: bool, // TODO: Implement TLS
     pub address: Option<String>,
     pub max_client_input_wait_secs: u64,
     pub hostname_template: String,
@@ -45,4 +45,23 @@ pub struct AuthorizeUser {
     pub realm: Option<String>,
     pub username: String,
     pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct HttpPublicEndpointConfig {
+    pub port: u16,
+    pub is_secure: bool,
+    pub address: Option<String>,
+    pub allow_custom_hostnames: bool,
+}
+
+impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
+    fn from(config: &HttpEndpointConfig) -> Self {
+        Self {
+            port: config.port,
+            is_secure: config.is_secure,
+            address: config.address.clone(),
+            allow_custom_hostnames: config.allow_custom_hostnames,
+        }
+    }
 }

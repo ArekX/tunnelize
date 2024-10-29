@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{common::connection::ConnectionStream, server::{services::{Client, Services}, session::messages::{ClientLinkRequest, ClientLinkResponse}}};
 
-use super::{protocol::{HttpRequestReader, HttpResponseBuilder}, tunnel_host::TunnelHost, HttpEndpointConfig};
+use super::{configuration::HttpEndpointConfig, protocol::{HttpRequestReader, HttpResponseBuilder}, tunnel_host::TunnelHost};
 
 
 pub async fn handle(

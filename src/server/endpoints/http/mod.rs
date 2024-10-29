@@ -3,8 +3,7 @@ use std::{
     sync::Arc,
 };
 
-pub use configuration::HttpEndpointConfig;
-
+use configuration::HttpEndpointConfig;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
 use tokio::{io::Result, net::TcpListener};
@@ -18,7 +17,7 @@ use crate::{
 use super::messages::EndpointChannelRequest;
 
 mod channel_handler;
-mod configuration;
+pub mod configuration;
 mod data_handler;
 mod protocol;
 mod tunnel_host;

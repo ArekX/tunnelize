@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{common::tcp_server::ServerEncryption, tunnel::configuration::ProxyConfiguration};
 
 use super::endpoints::{
-    http::HttpEndpointConfig, monitor::configuration::MonitorEndpointConfig,
+    http::configuration::HttpEndpointConfig, monitor::configuration::MonitorEndpointConfig,
     tcp::configuration::TcpEndpointConfig, udp::configuration::UdpEndpointConfig,
 };
 

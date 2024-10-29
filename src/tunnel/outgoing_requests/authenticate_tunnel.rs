@@ -17,7 +17,7 @@ pub async fn authenticate_tunnel(
     let auth_response: InitTunnelResponse = server
         .request_message(InitTunelRequest {
             name: config.name.clone(),
-            endpoint_key: config.endpoint_key.clone(),
+            tunnel_key: config.tunnel_key.clone(),
             admin_key: config.monitor_key.clone(),
             proxies: process_input_proxies(services, config).await,
         })

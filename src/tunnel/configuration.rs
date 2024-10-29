@@ -7,7 +7,7 @@ pub struct TunnelConfiguration {
     pub name: Option<String>,
     pub server_address: String,
     pub encryption: Encryption,
-    pub endpoint_key: Option<String>,
+    pub tunnel_key: Option<String>,
     pub monitor_key: Option<String>,
     pub proxies: Vec<TunnelProxy>,
 }

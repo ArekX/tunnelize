@@ -10,7 +10,7 @@ openssl genrsa -out server.key 2048
 openssl req -new -key server.key -out server.csr -config server.conf
 
 # 3. Sign the certificate WITH the extensions
-openssl x509 -req -days 365 -in server.csr \
+openssl x509 -req -days 825 -in server.csr \
     -CA ca.crt -CAkey ca.key -CAcreateserial \
     -out server.crt \
     -extfile server.conf -extensions v3_req

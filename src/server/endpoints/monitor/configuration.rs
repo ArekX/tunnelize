@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MonitorEndpointConfig {
     pub port: u16,
-    pub is_secure: bool,
+    pub is_secure: bool, // TODO: Implement axum TLS
     pub address: Option<String>,
     pub authentication: MonitorAuthentication,
 }

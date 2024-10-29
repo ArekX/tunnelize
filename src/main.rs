@@ -25,6 +25,7 @@ async fn main() -> Result<(), std::io::Error> {
 async fn run_command(command: Commands) -> Result<(), std::io::Error> {
     match command {
         Commands::Init => {
+            tunnel::process_get_tunnel_config().await?;
             return Ok(());
         }
         Commands::Server { init } => {

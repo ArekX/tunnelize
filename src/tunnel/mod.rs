@@ -13,7 +13,6 @@ use crate::common::tasks::start_cancel_listener;
 mod client;
 pub mod configuration;
 pub mod incoming_requests;
-mod monitor;
 mod outgoing_requests;
 mod services;
 
@@ -24,7 +23,7 @@ fn get_configuration() -> TunnelConfiguration {
         encryption: Encryption::Tls {
             cert: "certs/ca.crt".to_string(),
         },
-        endpoint_key: None,
+        tunnel_key: None,
         monitor_key: Some("key".to_string()),
         proxies: vec![
             TunnelProxy {
@@ -49,10 +48,17 @@ fn get_configuration() -> TunnelConfiguration {
 }
 
 pub async fn process_monitor_command(command: MonitorCommands) -> Result<()> {
-    monitor::process_monitor_request(get_configuration(), command).await?;
+    outgoing_requests::process_monitor_request(get_configuration(), command).await?;
 
     Ok(())
 }
+
+pub async fn process_get_tunnel_config() -> Result<()> {
+    outgoing_requests::get_tunnel_config(get_configuration(), ).await?;
+
+    Ok(())
+}
+
 
 pub async fn start() -> Result<()> {
     let configuration = get_configuration();
