@@ -3,6 +3,8 @@ use rustls::{
     ClientConfig, RootCertStore,
 };
 
+use rustls_native_certs::load_native_certs;
+
 use std::sync::Arc;
 
 use tokio_rustls::{TlsAcceptor, TlsConnector};
@@ -42,10 +44,10 @@ pub struct ClientTlsEncryption {
 }
 
 impl ClientTlsEncryption {
-    pub async fn new(cert_path: String) -> Self {
+    pub async fn new(ca_cert_path: String) -> Self {
         let mut root_store = RootCertStore::empty();
 
-        let cert_reader = CertificateDer::pem_file_iter(cert_path).unwrap();
+        let cert_reader = CertificateDer::pem_file_iter(ca_cert_path).unwrap();
         let certs: Vec<CertificateDer> = cert_reader.map(|i| i.unwrap()).collect();
 
         for cert in certs {
