@@ -9,7 +9,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, Result},
     net::{TcpStream, UdpSocket},
 };
-use tokio_rustls::server::TlsStream as ServerTlsStream;
+use tokio_rustls::{client::TlsStream as ClientTlsStream, server::TlsStream as ServerTlsStream};
 use tokio_util::sync::CancellationToken;
 
 use super::channel_socket::ChannelSocket;
@@ -53,11 +53,11 @@ impl DataBridge<ServerTlsStream<TcpStream>> for TcpStream {
     }
 }
 
-impl DataBridge<TcpStream> for ServerTlsStream<TcpStream> {
+impl DataBridge<ClientTlsStream<TcpStream>> for TcpStream {
     type Context = ();
     async fn bridge_to(
         &mut self,
-        to: &mut TcpStream,
+        to: &mut ClientTlsStream<TcpStream>,
         _context: Option<Self::Context>,
     ) -> Result<()> {
         match tokio::io::copy_bidirectional(self, to).await {
@@ -70,11 +70,11 @@ impl DataBridge<TcpStream> for ServerTlsStream<TcpStream> {
     }
 }
 
-impl DataBridge<ServerTlsStream<TcpStream>> for ServerTlsStream<TcpStream> {
+impl DataBridge<TcpStream> for ServerTlsStream<TcpStream> {
     type Context = ();
     async fn bridge_to(
         &mut self,
-        to: &mut ServerTlsStream<TcpStream>,
+        to: &mut TcpStream,
         _context: Option<Self::Context>,
     ) -> Result<()> {
         match tokio::io::copy_bidirectional(self, to).await {
