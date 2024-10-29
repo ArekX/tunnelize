@@ -4,7 +4,7 @@ use super::cli::Commands;
 use std::io::Write;
 
 #[cfg(debug_assertions)]
-const VERBOSE_LOG_LEVEL: &str = "trace";
+const VERBOSE_LOG_LEVEL: &str = "debug";
 
 #[cfg(not(debug_assertions))]
 const VERBOSE_LOG_LEVEL: &str = "info";
