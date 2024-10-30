@@ -19,7 +19,8 @@ mod services;
 fn get_configuration() -> TunnelConfiguration {
     TunnelConfiguration {
         name: Some("test".to_string()),
-        server_address: "127.0.0.1:3456".to_string(),
+        server_address: "127.0.0.1".to_string(),
+        server_port: 3456,
         encryption: Encryption::Tls {
             cert: "certs/ca.crt".to_string(),
         },
@@ -54,11 +55,12 @@ pub async fn process_monitor_command(command: MonitorCommands) -> Result<()> {
 }
 
 pub async fn process_get_tunnel_config() -> Result<()> {
-    outgoing_requests::get_tunnel_config(get_configuration(), ).await?;
+    let data = outgoing_requests::get_tunnel_config(get_configuration()).await?;
+
+    debug!("Received tunnel config: {:?}", data);
 
     Ok(())
 }
-
 
 pub async fn start() -> Result<()> {
     let configuration = get_configuration();

@@ -5,13 +5,13 @@ use tokio::time::timeout;
 use tokio::io::Result;
 use uuid::Uuid;
 
-use crate::{common::connection::ConnectionStream, server::{services::{Client, Services}, session::messages::{ClientLinkRequest, ClientLinkResponse}}};
+use crate::{common::connection::Connection, server::{services::{Client, Services}, session::messages::{ClientLinkRequest, ClientLinkResponse}}};
 
 use super::{configuration::HttpEndpointConfig, protocol::{HttpRequestReader, HttpResponseBuilder}, tunnel_host::TunnelHost};
 
 
 pub async fn handle(
-    mut stream: ConnectionStream,
+    mut stream: Connection,
     tunnel_host: &TunnelHost,
     name: &str,
     config: &HttpEndpointConfig,
@@ -137,7 +137,7 @@ pub async fn handle(
 }
 
 async fn check_authorization(
-    stream: &mut ConnectionStream,
+    stream: &mut Connection,
     config: &HttpEndpointConfig,
     request: &HttpRequestReader,
 ) -> bool {

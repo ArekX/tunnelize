@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use crate::{common::connection::ConnectionStream, create_data_enum};
+use crate::{common::connection::Connection, create_data_enum};
 
 use super::services::Services;
 
@@ -23,7 +23,7 @@ create_data_enum!(ServerRequestMessage, {
 
 pub async fn handle(
     services: Arc<Services>,
-    stream: ConnectionStream,
+    stream: Connection,
     address: SocketAddr,
     message: ServerRequestMessage,
 ) {

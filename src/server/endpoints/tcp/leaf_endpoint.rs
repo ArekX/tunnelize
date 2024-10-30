@@ -5,7 +5,7 @@ use tokio::io::{Error, ErrorKind, Result};
 use tokio::net::TcpListener;
 
 use crate::common::channel::RequestSender;
-use crate::common::connection::ConnectionStream;
+use crate::common::connection::Connection;
 use crate::server::services::Services;
 
 use super::configuration::TcpEndpointConfig;
@@ -49,7 +49,7 @@ pub async fn start(
 
                 let Ok(_) = hub_tx
                     .request(ClientConnect {
-                        stream: Some(ConnectionStream::from(stream)),
+                        stream: Some(Connection::from(stream)),
                         port,
                     })
                     .await

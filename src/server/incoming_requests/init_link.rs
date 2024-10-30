@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::connection::ConnectionStream,
+    common::connection::Connection,
     server::{services::events::ServiceEvent, session},
 };
 
@@ -25,7 +25,7 @@ pub enum InitLinkResponse {
 pub async fn process(
     services: Arc<Services>,
     request: InitLinkRequest,
-    mut response_stream: ConnectionStream,
+    mut response_stream: Connection,
 ) {
     let Some((client_id, cancel_token)) = services
         .get_link_manager()

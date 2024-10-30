@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::info;
 use tokio::io::{self, Result};
 
-use crate::common::connection::ConnectionStream;
+use crate::common::connection::Connection;
 use crate::server::incoming_requests::{InitTunelRequest, InitTunnelResponse, InputProxy};
 
 use crate::tunnel::configuration::TunnelConfiguration;
@@ -12,7 +12,7 @@ use crate::tunnel::services::Services;
 pub async fn authenticate_tunnel(
     services: &Arc<Services>,
     config: &Arc<TunnelConfiguration>,
-    server: &mut ConnectionStream,
+    server: &mut Connection,
 ) -> Result<()> {
     let auth_response: InitTunnelResponse = server
         .request_message(InitTunelRequest {

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::connection::ConnectionStream,
+    common::connection::Connection,
     server::{
         configuration::ServerConfiguration,
         endpoints::messages::{
@@ -54,7 +54,7 @@ pub enum InitTunnelResponse {
 pub async fn process(
     services: Arc<Services>,
     request: InitTunelRequest,
-    mut response_stream: ConnectionStream,
+    mut response_stream: Connection,
 ) {
     let config = services.get_config();
 
@@ -74,7 +74,7 @@ pub async fn process(
 async fn validate_server_access(
     config: &ServerConfiguration,
     request: &InitTunelRequest,
-    response_stream: &mut ConnectionStream,
+    response_stream: &mut Connection,
 ) -> Result<()> {
     if let Some(endpoint_key) = config.endpoint_key.as_ref() {
         if let Some(request_endpoint_key) = request.tunnel_key.as_ref() {
@@ -99,7 +99,7 @@ async fn validate_server_access(
 async fn validate_requested_proxies(
     request: &InitTunelRequest,
     config: &ServerConfiguration,
-    response_stream: &mut ConnectionStream,
+    response_stream: &mut Connection,
 ) -> Result<()> {
     let mut errors: Vec<String> = vec![];
 
@@ -219,7 +219,7 @@ async fn resolve_endpoint_info(
 async fn start_tunnel_session(
     services: Arc<Services>,
     request: InitTunelRequest,
-    mut response_stream: ConnectionStream,
+    mut response_stream: Connection,
 ) {
     let tunnel_id = Uuid::new_v4();
 

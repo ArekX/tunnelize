@@ -2,14 +2,14 @@ use std::collections::HashMap;
 
 use base64::{engine::general_purpose, Engine as _};
 
-use crate::common::connection::ConnectionStream;
+use crate::common::connection::Connection;
 
 pub struct HttpRequestReader {
     request: String,
 }
 
 impl HttpRequestReader {
-    pub async fn new(stream: &mut ConnectionStream) -> Self {
+    pub async fn new(stream: &mut Connection) -> Self {
         Self {
             request: stream.read_string_until("\r\n\r\n").await,
         }

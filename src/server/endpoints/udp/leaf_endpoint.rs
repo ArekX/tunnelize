@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::common::channel::RequestSender;
 use crate::common::channel_socket::ChannelSocket;
-use crate::common::connection::ConnectionStream;
+use crate::common::connection::Connection;
 use crate::common::data_bridge::UdpSession;
 use crate::server::endpoints::udp::messages::ClientConnect;
 use crate::server::services::Services;
@@ -41,7 +41,7 @@ pub async fn start(
     let mut target_client: Option<TargetClient> = None;
 
     let mut connection = match UdpSocket::bind(config.get_bind_address(port)).await {
-        Ok(socket) => ConnectionStream::from(socket),
+        Ok(socket) => Connection::from(socket),
         Err(e) => {
             error!("Failed to bind client listener: {}", e);
             return Err(Error::new(
@@ -101,7 +101,7 @@ pub async fn start(
                 let Ok(_) = hub_tx
                     .request(ClientConnect {
                         initial_data: Some(data),
-                        stream: Some(ConnectionStream::from(channel_socket)),
+                        stream: Some(Connection::from(channel_socket)),
                         session: Some(UdpSession {
                             address,
                             cancel_token
@@ -159,7 +159,7 @@ async fn track_target_client(target_client: &mut Option<TargetClient>) -> Result
     Ok(())
 }
 
-async fn wait_for_client(connection: &mut ConnectionStream) -> Result<(Vec<u8>, SocketAddr)> {
+async fn wait_for_client(connection: &mut Connection) -> Result<(Vec<u8>, SocketAddr)> {
     let mut buffer = vec![0u8; 65537];
 
     let Ok((size, address)) = connection.read_with_address(&mut buffer).await else {

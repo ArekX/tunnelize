@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 
-use super::{connection::ConnectionStream, encryption::ServerTlsEncryption};
+use super::{connection::Connection, encryption::ServerTlsEncryption};
 use tokio::io::Result;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -30,12 +30,12 @@ impl TcpServer {
         })
     }
 
-    pub async fn listen_for_connection(&self) -> Result<(ConnectionStream, SocketAddr)> {
+    pub async fn listen_for_connection(&self) -> Result<(Connection, SocketAddr)> {
         let (stream, addr) = self.listener.accept().await?;
 
         match self.encryption {
             Some(ref tls) => Ok((tls.accept(stream).await?, addr)),
-            None => Ok((ConnectionStream::from(stream), addr)),
+            None => Ok((Connection::from(stream), addr)),
         }
     }
 }

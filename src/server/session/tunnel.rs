@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::{
     common::{
         channel::{create_channel, RequestReceiver, RequestSender},
-        connection::ConnectionStream,
+        connection::Connection,
     },
     server::{
         endpoints::messages::ResolvedEndpointInfo, services::TunnelInfo, session::channel_handler,
@@ -100,7 +100,7 @@ pub fn create(
 pub async fn start(
     services: Arc<Services>,
     session: TunnelSession,
-    mut stream: ConnectionStream,
+    mut stream: Connection,
     mut channel_rx: RequestReceiver<TunnelChannelRequest>,
 ) {
     let id = session.get_id();

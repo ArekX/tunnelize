@@ -3,7 +3,7 @@ use std::{sync::Arc, vec};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::connection::ConnectionStream,
+    common::connection::Connection,
     server::{
         configuration::EndpointConfiguration,
         endpoints::{
@@ -64,7 +64,7 @@ impl From<&EndpointConfiguration> for Option<PublicServerEndpointConfig> {
 pub async fn process(
     services: Arc<Services>,
     request: ProcessConfigRequest,
-    mut response_stream: ConnectionStream,
+    mut response_stream: Connection,
 ) {
     match &request.request {
         ConfigRequest::GetPublicEndpointConfig => {

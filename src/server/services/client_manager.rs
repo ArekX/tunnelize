@@ -4,12 +4,12 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::common::connection::{ConnectionStream, ConnectionStreamContext};
+use crate::common::connection::{Connection, ConnectionStreamContext};
 
 use super::{events::ServiceEvent, HandleServiceEvent};
 
 pub struct ClientLink {
-    pub stream: ConnectionStream,
+    pub stream: Connection,
     pub context: Option<ConnectionStreamContext>,
     pub initial_tunnel_data: Option<Vec<u8>>,
 }
@@ -39,7 +39,7 @@ impl Client {
     pub fn new(
         id: Uuid,
         service_name: String,
-        stream: ConnectionStream,
+        stream: Connection,
         context: Option<ConnectionStreamContext>,
         initial_tunnel_data: Option<Vec<u8>>,
     ) -> Self {

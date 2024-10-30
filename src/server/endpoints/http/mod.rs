@@ -10,7 +10,7 @@ use tokio::{io::Result, net::TcpListener};
 use tunnel_host::TunnelHost;
 
 use crate::{
-    common::{channel::RequestReceiver, connection::ConnectionStream},
+    common::{channel::RequestReceiver, connection::Connection},
     server::services::Services,
 };
 
@@ -66,7 +66,7 @@ pub async fn start(
                 match client {
                     Ok((stream, stream_address)) => {
                         info!("Accepted connection from client: {}", stream_address);
-                        if let Err(e) = data_handler::handle(ConnectionStream::from(stream), &tunnel_host, &name, &config, &services).await {
+                        if let Err(e) = data_handler::handle(Connection::from(stream), &tunnel_host, &name, &config, &services).await {
                             error!("Failed to handle client request: {}", e);
                         }
                     },

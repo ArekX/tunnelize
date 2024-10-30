@@ -9,7 +9,7 @@ use uuid::Uuid;
 use crate::common::connection::ConnectionStreamContext;
 use crate::common::data_bridge::UdpSession;
 use crate::tunnel::configuration::ProxyConfiguration;
-use crate::{common::connection::ConnectionStream, tunnel::configuration::TunnelProxy};
+use crate::{common::connection::Connection, tunnel::configuration::TunnelProxy};
 
 pub struct Proxy {
     pub forward_address: String,
@@ -17,10 +17,10 @@ pub struct Proxy {
 }
 
 impl Proxy {
-    pub async fn create_forward_connection(&self) -> Result<ConnectionStream> {
+    pub async fn create_forward_connection(&self) -> Result<Connection> {
         Ok(match self.protocol {
             ProxyProtocol::Tcp => match TcpStream::connect(self.forward_address.clone()).await {
-                Ok(stream) => ConnectionStream::from(stream),
+                Ok(stream) => Connection::from(stream),
                 Err(e) => {
                     error!("Failed to connect to forward address: {}", e);
                     return Err(e);
@@ -36,7 +36,7 @@ impl Proxy {
                             return Err(e);
                         }
 
-                        ConnectionStream::from(socket)
+                        Connection::from(socket)
                     }
                     Err(e) => {
                         error!("Failed to bind to forward address: {}", e);
@@ -106,7 +106,7 @@ impl ProxyManager {
     pub async fn create_forward_connection(
         &self,
         id: &Uuid,
-    ) -> Result<(ConnectionStream, Option<ConnectionStreamContext>)> {
+    ) -> Result<(Connection, Option<ConnectionStreamContext>)> {
         if let Some(session) = self.proxy_map.get(id) {
             let Ok(connection) = session.create_forward_connection().await else {
                 return Err(std::io::Error::new(

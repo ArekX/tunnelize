@@ -24,7 +24,7 @@ use tokio_rustls::client::TlsStream as ClientTlsStream;
 use tokio_rustls::server::TlsStream as ServerTlsStream;
 
 #[derive(Debug)]
-pub enum ConnectionStream {
+pub enum Connection {
     TcpStream(TcpStream),
     UdpSocket(UdpSocket),
     TlsStreamServer(ServerTlsStream<TcpStream>),
@@ -32,37 +32,37 @@ pub enum ConnectionStream {
     ChannelSocket(ChannelSocket),
 }
 
-impl From<TcpStream> for ConnectionStream {
+impl From<TcpStream> for Connection {
     fn from(stream: TcpStream) -> Self {
         Self::TcpStream(stream)
     }
 }
 
-impl From<UdpSocket> for ConnectionStream {
+impl From<UdpSocket> for Connection {
     fn from(socket: UdpSocket) -> Self {
         Self::UdpSocket(socket)
     }
 }
 
-impl From<ServerTlsStream<TcpStream>> for ConnectionStream {
+impl From<ServerTlsStream<TcpStream>> for Connection {
     fn from(stream: ServerTlsStream<TcpStream>) -> Self {
         Self::TlsStreamServer(stream)
     }
 }
 
-impl From<ClientTlsStream<TcpStream>> for ConnectionStream {
+impl From<ClientTlsStream<TcpStream>> for Connection {
     fn from(stream: ClientTlsStream<TcpStream>) -> Self {
         Self::TlsStreamClient(stream)
     }
 }
 
-impl From<ChannelSocket> for ConnectionStream {
+impl From<ChannelSocket> for Connection {
     fn from(socket: ChannelSocket) -> Self {
         Self::ChannelSocket(socket)
     }
 }
 
-impl ConnectionStream {
+impl Connection {
     pub async fn wait_for_data(&mut self) -> Result<ControlFlow<()>> {
         let mut buf = [0; 1];
 
@@ -395,11 +395,11 @@ impl From<ConnectionStreamContext> for () {
     fn from(_: ConnectionStreamContext) -> Self {}
 }
 
-impl DataBridge<ConnectionStream> for ConnectionStream {
+impl DataBridge<Connection> for Connection {
     type Context = ConnectionStreamContext;
     async fn bridge_to(
         &mut self,
-        to: &mut ConnectionStream,
+        to: &mut Connection,
         context: Option<Self::Context>,
     ) -> Result<()> {
         allow_bridges!(self, to, context, {

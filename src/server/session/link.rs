@@ -5,14 +5,14 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::{
-    common::{connection::ConnectionStream, data_bridge::DataBridge},
+    common::{connection::Connection, data_bridge::DataBridge},
     server::{incoming_requests::InitLinkResponse, services::Services},
 };
 
 pub async fn start(
     services: &Arc<Services>,
     client_id: Uuid,
-    mut response_stream: ConnectionStream,
+    mut response_stream: Connection,
     cancel_token: CancellationToken,
 ) {
     let Some(mut client_link) = services

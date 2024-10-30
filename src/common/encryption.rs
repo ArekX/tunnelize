@@ -1,15 +1,18 @@
 use rustls::{
-    pki_types::{pem::PemObject, CertificateDer, IpAddr, Ipv4Addr, PrivateKeyDer, ServerName},
+    pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer, ServerName},
     ClientConfig, RootCertStore,
 };
 
 use rustls_native_certs::load_native_certs;
 
-use std::sync::Arc;
+use std::{
+    io::{Error, ErrorKind},
+    sync::Arc,
+};
 
 use tokio_rustls::{TlsAcceptor, TlsConnector};
 
-use super::connection::ConnectionStream;
+use super::connection::Connection;
 use tokio::{io::Result, net::TcpStream};
 
 pub struct ServerTlsEncryption {
@@ -38,10 +41,10 @@ impl ServerTlsEncryption {
         ServerTlsEncryption { acceptor }
     }
 
-    pub async fn accept(&self, stream: TcpStream) -> Result<ConnectionStream> {
+    pub async fn accept(&self, stream: TcpStream) -> Result<Connection> {
         let stream = self.acceptor.accept(stream).await?;
 
-        Ok(ConnectionStream::from(stream))
+        Ok(Connection::from(stream))
     }
 }
 
@@ -65,18 +68,16 @@ impl ClientTlsEncryption {
         ClientTlsEncryption { connector }
     }
 
-    pub async fn connect(&self, stream: TcpStream, domain: String) -> Result<ConnectionStream> {
-        let domain = match domain.try_into() {
-            Ok(domain) => domain,
-            Err(e) => {
-                log::error!("Failed to convert domain: {}", e);
-                // TODO: Correctly check if the domain is an IP address
-                ServerName::IpAddress(IpAddr::V4(Ipv4Addr::try_from("127.0.0.1").unwrap()))
-            }
+    pub async fn connect(&self, stream: TcpStream, domain: &str) -> Result<Connection> {
+        let Ok(domain) = ServerName::try_from(domain.to_owned()) else {
+            return Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Failed to parse domain",
+            ));
         };
         let stream = self.connector.connect(domain, stream).await?;
 
-        Ok(ConnectionStream::from(stream))
+        Ok(Connection::from(stream))
     }
 
     fn resolve_client_root_cert_store(encryption_type: ClientEncryptionType) -> RootCertStore {

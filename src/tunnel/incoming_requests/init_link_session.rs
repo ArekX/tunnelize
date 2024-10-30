@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::connection::ConnectionStream,
+    common::connection::Connection,
     tunnel::{outgoing_requests, services::Services},
 };
 
@@ -25,7 +25,7 @@ pub enum InitLinkResponse {
 pub async fn process_init_link(
     services: &Arc<Services>,
     request: InitLinkRequest,
-    response_stream: &mut ConnectionStream,
+    response_stream: &mut Connection,
 ) {
     println!("process_init_link {}", request.proxy_id);
 

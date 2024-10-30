@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use init_link_session::process_init_link;
 
-use crate::{common::connection::ConnectionStream, create_data_enum};
+use crate::{common::connection::Connection, create_data_enum};
 
 use super::services::Services;
 
@@ -16,7 +16,7 @@ create_data_enum!(TunnelRequestMessage, {
 
 pub async fn handle(
     services: &Arc<Services>,
-    stream: &mut ConnectionStream,
+    stream: &mut Connection,
     message: TunnelRequestMessage,
 ) {
     match message {

@@ -9,7 +9,7 @@ use crate::{
     server::incoming_requests::{
         InitLinkRequest as ServerInitLinkRequest, InitLinkResponse as ServerInitLinkResponse,
     },
-    tunnel::{client::create_server_connection, services::Services},
+    tunnel::services::Services,
 };
 
 pub async fn start_link_session(
@@ -43,7 +43,7 @@ pub async fn start_link_session(
         }
     };
 
-    let mut server_connection = create_server_connection(&config).await?;
+    let mut server_connection = config.create_tcp_client().await?;
 
     let Some(tunnel_id) = services.get_tunnel_data().await.get_tunnel_id() else {
         error!("Tunnel ID not found.");

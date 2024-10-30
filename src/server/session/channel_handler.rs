@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::info;
 
 use crate::{
-    common::{channel::Request, connection::ConnectionStream},
+    common::{channel::Request, connection::Connection},
     server::{services::Services, session::messages::ClientLinkResponse},
     tunnel::incoming_requests::{InitLinkRequest, InitLinkResponse},
 };
@@ -13,7 +13,7 @@ use super::{messages::TunnelChannelRequest, tunnel::TunnelSession};
 pub async fn handle(
     services: &Arc<Services>,
     session: &TunnelSession,
-    stream: &mut ConnectionStream,
+    stream: &mut Connection,
     mut request: Request<TunnelChannelRequest>,
 ) {
     match &mut request.data {

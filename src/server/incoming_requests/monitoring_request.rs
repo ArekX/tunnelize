@@ -3,7 +3,7 @@ use std::{net::SocketAddr, sync::Arc};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::{cli::MonitorCommands, connection::ConnectionStream},
+    common::{cli::MonitorCommands, connection::Connection},
     server::{
         configuration::ServerConfiguration,
         monitoring::{self, Records, SystemInfo},
@@ -51,7 +51,7 @@ async fn has_monitoring_access(
 pub async fn process(
     services: Arc<Services>,
     request: ProcessMonitoringRequest,
-    mut response_stream: ConnectionStream,
+    mut response_stream: Connection,
     address: SocketAddr,
 ) {
     let config = services.get_config();
