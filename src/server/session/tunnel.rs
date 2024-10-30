@@ -1,7 +1,7 @@
-use std::{ops::ControlFlow, sync::Arc};
+use std::sync::Arc;
 
 use super::messages::TunnelChannelRequest;
-use log::info;
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
@@ -10,9 +10,11 @@ use crate::{
     common::{
         channel::{create_channel, RequestReceiver, RequestSender},
         connection::Connection,
+        transport::MessageError,
     },
     server::{
-        endpoints::messages::ResolvedEndpointInfo, services::TunnelInfo, session::channel_handler,
+        endpoints::messages::ResolvedEndpointInfo, incoming_requests::ServerRequestMessage,
+        services::TunnelInfo, session::channel_handler,
     },
 };
 
@@ -121,10 +123,21 @@ pub async fn start(
 
                 channel_handler::handle(&services, &session, &mut stream, message).await;
             },
-            Ok(ControlFlow::Break(())) = stream.wait_for_data() => {
-                info!("Tunnel {} session has been closed.", id);
-                session.cancel();
-                break;
+            result = stream.read_message::<ServerRequestMessage>() => {
+                match result {
+                    Ok(message) => {
+                        debug!("Received unexpected message from client: {:?}", message);
+                    },
+                    Err(MessageError::ConnectionClosed) => {
+                        debug!("Tunnel Connection closed.");
+                        session.cancel();
+                    },
+                    Err(e) => {
+                        info!("Failed to read message from client: {}", e);
+                        session.cancel();
+                        break;
+                    }
+                }
             }
         }
     }

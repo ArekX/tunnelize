@@ -17,6 +17,8 @@ pub enum EndpointServerEncryption {
     ServerTls,
 }
 
+// Set max tunnels and clients.
+
 #[derive(Serialize, Deserialize)]
 pub struct ServerConfiguration {
     pub server_port: u16,

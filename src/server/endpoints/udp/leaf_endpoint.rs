@@ -2,6 +2,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use bytes::BytesMut;
 use log::{debug, error, warn};
 use tokio::io::{Error, ErrorKind, Result};
 use tokio::net::UdpSocket;
@@ -160,7 +161,7 @@ async fn track_target_client(target_client: &mut Option<TargetClient>) -> Result
 }
 
 async fn wait_for_client(connection: &mut Connection) -> Result<(Vec<u8>, SocketAddr)> {
-    let mut buffer = vec![0u8; 65537];
+    let mut buffer = BytesMut::with_capacity(2048);
 
     let Ok((size, address)) = connection.read_with_address(&mut buffer).await else {
         return Err(Error::new(ErrorKind::Other, "Failed to receive data"));
@@ -168,5 +169,5 @@ async fn wait_for_client(connection: &mut Connection) -> Result<(Vec<u8>, Socket
 
     debug!("Received {} bytes from '{}'", size, address);
 
-    Ok((buffer[..size].to_vec(), address))
+    Ok((buffer.to_vec(), address))
 }

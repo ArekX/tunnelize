@@ -1,10 +1,10 @@
 use std::{
     io::{Error, ErrorKind},
     net::SocketAddr,
-    ops::ControlFlow,
     time::Duration,
 };
 
+use bytes::BytesMut;
 use log::debug;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
@@ -63,34 +63,6 @@ impl From<ChannelSocket> for Connection {
 }
 
 impl Connection {
-    pub async fn wait_for_data(&mut self) -> Result<ControlFlow<()>> {
-        let mut buf = [0; 1];
-
-        let inner_stream = match self {
-            Self::TcpStream(stream) => stream,
-            Self::TlsStreamServer(stream) => stream.get_mut().0,
-            Self::TlsStreamClient(stream) => stream.get_mut().0,
-            Self::UdpSocket(_) => {
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "UDP sockets cannot wait on stream connection.",
-                ))
-            }
-            Self::ChannelSocket(_) => {
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "Channel sockets cannot wait on stream connection.",
-                ))
-            }
-        };
-
-        match inner_stream.peek(&mut buf).await {
-            Ok(0) => Ok(ControlFlow::Break(())),
-            Ok(_) => Ok(ControlFlow::Continue(())),
-            Err(e) => Err(e),
-        }
-    }
-
     pub async fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         match self {
             Self::TcpStream(stream) => stream.read(buf).await,
@@ -200,17 +172,7 @@ impl Connection {
         let mut request_buffer = Vec::new();
 
         loop {
-            debug!("Waiting tcp stream to be readable...");
-
-            if let Err(e) = self.wait_for_data().await {
-                debug!(
-                    "Error while waiting for client stream to be readable: {:?}",
-                    e
-                );
-                break;
-            }
-
-            let mut buffer = [0; 100024];
+            let mut buffer = BytesMut::with_capacity(2048);
 
             match self.read(&mut buffer).await {
                 Ok(0) => {

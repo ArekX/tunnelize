@@ -32,8 +32,8 @@ pub async fn start() -> Result<()> {
         tunnel_key: None,
         endpoints: HashMap::new(),
         encryption: ServerEncryption::Tls {
-            cert_path: "testing/certs/server.crt".to_string(),
-            key_path: "testing/certs/server.key".to_string(),
+            cert_path: "testing/certs/server.crt".to_owned(),
+            key_path: "testing/certs/server.key".to_owned(),
         },
     }; // TODO: This should be a parameter in start
 
@@ -41,7 +41,7 @@ pub async fn start() -> Result<()> {
         "http".to_owned(),
         EndpointConfiguration::Http(HttpEndpointConfig {
             port: 3457,
-            encryption: EndpointServerEncryption::ServerTls,
+            encryption: EndpointServerEncryption::None,
             address: None,
             max_client_input_wait_secs: 10,
             hostname_template: "opop-{name}.localhost".to_owned(),
@@ -54,7 +54,7 @@ pub async fn start() -> Result<()> {
     configuration.endpoints.insert(
         "monitor".to_owned(),
         EndpointConfiguration::Monitoring(MonitorEndpointConfig {
-            encryption: EndpointServerEncryption::ServerTls,
+            encryption: EndpointServerEncryption::None,
             port: 3000,
             address: None,
             authentication: MonitorAuthentication::Bearer {

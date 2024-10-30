@@ -22,7 +22,7 @@ fn get_configuration() -> TunnelConfiguration {
         server_address: "127.0.0.1".to_string(),
         server_port: 3456,
         encryption: Encryption::Tls {
-            cert: "testing/certs/ca.crt".to_string(),
+            cert: "testing/certs/ca.crt".to_owned(),
         },
         tunnel_key: None,
         monitor_key: Some("key".to_string()),
