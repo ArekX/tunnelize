@@ -58,7 +58,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
                             incoming_requests::handle(services, connection_stream, address, message).await;
                         });
                     },
-                    Err(e) => {
+                    Err((e, _)) => {
                         error!("Failed to accept client connection: {}", e);
                         continue;
                     }

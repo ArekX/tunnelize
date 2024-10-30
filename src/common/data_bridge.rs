@@ -57,6 +57,27 @@ impl DataBridge<ServerTlsStream<TcpStream>> for TcpStream {
     }
 }
 
+impl DataBridge<ServerTlsStream<TcpStream>> for ServerTlsStream<TcpStream> {
+    type Context = ();
+    async fn bridge_to(
+        &mut self,
+        to: &mut ServerTlsStream<TcpStream>,
+        _context: Option<Self::Context>,
+    ) -> Result<()> {
+        match tokio::io::copy_bidirectional(self, to).await {
+            Ok(_) => Ok(()),
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
+                debug!("Server TLS connection ended: {:?}", e);
+                Ok(())
+            }
+            Err(e) => {
+                error!("Failed to bridge data: {}", e);
+                Err(e)
+            }
+        }
+    }
+}
+
 impl DataBridge<ClientTlsStream<TcpStream>> for TcpStream {
     type Context = ();
     async fn bridge_to(

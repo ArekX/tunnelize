@@ -30,7 +30,7 @@ fn get_configuration() -> TunnelConfiguration {
             TunnelProxy {
                 endpoint_name: "http".to_string(),
                 address: "0.0.0.0".to_string(),
-                port: 8081,
+                port: 8080,
                 config: ProxyConfiguration::Http {
                     desired_name: Some("test".to_string()),
                 },
@@ -38,7 +38,7 @@ fn get_configuration() -> TunnelConfiguration {
             TunnelProxy {
                 endpoint_name: "tcp".to_string(),
                 address: "0.0.0.0".to_string(),
-                port: 8080,
+                port: 8081,
                 config: ProxyConfiguration::Tcp { desired_port: None },
             },
             TunnelProxy {

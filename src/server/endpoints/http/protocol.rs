@@ -69,6 +69,7 @@ impl HttpRequestReader {
 
 pub enum HttpStatusCode {
     Unauthorized,
+    MovedPermanently,
     BadGateway,
 }
 
@@ -77,6 +78,7 @@ impl HttpStatusCode {
         match self {
             HttpStatusCode::Unauthorized => "401 Unauthorized",
             HttpStatusCode::BadGateway => "502 Bad Gateway",
+            HttpStatusCode::MovedPermanently => "301 Moved Permanently",
         }
     }
 }
@@ -115,6 +117,16 @@ impl HttpResponseBuilder {
             "WWW-Authenticate".to_string(),
             format!("Basic realm=\"{}\"", realm_string.replace('"', "")),
         );
+
+        instance
+    }
+
+    pub fn from_redirect(location: &str) -> Self {
+        let mut instance = Self::new(HttpStatusCode::MovedPermanently, "");
+
+        instance
+            .with_header("Location".to_string(), location.to_owned())
+            .with_header("Connection".to_string(), "close".to_string());
 
         instance
     }

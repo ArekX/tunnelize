@@ -18,10 +18,8 @@ pub struct HttpEndpointConfig {
 }
 
 impl HttpEndpointConfig {
-    pub fn get_bind_address(&self) -> String {
-        let address = self.address.clone().unwrap_or_else(|| format!("0.0.0.0"));
-
-        format!("{}:{}", address, self.port)
+    pub fn get_address(&self) -> String {
+        self.address.clone().unwrap_or_else(|| format!("0.0.0.0"))
     }
 
     pub fn get_full_url(&self, hostname: &str) -> String {
