@@ -32,8 +32,8 @@ pub async fn start() -> Result<()> {
         tunnel_key: None,
         endpoints: HashMap::new(),
         encryption: ServerEncryption::Tls {
-            cert_path: "certs/server.crt".to_string(),
-            key_path: "certs/server.key".to_string(),
+            cert_path: "testing/certs/server.crt".to_string(),
+            key_path: "testing/certs/server.key".to_string(),
         },
     }; // TODO: This should be a parameter in start
 
