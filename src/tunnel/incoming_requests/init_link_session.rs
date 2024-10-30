@@ -29,7 +29,7 @@ pub async fn process_init_link(
 ) {
     println!("process_init_link {}", request.proxy_id);
 
-    let Some(address) = services
+    let Some((address, port)) = services
         .get_proxy_manager()
         .await
         .get_forward_address(&request.proxy_id)
@@ -41,6 +41,8 @@ pub async fn process_init_link(
             .await;
         return;
     };
+
+    let address_port = format!("{}:{}", address, port);
 
     {
         if let Err(e) = outgoing_requests::start_link_session(
@@ -55,7 +57,7 @@ pub async fn process_init_link(
             let message = if let ErrorKind::ConnectionRefused = e.kind() {
                 format!(
                     "Connection refused, could not connect to source at {}",
-                    address
+                    address_port
                 )
             } else {
                 format!("Failed to start link session: {:?}", e.kind())

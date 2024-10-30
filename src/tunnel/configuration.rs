@@ -49,7 +49,8 @@ impl Encryption {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TunnelProxy {
     pub endpoint_name: String,
-    pub forward_address: String,
+    pub address: String,
+    pub port: u16,
     pub config: ProxyConfiguration,
 }
 

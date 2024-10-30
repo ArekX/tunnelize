@@ -6,6 +6,7 @@ pub mod data_bridge;
 pub mod data_request;
 pub mod encryption;
 pub mod logger;
+pub mod protocol_socket;
 pub mod tasks;
 pub mod tcp_client;
 pub mod tcp_server;

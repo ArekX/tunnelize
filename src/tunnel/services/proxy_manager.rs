@@ -8,53 +8,68 @@ use uuid::Uuid;
 
 use crate::common::connection::ConnectionStreamContext;
 use crate::common::data_bridge::UdpSession;
+use crate::common::protocol_socket::connect_to_address;
 use crate::tunnel::configuration::ProxyConfiguration;
 use crate::{common::connection::Connection, tunnel::configuration::TunnelProxy};
 
 pub struct Proxy {
-    pub forward_address: String,
+    pub address: String,
+    pub port: u16,
     pub protocol: ProxyProtocol,
 }
 
 impl Proxy {
-    pub async fn create_forward_connection(&self) -> Result<Connection> {
+    pub async fn create_forward_connection(
+        &self,
+    ) -> Result<(Connection, Option<ConnectionStreamContext>)> {
         Ok(match self.protocol {
-            ProxyProtocol::Tcp => match TcpStream::connect(self.forward_address.clone()).await {
-                Ok(stream) => Connection::from(stream),
-                Err(e) => {
-                    error!("Failed to connect to forward address: {}", e);
-                    return Err(e);
-                }
-            },
-            ProxyProtocol::Udp => {
-                // TODO: Do this properly
-
-                match UdpSocket::bind("0.0.0.0:0".to_string()).await {
-                    Ok(socket) => {
-                        if let Err(e) = socket.connect(self.forward_address.clone()).await {
-                            error!("Failed to connect to forward address: {}", e);
-                            return Err(e);
-                        }
-
-                        Connection::from(socket)
-                    }
+            ProxyProtocol::Tcp => {
+                match connect_to_address::<TcpStream>(&self.address, self.port).await {
+                    Ok((stream, _)) => (Connection::from(stream), None),
                     Err(e) => {
-                        error!("Failed to bind to forward address: {}", e);
+                        error!("Failed to connect to forward address: {}", e);
                         return Err(e);
                     }
                 }
             }
-        })
-    }
+            ProxyProtocol::Udp => {
+                match connect_to_address::<UdpSocket>(&self.address, self.port).await {
+                    Ok((socket, address)) => (
+                        Connection::from(socket),
+                        Some(ConnectionStreamContext::Udp(UdpSession {
+                            address,
+                            cancel_token: CancellationToken::new(),
+                        })),
+                    ),
+                    Err(e) => {
+                        error!("Failed to connect to forward address: {}", e);
+                        return Err(e);
+                    }
+                }
 
-    pub fn create_forward_connection_context(&self) -> Option<ConnectionStreamContext> {
-        match self.protocol {
-            ProxyProtocol::Tcp => None,
-            ProxyProtocol::Udp => Some(ConnectionStreamContext::Udp(UdpSession {
-                address: self.forward_address.parse().unwrap(),
-                cancel_token: CancellationToken::new(),
-            })),
-        }
+                // match UdpSocket::bind("0.0.0.0:0".to_string()).await {
+                //     Ok(socket) => {
+                //         match connect_to_address::<UdpSocket>(&self.address, self.port).await {
+                //             Ok((_, address)) => (
+                //                 Connection::from(socket),
+                //                 Some(ConnectionStreamContext::Udp(UdpSession {
+                //                     address,
+                //                     cancel_token: CancellationToken::new(),
+                //                 })),
+                //             ),
+                //             Err(e) => {
+                //                 error!("Failed to connect to forward address: {}", e);
+                //                 return Err(e);
+                //             }
+                //         }
+                //     }
+                //     Err(e) => {
+                //         error!("Failed to bind to forward address: {}", e);
+                //         return Err(e);
+                //     }
+                // }
+            }
+        })
     }
 }
 
@@ -84,17 +99,18 @@ impl ProxyManager {
         }
     }
 
-    pub fn get_forward_address(&self, id: &Uuid) -> Option<String> {
+    pub fn get_forward_address(&self, id: &Uuid) -> Option<(String, u16)> {
         self.proxy_map
             .get(id)
-            .map(|session| session.forward_address.clone())
+            .map(|session| (session.address.clone(), session.port))
     }
 
     pub fn add_proxy(&mut self, proxy: &TunnelProxy) -> Uuid {
         let id = Uuid::new_v4();
 
         let proxy = Proxy {
-            forward_address: proxy.forward_address.clone(),
+            address: proxy.address.clone(),
+            port: proxy.port,
             protocol: ProxyProtocol::from(&proxy.config),
         };
 
@@ -108,14 +124,7 @@ impl ProxyManager {
         id: &Uuid,
     ) -> Result<(Connection, Option<ConnectionStreamContext>)> {
         if let Some(session) = self.proxy_map.get(id) {
-            let Ok(connection) = session.create_forward_connection().await else {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "Failed to create forward connection",
-                ));
-            };
-
-            return Ok((connection, session.create_forward_connection_context()));
+            return session.create_forward_connection().await;
         }
 
         error!("Failed to find proxy session with id: {}", id);
