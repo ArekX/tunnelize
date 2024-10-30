@@ -1,12 +1,14 @@
 use serde::{Deserialize, Serialize};
 
+use crate::server::configuration::EndpointServerEncryption;
+
 // TODO: Add max proxies per tunnel
 // TODO: Add max tunnels
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpEndpointConfig {
     pub port: u16,
-    pub is_secure: bool, // TODO: Implement TLS
+    pub encryption: EndpointServerEncryption,
     pub address: Option<String>,
     pub max_client_input_wait_secs: u64,
     pub hostname_template: String,
@@ -29,14 +31,27 @@ impl HttpEndpointConfig {
                 .replace("{port}", &self.port.to_string());
         }
 
-        let protocol = if self.is_secure { "https" } else { "http" };
-        let port = if self.is_secure && self.port == 443 || !self.is_secure && self.port == 80 {
+        let protocol = if self.get_is_secure() {
+            "https"
+        } else {
+            "http"
+        };
+        let port = if self.get_is_secure() && self.port == 443
+            || !self.get_is_secure() && self.port == 80
+        {
             "".to_owned()
         } else {
             format!(":{}", self.port)
         };
 
         format!("{}://{}{}", protocol, hostname, port)
+    }
+
+    pub fn get_is_secure(&self) -> bool {
+        match &self.encryption {
+            EndpointServerEncryption::None => false,
+            _ => true,
+        }
     }
 }
 
@@ -59,7 +74,7 @@ impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
     fn from(config: &HttpEndpointConfig) -> Self {
         Self {
             port: config.port,
-            is_secure: config.is_secure,
+            is_secure: config.get_is_secure(),
             address: config.address.clone(),
             allow_custom_hostnames: config.allow_custom_hostnames,
         }

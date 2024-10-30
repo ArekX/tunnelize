@@ -76,7 +76,7 @@ async fn validate_server_access(
     request: &InitTunelRequest,
     response_stream: &mut Connection,
 ) -> Result<()> {
-    if let Some(endpoint_key) = config.endpoint_key.as_ref() {
+    if let Some(endpoint_key) = config.tunnel_key.as_ref() {
         if let Some(request_endpoint_key) = request.tunnel_key.as_ref() {
             if endpoint_key != request_endpoint_key {
                 response_stream

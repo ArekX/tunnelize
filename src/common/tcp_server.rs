@@ -9,7 +9,7 @@ use tokio::io::Result;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ServerEncryption {
     None,
-    Tls { cert: String, key: String },
+    Tls { cert_path: String, key_path: String },
 }
 
 pub struct TcpServer {
@@ -22,9 +22,10 @@ impl TcpServer {
         Ok(TcpServer {
             encryption: match encryption {
                 ServerEncryption::None => None,
-                ServerEncryption::Tls { cert, key } => {
-                    Some(ServerTlsEncryption::new(&cert, &key).await)
-                }
+                ServerEncryption::Tls {
+                    cert_path: cert,
+                    key_path: key,
+                } => Some(ServerTlsEncryption::new(&cert, &key).await),
             },
             listener: TcpListener::bind(format!("{}:{}", address, port)).await?,
         })

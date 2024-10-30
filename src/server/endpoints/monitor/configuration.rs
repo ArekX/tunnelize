@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 
+use crate::server::configuration::EndpointServerEncryption;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MonitorEndpointConfig {
     pub port: u16,
-    pub is_secure: bool, // TODO: Implement axum TLS
+    pub encryption: EndpointServerEncryption,
     pub address: Option<String>,
     pub authentication: MonitorAuthentication,
 }

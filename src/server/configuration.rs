@@ -9,12 +9,20 @@ use super::endpoints::{
     tcp::configuration::TcpEndpointConfig, udp::configuration::UdpEndpointConfig,
 };
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum EndpointServerEncryption {
+    None,
+    CustomTls { cert_path: String, key_path: String },
+    ServerTls,
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ServerConfiguration {
     pub server_port: u16,
     pub server_address: Option<String>,
     pub max_tunnel_input_wait: u16,
-    pub endpoint_key: Option<String>,
+    pub tunnel_key: Option<String>,
     pub monitor_key: Option<String>,
     pub endpoints: HashMap<String, EndpointConfiguration>,
     pub encryption: ServerEncryption,

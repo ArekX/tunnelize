@@ -1,6 +1,6 @@
-use configuration::{EndpointConfiguration, ServerConfiguration};
+use configuration::{EndpointConfiguration, EndpointServerEncryption, ServerConfiguration};
 use endpoints::http::configuration::HttpEndpointConfig;
-use endpoints::monitor::configuration::MonitorEndpointConfig;
+use endpoints::monitor::configuration::{MonitorAuthentication, MonitorEndpointConfig};
 use endpoints::tcp::configuration::TcpEndpointConfig;
 use endpoints::udp::configuration::UdpEndpointConfig;
 use log::{debug, info};
@@ -29,11 +29,11 @@ pub async fn start() -> Result<()> {
         server_address: None,
         monitor_key: Some("key".to_owned()),
         max_tunnel_input_wait: 30,
-        endpoint_key: None,
+        tunnel_key: None,
         endpoints: HashMap::new(),
         encryption: ServerEncryption::Tls {
-            cert: "certs/server.crt".to_string(),
-            key: "certs/server.key".to_string(),
+            cert_path: "certs/server.crt".to_string(),
+            key_path: "certs/server.key".to_string(),
         },
     }; // TODO: This should be a parameter in start
 
@@ -41,7 +41,7 @@ pub async fn start() -> Result<()> {
         "http".to_owned(),
         EndpointConfiguration::Http(HttpEndpointConfig {
             port: 3457,
-            is_secure: false,
+            encryption: EndpointServerEncryption::ServerTls,
             address: None,
             max_client_input_wait_secs: 10,
             hostname_template: "opop-{name}.localhost".to_owned(),
@@ -54,10 +54,10 @@ pub async fn start() -> Result<()> {
     configuration.endpoints.insert(
         "monitor".to_owned(),
         EndpointConfiguration::Monitoring(MonitorEndpointConfig {
-            is_secure: false,
+            encryption: EndpointServerEncryption::ServerTls,
             port: 3000,
             address: None,
-            authentication: endpoints::monitor::configuration::MonitorAuthentication::Bearer {
+            authentication: MonitorAuthentication::Bearer {
                 token: "opop".to_owned(),
             },
         }),

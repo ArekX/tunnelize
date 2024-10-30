@@ -6,7 +6,7 @@
   };
 }}
 
-@host=http://localhost:3000
+@host=https://localhost:3000
 
 ###  Tunnels
 
@@ -38,6 +38,8 @@ DELETE /links/{{links.records[0].id}}
 
 
 ### System
+
+# @noRejectUnauthorized or use settings httpyac.requestGotOptions
 
 GET /system/info
 ...defaultHeaders
