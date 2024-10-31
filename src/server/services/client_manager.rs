@@ -112,7 +112,9 @@ impl HandleServiceEvent for ClientManager {
             ServiceEvent::LinkDisconnected { client_id, .. } => {
                 self.remove_client(client_id);
             }
-
+            ServiceEvent::LinkRejected { client_id, .. } => {
+                self.remove_client(client_id);
+            }
             _ => {}
         };
     }

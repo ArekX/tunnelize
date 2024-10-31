@@ -2,6 +2,10 @@ use std::{collections::HashMap, net::IpAddr};
 
 use chrono::Utc;
 
+const MAX_IPS: usize = 1000;
+const CLEANUP_OLD_SECONDS: i64 = 7200;
+const BFP_WAIT_FOR_SECONDS: i64 = 300;
+
 struct IpAttempt {
     count: u8,
     wait_until: i64,
@@ -14,7 +18,29 @@ pub struct BfpManager {
 impl BfpManager {
     pub fn new() -> Self {
         Self {
-            bfp_ip_map: HashMap::new(),
+            bfp_ip_map: HashMap::with_capacity(MAX_IPS),
+        }
+    }
+
+    fn perform_cleanup(&mut self) {
+        if self.bfp_ip_map.len() < MAX_IPS {
+            return;
+        }
+
+        let now = Utc::now().timestamp();
+        self.bfp_ip_map
+            .retain(|_, attempt| now - attempt.wait_until <= CLEANUP_OLD_SECONDS);
+
+        if self.bfp_ip_map.len() == MAX_IPS {
+            let oldest_ip = self
+                .bfp_ip_map
+                .iter()
+                .min_by_key(|&(_, attempt)| attempt.wait_until)
+                .map(|(ip, _)| ip.clone());
+
+            if let Some(ip) = oldest_ip {
+                self.bfp_ip_map.remove(&ip);
+            }
         }
     }
 
@@ -24,6 +50,8 @@ impl BfpManager {
         let attempt = match self.bfp_ip_map.get_mut(ip_string.as_str()) {
             Some(attempt) => attempt,
             None => {
+                self.perform_cleanup();
+
                 self.bfp_ip_map.insert(
                     ip_string.clone(),
                     IpAttempt {
@@ -38,7 +66,7 @@ impl BfpManager {
 
         attempt.count = attempt.count.wrapping_add(1);
         if attempt.count >= 5 {
-            attempt.wait_until = Utc::now().timestamp() + 300;
+            attempt.wait_until = Utc::now().timestamp() + BFP_WAIT_FOR_SECONDS;
         }
     }
 

@@ -4,7 +4,10 @@ use log::info;
 
 use crate::{
     common::{channel::Request, connection::Connection},
-    server::{services::Services, session::messages::ClientLinkResponse},
+    server::{
+        services::{events::ServiceEvent, Services},
+        session::messages::ClientLinkResponse,
+    },
     tunnel::incoming_requests::{InitLinkRequest, InitLinkResponse},
 };
 
@@ -50,9 +53,17 @@ pub async fn handle(
                 Err(e) => {
                     info!("Failed to send InitLinkSession request: {}", e);
                     services
-                        .get_link_manager()
-                        .await
-                        .remove_session(&link_session_id);
+                        .push_event(ServiceEvent::LinkRejected {
+                            client_id: request_data.client_id,
+                            session_id: session.get_id(),
+                        })
+                        .await;
+
+                    request
+                        .respond(ClientLinkResponse::Rejected {
+                            reason: "Rejected due to error sending data to tunnel".to_string(),
+                        })
+                        .await;
                     return;
                 }
             };
@@ -63,9 +74,11 @@ pub async fn handle(
                 }
                 InitLinkResponse::Rejected { reason } => {
                     services
-                        .get_link_manager()
-                        .await
-                        .remove_session(&link_session_id);
+                        .push_event(ServiceEvent::LinkRejected {
+                            client_id: request_data.client_id,
+                            session_id: session.get_id(),
+                        })
+                        .await;
 
                     request
                         .respond(ClientLinkResponse::Rejected { reason })

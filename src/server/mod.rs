@@ -1,8 +1,8 @@
 use configuration::{EndpointConfiguration, EndpointServerEncryption, ServerConfiguration};
 use endpoints::http::configuration::HttpEndpointConfig;
-use endpoints::monitor::configuration::{MonitorAuthentication, MonitorEndpointConfig};
-use endpoints::tcp::configuration::TcpEndpointConfig;
-use endpoints::udp::configuration::UdpEndpointConfig;
+// use endpoints::monitor::configuration::{MonitorAuthentication, MonitorEndpointConfig};
+// use endpoints::tcp::configuration::TcpEndpointConfig;
+// use endpoints::udp::configuration::UdpEndpointConfig;
 use log::{debug, info};
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
@@ -51,40 +51,40 @@ pub async fn start() -> Result<()> {
         }),
     );
 
-    configuration.endpoints.insert(
-        "monitor".to_owned(),
-        EndpointConfiguration::Monitoring(MonitorEndpointConfig {
-            encryption: EndpointServerEncryption::None,
-            port: 3000,
-            address: None,
-            authentication: MonitorAuthentication::Bearer {
-                token: "opop".to_owned(),
-            },
-        }),
-    );
+    // configuration.endpoints.insert(
+    //     "monitor".to_owned(),
+    //     EndpointConfiguration::Monitoring(MonitorEndpointConfig {
+    //         encryption: EndpointServerEncryption::None,
+    //         port: 3000,
+    //         address: None,
+    //         authentication: MonitorAuthentication::Bearer {
+    //             token: "opop".to_owned(),
+    //         },
+    //     }),
+    // );
 
-    configuration.endpoints.insert(
-        "tcp".to_owned(),
-        EndpointConfiguration::Tcp(TcpEndpointConfig {
-            reserve_ports_from: 4000,
-            reserve_ports_to: 4002,
-            allow_desired_port: true,
-            full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
-            address: None,
-        }),
-    );
+    // configuration.endpoints.insert(
+    //     "tcp".to_owned(),
+    //     EndpointConfiguration::Tcp(TcpEndpointConfig {
+    //         reserve_ports_from: 4000,
+    //         reserve_ports_to: 4002,
+    //         allow_desired_port: true,
+    //         full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
+    //         address: None,
+    //     }),
+    // );
 
-    configuration.endpoints.insert(
-        "udp".to_owned(),
-        EndpointConfiguration::Udp(UdpEndpointConfig {
-            reserve_ports_from: 5000,
-            allow_desired_port: true,
-            reserve_ports_to: 5002,
-            inactivity_timeout: 60,
-            full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
-            address: None,
-        }),
-    );
+    // configuration.endpoints.insert(
+    //     "udp".to_owned(),
+    //     EndpointConfiguration::Udp(UdpEndpointConfig {
+    //         reserve_ports_from: 5000,
+    //         allow_desired_port: true,
+    //         reserve_ports_to: 5002,
+    //         inactivity_timeout: 60,
+    //         full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
+    //         address: None,
+    //     }),
+    // );
 
     let cancel_token = CancellationToken::new();
     let services = Arc::new(Services::new(configuration, cancel_token.clone()));

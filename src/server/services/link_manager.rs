@@ -115,6 +115,25 @@ impl HandleServiceEvent for LinkManager {
             ServiceEvent::LinkDisconnected { session_id, .. } => {
                 self.remove_session(session_id);
             }
+            ServiceEvent::TunnelDisconnected { tunnel_id } => {
+                for session in self.link_sessions.values() {
+                    if &session.tunnel_id == tunnel_id {
+                        if let Err(e) = self.cancel_session(&session.id) {
+                            info!("Error while cancelling link session: {:?}", e);
+                        }
+                    }
+                }
+            }
+            ServiceEvent::LinkRejected {
+                client_id,
+                session_id,
+            } => {
+                if let Some(session) = self.link_sessions.get(session_id) {
+                    if &session.client.id == client_id {
+                        self.remove_session(session_id);
+                    }
+                }
+            }
             _ => {}
         };
     }
