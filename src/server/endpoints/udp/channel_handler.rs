@@ -25,12 +25,12 @@ pub async fn handle(
 
             for session in register_request.proxy_sessions.iter() {
                 let ProxyConfiguration::Udp { desired_port } = session.config else {
-                    debug!("Proxy session configuration passed is not for Tcp endpoint");
+                    debug!("Proxy session configuration passed is not for Udp endpoint");
                     reject_tunnel(
                         &mut request,
                         &tunnel_id,
                         tunnel_host,
-                        "Invalid configuration for TCP endpoint.",
+                        "Invalid configuration for UDP endpoint.",
                     )
                     .await;
                     return Ok(());
@@ -75,7 +75,7 @@ pub async fn handle(
         }
         EndpointChannelRequest::RemoveTunnelRequest(remove_request) => {
             info!(
-                "Removing tunnel ID '{}' from tcp endpoint.",
+                "Removing tunnel ID '{}' from udp endpoint.",
                 remove_request.tunnel_id
             );
             tunnel_host.remove_tunnel(&remove_request.tunnel_id);

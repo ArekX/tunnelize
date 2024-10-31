@@ -39,6 +39,12 @@ impl ActivityTracker {
         client_id
     }
 
+    pub fn cancel(&mut self, client_id: &Uuid) {
+        if let Some(activity) = self.client_map.remove(client_id) {
+            activity.cancel_token.cancel();
+        }
+    }
+
     pub async fn cancel_all_after_timeout(&mut self, timeout: u64) {
         self.client_map.retain(|_, activity| {
             if activity.last_activity.elapsed().as_secs() < timeout {

@@ -3,10 +3,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::BytesMut;
-use log::{debug, error, warn};
+use log::{debug, error};
 use tokio::io::{Error, ErrorKind, Result};
 use tokio::net::UdpSocket;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{channel, Sender};
 use tokio::sync::Mutex;
 use tokio::time::interval;
 use tokio_util::sync::CancellationToken;
@@ -52,7 +52,7 @@ pub async fn start(
         }
     };
 
-    let (leaf_data_tx, mut leaf_data_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(1);
+    let (leaf_data_tx, mut leaf_data_rx) = channel::<Vec<u8>>(1);
 
     loop {
         tokio::select! {
@@ -67,18 +67,17 @@ pub async fn start(
                 };
 
                 if let Some(client) = target_client.as_ref() {
-                    if client.address != address {
-                        warn!("Received UDP datagram from other address '{}' while assigned to address '{}'.", address, client.address);
+                    // TODO: this probably wont work either as there can be many clients, probably need client tracking for multiple clients
+                    if client.address == address {
+                        activity_tracker.lock().await.update_activity(&client.id);
+                        if let Err(e) = client.socket_tx.send(data).await {
+                            error!("Failed to send data to client. Reason: {:?}", e);
+                            target_client.take();
+                            // TODO: Cancel client
+                        }
+
                         continue;
                     }
-
-
-                    activity_tracker.lock().await.update_activity(&client.id);
-                    if let Err(e) = client.socket_tx.send(data).await {
-                        error!("Failed to send data to client. Reason: {}", e);
-                    }
-
-                    continue;
                 }
 
                 debug!(
@@ -131,7 +130,11 @@ pub async fn start(
                         }
                     }
                     None => {
-                        target_client = None;
+                        if let Some(client) = target_client.take() {
+                            debug!("Target client cancelled, removing from activity tracker.");
+                            activity_tracker.lock().await.cancel(&client.id);
+                        }
+
                         continue;
                     }
                 }
@@ -162,12 +165,13 @@ async fn track_target_client(target_client: &mut Option<TargetClient>) -> Result
 
 async fn wait_for_client(connection: &mut Connection) -> Result<(Vec<u8>, SocketAddr)> {
     let mut buffer = BytesMut::with_capacity(2048);
+    buffer.resize(2048, 0);
 
-    let Ok((size, address)) = connection.read_with_address(&mut buffer).await else {
-        return Err(Error::new(ErrorKind::Other, "Failed to receive data"));
-    };
-
-    debug!("Received {} bytes from '{}'", size, address);
-
-    Ok((buffer.to_vec(), address))
+    match connection.read_with_address(&mut buffer).await {
+        Ok((size, address)) => Ok((buffer[..size].to_vec(), address)),
+        Err(e) => {
+            error!("Failed to read data from client: {:?}", e);
+            Err(e)
+        }
+    }
 }
