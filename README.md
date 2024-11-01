@@ -2,7 +2,8 @@
 
 Self-Hosted Tunnel Server and Client written in Rust.
 
-**Importent note:** This application is still in development, expect bugs and things not working.
+\[Important!\] This application is still in development, expect bugs and things not working.
+--------------
 
 Supported services:
 * HTTP Tunnel
