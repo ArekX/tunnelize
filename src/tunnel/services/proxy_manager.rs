@@ -46,28 +46,6 @@ impl Proxy {
                         return Err(e);
                     }
                 }
-
-                // match UdpSocket::bind("0.0.0.0:0".to_string()).await {
-                //     Ok(socket) => {
-                //         match connect_to_address::<UdpSocket>(&self.address, self.port).await {
-                //             Ok((_, address)) => (
-                //                 Connection::from(socket),
-                //                 Some(ConnectionStreamContext::Udp(UdpSession {
-                //                     address,
-                //                     cancel_token: CancellationToken::new(),
-                //                 })),
-                //             ),
-                //             Err(e) => {
-                //                 error!("Failed to connect to forward address: {}", e);
-                //                 return Err(e);
-                //             }
-                //         }
-                //     }
-                //     Err(e) => {
-                //         error!("Failed to bind to forward address: {}", e);
-                //         return Err(e);
-                //     }
-                // }
             }
         })
     }
