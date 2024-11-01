@@ -6,7 +6,7 @@
 Tunnelize is a self-hosted tunnel server and client written in Rust. It provides secure tunneling for HTTP, TCP, and UDP traffic, along with a monitoring API for managing connections.
 
 
-## Features
+# Features
 
 - **HTTP Tunnel**: Tunnel HTTP requests by domains with HTTPS support.
 - **TCP Tunnel**: Tunnel traffic via ports.
@@ -16,7 +16,7 @@ Tunnelize is a self-hosted tunnel server and client written in Rust. It provides
 - **Monitoring via CLI**: perform monitoring commands via CLI from the tunnel
 - **Client provisioning**: Provision client settings from a server
 
-## Building
+# Building
 
 To build the release version of Tunnelize, run:
 
@@ -25,3 +25,11 @@ cargo build --release
 ```
 
 The built application will be located in `target/release/tunnelize`.
+
+# Development
+
+If using SSL make sure self-signed certificates are built in testing folder by running `testing/certs/generate.sh`.
+
+Server can be run by running `cargo run server`
+
+Client can be run by running `cargo run`.
