@@ -1,7 +1,6 @@
-use std::{io::{Error, ErrorKind}, sync::Arc, time::Duration};
+use std::{io::{Error, ErrorKind}, sync::Arc};
 
 use log::error;
-use tokio::time::timeout;
 use tokio::io::Result;
 use uuid::Uuid;
 
@@ -17,19 +16,11 @@ pub async fn handle(
     config: &HttpEndpointConfig,
     services: &Arc<Services>,
 ) -> Result<()> {
-    let max_input_duration = Duration::from_secs(config.max_client_input_wait_secs);
+    
 
-    let request = match timeout(max_input_duration, HttpRequestReader::new(&mut stream)).await {
+    let request = match HttpRequestReader::new(&mut stream, config.max_client_input_wait_secs).await {
         Ok(request) => request,
         Err(e) => {
-            stream
-                .close_with_data(
-                    &HttpResponseBuilder::from_error(
-                        "Failed to read request data within allowed time frame",
-                    )
-                    .build_bytes(),
-                )
-                .await;
             return Err(Error::new(ErrorKind::Other, e));
         }
     };
@@ -43,7 +34,7 @@ pub async fn handle(
         None => {
             stream
                 .close_with_data(
-                    &HttpResponseBuilder::from_error("Host header is missing").build_bytes(),
+                    &HttpResponseBuilder::as_missing_header().build_bytes(),
                 )
                 .await;
             return Err(Error::new(ErrorKind::Other, "Host header is missing"));
@@ -53,7 +44,7 @@ pub async fn handle(
     let Some(session) = tunnel_host.get_session(&hostname) else {
         stream
             .close_with_data(
-                &HttpResponseBuilder::from_error(
+                &HttpResponseBuilder::as_error(
                     "No tunnel is assigned for the requested hostname",
                 )
                 .build_bytes(),
@@ -101,7 +92,7 @@ pub async fn handle(
                     .await
                     .cancel_client(
                         &client_id,
-                        &HttpResponseBuilder::from_error(&reason).build_bytes(),
+                        &HttpResponseBuilder::as_error(&reason).build_bytes(),
                     )
                     .await;
 
@@ -121,7 +112,7 @@ pub async fn handle(
                 .await
                 .cancel_client(
                     &client_id,
-                    &HttpResponseBuilder::from_error("Failed to link client to tunnel")
+                    &HttpResponseBuilder::as_error("Failed to link client to tunnel")
                         .build_bytes(),
                 )
                 .await;
@@ -144,7 +135,7 @@ async fn check_authorization(
     if let Some(user) = &config.require_authorization {
         if !request.is_authorization_matching(&user.username, &user.password) {
             stream
-                .close_with_data(&HttpResponseBuilder::from_unauthorized(
+                .close_with_data(&HttpResponseBuilder::as_unauthorized(
                     &user.realm, 
                     "Access to the requested endpoint is not authorized. Please provide valid credentials.",
                 ).build_bytes())

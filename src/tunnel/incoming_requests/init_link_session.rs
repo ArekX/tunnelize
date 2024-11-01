@@ -60,7 +60,7 @@ pub async fn process_init_link(
                     address_port
                 )
             } else {
-                format!("Failed to start link session: {:?}", e.kind())
+                format!("Failed to start link session: {}", e.kind())
             };
 
             response_stream

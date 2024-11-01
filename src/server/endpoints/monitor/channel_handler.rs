@@ -8,10 +8,10 @@ use crate::{
 pub async fn handle(mut request: Request<EndpointChannelRequest>) -> Result<()> {
     match &request.data {
         EndpointChannelRequest::RemoveTunnelRequest(_) => {
-            request.respond(OkResponse).await;
+            request.respond(OkResponse);
         }
         _ => {
-            request.respond(InvalidResponse).await;
+            request.respond(InvalidResponse);
         }
     }
 

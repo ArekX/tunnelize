@@ -51,14 +51,12 @@ pub async fn handle(
                 );
             }
 
-            request
-                .respond(RegisterTunnelResponse::Accepted { proxy_info })
-                .await;
+            request.respond(RegisterTunnelResponse::Accepted { proxy_info });
         }
         EndpointChannelRequest::RemoveTunnelRequest(RemoveTunnelRequest { tunnel_id }) => {
             info!("Removing tunnel ID '{}' from http endpoint.", tunnel_id);
             tunnel_host.remove_tunnel_by_id(&tunnel_id);
-            request.respond(OkResponse).await;
+            request.respond(OkResponse);
         }
     }
 

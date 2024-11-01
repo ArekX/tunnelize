@@ -26,7 +26,7 @@ pub async fn handle(
         UdpChannelRequest::ClientConnect(client_request) => {
             let Some(tunnel) = tunnel_host.get_tunnel(client_request.port) else {
                 error!("No tunnel found for port {}", client_request.port);
-                request.respond(OkResponse).await;
+                request.respond(OkResponse);
                 return Ok(());
             };
 
@@ -87,7 +87,7 @@ pub async fn handle(
                 }
             }
 
-            request.respond(OkResponse).await;
+            request.respond(OkResponse);
         }
     }
 

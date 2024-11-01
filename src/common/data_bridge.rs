@@ -201,12 +201,6 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
                 match result {
                     Ok((n, _address)) => {
 
-                        // TODO: See if we can figure how to properly check this. Issue -> 127.0.0.1:8089 != 0.0.0.0:8089
-                        // if address != context.address {
-                        //     error!("Received data from unexpected address '{}', expected '{}'", address, context.address);
-                        //     continue;
-                        // }
-
                         if let Err(e) = writable.write_all(&udp_buffer[..n]).await {
                             error!("Failed to send data to Writable stream: {}", e);
                         }

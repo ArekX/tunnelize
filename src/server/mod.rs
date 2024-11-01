@@ -41,7 +41,7 @@ pub async fn start() -> Result<()> {
         "http".to_owned(),
         EndpointConfiguration::Http(HttpEndpointConfig {
             port: 3457,
-            encryption: EndpointServerEncryption::None,
+            encryption: EndpointServerEncryption::ServerTls,
             address: None,
             max_client_input_wait_secs: 10,
             hostname_template: "opop-{name}.localhost".to_owned(),

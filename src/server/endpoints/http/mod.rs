@@ -5,6 +5,7 @@ use std::{
 
 use configuration::HttpEndpointConfig;
 use log::{debug, error, info};
+use protocol::{HttpRequestReader, HttpResponseBuilder};
 use serde::{Deserialize, Serialize};
 use tokio::io::Result;
 use tunnel_host::TunnelHost;
@@ -12,6 +13,7 @@ use tunnel_host::TunnelHost;
 use crate::{
     common::{
         channel::RequestReceiver,
+        connection::Connection,
         tcp_server::{ServerEncryption, TcpServer},
     },
     server::{
@@ -86,6 +88,11 @@ pub async fn start(
         }
     };
 
+    let has_encryption = match &encryption {
+        ServerEncryption::None => false,
+        _ => true,
+    };
+
     let server = match TcpServer::new(config.get_address(), config.port, encryption).await {
         Ok(listener) => listener,
         Err(e) => {
@@ -120,12 +127,11 @@ pub async fn start(
                             error!("Failed to handle client request: {}", e);
                         }
                     },
-                    Err((e, mut connection_returned)) if e.kind() == ErrorKind::InvalidData => {
-                        error!("Received invalid TLS data. Probably not a TLS connection. Error: {:?}", e);
+                    Err((e, mut connection_returned)) if e.kind() == ErrorKind::InvalidData && has_encryption => {
+                        debug!("Received invalid TLS data. Probably not a TLS connection. Error: {:?}", e);
 
                         if let Some(mut connection) = connection_returned.take() {
-                            // TODO: Read header and redirect to HTTPS version.
-                            connection.close_with_data(protocol::HttpResponseBuilder::from_redirect("https://opop-test.localhost:3457/").build().as_bytes()).await;
+                            process_error_stream(&mut connection, &config).await;
                             continue;
                         }
                     },
@@ -139,6 +145,39 @@ pub async fn start(
                 info!("Endpoint '{}' has been cancelled", name);
                 return Ok(());
             }
+        }
+    }
+}
+
+async fn process_error_stream(connection: &mut Connection, config: &HttpEndpointConfig) {
+    let request = match HttpRequestReader::new(connection, config.max_client_input_wait_secs).await
+    {
+        Ok(request) => request,
+        Err(e) => {
+            debug!(
+                "Failed to read request data within allowed time frame: {}",
+                e
+            );
+            return;
+        }
+    };
+
+    match request.find_hostname() {
+        Some(hostname) => {
+            connection
+                .close_with_data(
+                    &HttpResponseBuilder::as_redirect(&format!(
+                        "https://{}:{}",
+                        hostname, config.port
+                    ))
+                    .build_bytes(),
+                )
+                .await;
+        }
+        None => {
+            connection
+                .close_with_data(&HttpResponseBuilder::as_missing_header().build_bytes())
+                .await;
         }
     }
 }

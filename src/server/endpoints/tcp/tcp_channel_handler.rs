@@ -26,7 +26,7 @@ pub async fn handle(
                     stream.shutdown().await;
                 }
 
-                request.respond(OkResponse).await;
+                request.respond(OkResponse);
                 return Ok(());
             };
 
@@ -74,7 +74,7 @@ pub async fn handle(
                 }
             }
 
-            request.respond(OkResponse).await;
+            request.respond(OkResponse);
         }
     }
 

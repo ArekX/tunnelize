@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
-use log::info;
+use log::{debug, info};
+use uuid::Uuid;
 
 use crate::{
-    common::{channel::Request, connection::Connection},
+    common::{
+        channel::{Request, Responder},
+        connection::Connection,
+    },
     server::{
         services::{events::ServiceEvent, Services},
         session::messages::ClientLinkResponse,
@@ -11,7 +15,10 @@ use crate::{
     tunnel::incoming_requests::{InitLinkRequest, InitLinkResponse},
 };
 
-use super::{messages::TunnelChannelRequest, tunnel::TunnelSession};
+use super::{
+    messages::{ClientLinkRequest, TunnelChannelRequest},
+    tunnel::TunnelSession,
+};
 
 pub async fn handle(
     services: &Arc<Services>,
@@ -19,8 +26,10 @@ pub async fn handle(
     stream: &mut Connection,
     mut request: Request<TunnelChannelRequest>,
 ) {
-    match &mut request.data {
-        TunnelChannelRequest::ClientLinkRequest(request_data) => {
+    let responder = request.take_responder();
+
+    match request.data {
+        TunnelChannelRequest::ClientLinkRequest(ref request_data) => {
             let Some(info) = services
                 .get_client_manager()
                 .await
@@ -51,40 +60,48 @@ pub async fn handle(
             {
                 Ok(response) => response,
                 Err(e) => {
-                    info!("Failed to send InitLinkSession request: {}", e);
-                    services
-                        .push_event(ServiceEvent::LinkRejected {
-                            client_id: request_data.client_id,
-                            session_id: session.get_id(),
-                        })
-                        .await;
+                    debug!("Failed to send InitLinkSession request: {:?}", e);
+                    reject_request(
+                        services,
+                        responder,
+                        &request_data,
+                        session.get_id(),
+                        "Failed to initialize link session".to_string(),
+                    )
+                    .await;
 
-                    request
-                        .respond(ClientLinkResponse::Rejected {
-                            reason: "Rejected due to error sending data to tunnel".to_string(),
-                        })
-                        .await;
                     return;
                 }
             };
 
+            println!("InitLinkResponse: {:?}", response);
+
             match response {
                 InitLinkResponse::Accepted => {
-                    request.respond(ClientLinkResponse::Accepted).await;
+                    responder.respond(ClientLinkResponse::Accepted);
                 }
                 InitLinkResponse::Rejected { reason } => {
-                    services
-                        .push_event(ServiceEvent::LinkRejected {
-                            client_id: request_data.client_id,
-                            session_id: session.get_id(),
-                        })
-                        .await;
-
-                    request
-                        .respond(ClientLinkResponse::Rejected { reason })
+                    reject_request(services, responder, &request_data, session.get_id(), reason)
                         .await;
                 }
             }
         }
     }
+}
+
+async fn reject_request(
+    services: &Arc<Services>,
+    responder: impl Responder<TunnelChannelRequest>,
+    request_data: &ClientLinkRequest,
+    session_id: Uuid,
+    reason: String,
+) {
+    let link_rejected_event = ServiceEvent::LinkRejected {
+        client_id: request_data.client_id,
+        session_id,
+    };
+
+    responder.respond(ClientLinkResponse::Rejected { reason });
+
+    services.push_event(link_rejected_event).await;
 }

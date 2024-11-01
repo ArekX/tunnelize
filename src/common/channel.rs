@@ -14,6 +14,27 @@ pub trait DataResponse {
     type Response;
 }
 
+pub trait Responder<T: RequestEnum> {
+    fn respond<Response>(self, response: Response)
+    where
+        Response: Into<T::ResponseEnum>;
+}
+
+impl<T: RequestEnum> Responder<T> for Option<oneshot::Sender<T::ResponseEnum>> {
+    fn respond<Response>(self, response: Response)
+    where
+        Response: Into<T::ResponseEnum>,
+    {
+        if let Some(tx) = self {
+            if let Err(_) = tx.send(response.into()) {
+                error!("Failed to send response!");
+            }
+        } else {
+            error!("No response channel to send response!");
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Request<T: RequestEnum> {
     pub data: T,
@@ -25,17 +46,15 @@ impl<T: RequestEnum> Request<T> {
         self.response_tx = Some(tx);
     }
 
-    pub async fn respond<Response>(&mut self, response: Response)
+    pub fn take_responder(&mut self) -> impl Responder<T> {
+        self.response_tx.take()
+    }
+
+    pub fn respond<Response>(&mut self, response: Response)
     where
         Response: Into<T::ResponseEnum>,
     {
-        if let Some(tx) = self.response_tx.take() {
-            if let Err(_) = tx.send(response.into()) {
-                error!("Failed to send response!");
-            }
-        } else {
-            error!("No response channel to send response!");
-        }
+        self.take_responder().respond(response);
     }
 }
 

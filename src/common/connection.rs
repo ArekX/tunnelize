@@ -170,10 +170,10 @@ impl Connection {
 
     pub async fn read_string_until(&mut self, until_string: &str) -> String {
         let mut request_buffer = Vec::new();
+        let mut buffer = BytesMut::with_capacity(2048);
+        buffer.resize(2048, 0);
 
         loop {
-            let mut buffer = BytesMut::with_capacity(2048);
-
             match self.read(&mut buffer).await {
                 Ok(0) => {
                     break;

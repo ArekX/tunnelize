@@ -69,9 +69,7 @@ pub async fn handle(
                 );
             }
 
-            request
-                .respond(RegisterTunnelResponse::Accepted { proxy_info })
-                .await;
+            request.respond(RegisterTunnelResponse::Accepted { proxy_info });
         }
         EndpointChannelRequest::RemoveTunnelRequest(remove_request) => {
             info!(
@@ -80,7 +78,7 @@ pub async fn handle(
             );
             tunnel_host.remove_tunnel(&remove_request.tunnel_id);
             // TODO: Cleanup connected UDP clients
-            request.respond(OkResponse).await;
+            request.respond(OkResponse);
         }
     }
 
@@ -94,9 +92,7 @@ async fn reject_tunnel(
     reason: &str,
 ) {
     tunnel_host.remove_tunnel(tunnel_id);
-    request
-        .respond(RegisterTunnelResponse::Rejected {
-            reason: reason.to_string(),
-        })
-        .await;
+    request.respond(RegisterTunnelResponse::Rejected {
+        reason: reason.to_string(),
+    });
 }

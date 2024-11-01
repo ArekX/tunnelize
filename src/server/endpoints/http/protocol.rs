@@ -1,6 +1,9 @@
-use std::collections::HashMap;
+use std::io::{Error, ErrorKind};
+use std::{collections::HashMap, time::Duration};
 
 use base64::{engine::general_purpose, Engine as _};
+use tokio::io::Result;
+use tokio::time::timeout;
 
 use crate::common::connection::Connection;
 
@@ -9,10 +12,28 @@ pub struct HttpRequestReader {
 }
 
 impl HttpRequestReader {
-    pub async fn new(stream: &mut Connection) -> Self {
-        Self {
-            request: stream.read_string_until("\r\n\r\n").await,
-        }
+    pub async fn new(stream: &mut Connection, max_input_wait: u64) -> Result<Self> {
+        let request = match timeout(
+            Duration::from_secs(max_input_wait),
+            stream.read_string_until("\r\n\r\n"),
+        )
+        .await
+        {
+            Ok(request) => request,
+            Err(e) => {
+                stream
+                    .close_with_data(
+                        &HttpResponseBuilder::as_error(
+                            "Failed to read request data within allowed time frame",
+                        )
+                        .build_bytes(),
+                    )
+                    .await;
+                return Err(Error::new(ErrorKind::Other, e));
+            }
+        };
+
+        Ok(Self { request })
     }
 
     pub fn find_hostname(&self) -> Option<String> {
@@ -70,6 +91,7 @@ impl HttpRequestReader {
 pub enum HttpStatusCode {
     Unauthorized,
     MovedPermanently,
+    BadRequest,
     BadGateway,
 }
 
@@ -77,6 +99,7 @@ impl HttpStatusCode {
     pub fn get_status_text(&self) -> &'static str {
         match self {
             HttpStatusCode::Unauthorized => "401 Unauthorized",
+            HttpStatusCode::BadRequest => "400 Bad Request",
             HttpStatusCode::BadGateway => "502 Bad Gateway",
             HttpStatusCode::MovedPermanently => "301 Moved Permanently",
         }
@@ -105,7 +128,7 @@ impl HttpResponseBuilder {
         instance
     }
 
-    pub fn from_unauthorized(realm: &Option<String>, message: &str) -> Self {
+    pub fn as_unauthorized(realm: &Option<String>, message: &str) -> Self {
         let realm_string = match realm.as_ref() {
             Some(realm) => realm,
             None => "Production",
@@ -121,7 +144,7 @@ impl HttpResponseBuilder {
         instance
     }
 
-    pub fn from_redirect(location: &str) -> Self {
+    pub fn as_redirect(location: &str) -> Self {
         let mut instance = Self::new(HttpStatusCode::MovedPermanently, "");
 
         instance
@@ -131,8 +154,20 @@ impl HttpResponseBuilder {
         instance
     }
 
-    pub fn from_error(message: &str) -> Self {
+    pub fn as_error(message: &str) -> Self {
         Self::new(HttpStatusCode::BadGateway, message)
+    }
+
+    pub fn as_bad_request(message: &str) -> Self {
+        let mut instance = Self::new(HttpStatusCode::BadRequest, message);
+
+        instance.with_header("Connection".to_string(), "close".to_string());
+
+        instance
+    }
+
+    pub fn as_missing_header() -> Self {
+        Self::as_bad_request("Host header is missing")
     }
 
     pub fn with_header(&mut self, header: String, value: String) -> &mut Self {
