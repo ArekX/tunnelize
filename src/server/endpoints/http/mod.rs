@@ -35,42 +35,6 @@ pub struct HttpEndpointInfo {
     pub assigned_url: String,
 }
 
-fn get_server_encryption(
-    name: &str,
-    config: &Arc<ServerConfiguration>,
-    encryption: &EndpointServerEncryption,
-) -> Result<ServerEncryption> {
-    match encryption {
-        EndpointServerEncryption::None => Ok(ServerEncryption::None),
-        EndpointServerEncryption::CustomTls {
-            cert_path,
-            key_path,
-        } => Ok(ServerEncryption::Tls {
-            cert_path: cert_path.clone(),
-            key_path: key_path.clone(),
-        }),
-        EndpointServerEncryption::ServerTls => {
-            let (cert_path, key_path) = match config.encryption {
-                ServerEncryption::Tls {
-                    ref cert_path,
-                    ref key_path,
-                } => (cert_path, key_path),
-                ServerEncryption::None => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidInput,
-                        format!("Tunnel server TLS encryption is not set, but required by monitor '{}' endpoint", name),
-                    ));
-                }
-            };
-
-            Ok(ServerEncryption::Tls {
-                cert_path: cert_path.clone(),
-                key_path: key_path.clone(),
-            })
-        }
-    }
-}
-
 pub async fn start(
     services: Arc<Services>,
     name: String,
@@ -131,7 +95,7 @@ pub async fn start(
                         debug!("Received invalid TLS data. Probably not a TLS connection. Error: {:?}", e);
 
                         if let Some(mut connection) = connection_returned.take() {
-                            process_error_stream(&mut connection, &config).await;
+                            process_tls_redirection(&mut connection, &config).await;
                             continue;
                         }
                     },
@@ -149,7 +113,43 @@ pub async fn start(
     }
 }
 
-async fn process_error_stream(connection: &mut Connection, config: &HttpEndpointConfig) {
+fn get_server_encryption(
+    name: &str,
+    config: &Arc<ServerConfiguration>,
+    encryption: &EndpointServerEncryption,
+) -> Result<ServerEncryption> {
+    match encryption {
+        EndpointServerEncryption::None => Ok(ServerEncryption::None),
+        EndpointServerEncryption::CustomTls {
+            cert_path,
+            key_path,
+        } => Ok(ServerEncryption::Tls {
+            cert_path: cert_path.clone(),
+            key_path: key_path.clone(),
+        }),
+        EndpointServerEncryption::ServerTls => {
+            let (cert_path, key_path) = match config.encryption {
+                ServerEncryption::Tls {
+                    ref cert_path,
+                    ref key_path,
+                } => (cert_path, key_path),
+                ServerEncryption::None => {
+                    return Err(Error::new(
+                        ErrorKind::InvalidInput,
+                        format!("Tunnel server TLS encryption is not set, but required by monitor '{}' endpoint", name),
+                    ));
+                }
+            };
+
+            Ok(ServerEncryption::Tls {
+                cert_path: cert_path.clone(),
+                key_path: key_path.clone(),
+            })
+        }
+    }
+}
+
+async fn process_tls_redirection(connection: &mut Connection, config: &HttpEndpointConfig) {
     let request = match HttpRequestReader::new(connection, config.max_client_input_wait_secs).await
     {
         Ok(request) => request,
