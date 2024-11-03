@@ -1,45 +1,33 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::time::Duration;
 
 use bytes::BytesMut;
 use log::{debug, error};
 use tokio::io::{Error, ErrorKind, Result};
 use tokio::net::UdpSocket;
-use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::mpsc::channel;
 use tokio::sync::Mutex;
-use tokio::time::interval;
-use tokio_util::sync::CancellationToken;
-use uuid::Uuid;
 
 use crate::common::channel::RequestSender;
-use crate::common::channel_socket::ChannelSocket;
+use crate::common::channel_socket::{ChannelPacket, ChannelSocket};
 use crate::common::connection::Connection;
 use crate::common::data_bridge::UdpSession;
+use crate::server::endpoints::udp::client_host::Client;
 use crate::server::endpoints::udp::messages::ClientConnect;
 use crate::server::services::Services;
 
-use super::activity_tracker::ActivityTracker;
+use super::client_host::ClientHost;
 use super::configuration::UdpEndpointConfig;
 use super::messages::UdpChannelRequest;
-
-pub struct TargetClient {
-    id: Uuid,
-    address: SocketAddr,
-    socket_tx: Sender<Vec<u8>>,
-    cancel_token: CancellationToken,
-}
 
 pub async fn start(
     port: u16,
     hub_tx: RequestSender<UdpChannelRequest>,
     config: Arc<UdpEndpointConfig>,
-    activity_tracker: Arc<Mutex<ActivityTracker>>,
+    client_host: Arc<Mutex<ClientHost>>,
     services: Arc<Services>,
 ) -> Result<()> {
     let cancel_token = services.get_cancel_token();
-
-    let mut target_client: Option<TargetClient> = None;
 
     let mut connection = match UdpSocket::bind(config.get_bind_address(port)).await {
         Ok(socket) => Connection::from(socket),
@@ -52,7 +40,7 @@ pub async fn start(
         }
     };
 
-    let (leaf_data_tx, mut leaf_data_rx) = channel::<Vec<u8>>(1);
+    let (leaf_data_tx, mut leaf_data_rx) = channel::<ChannelPacket>(100);
 
     loop {
         tokio::select! {
@@ -66,16 +54,10 @@ pub async fn start(
                     continue;
                 };
 
-                if let Some(client) = target_client.as_ref() {
-                    // TODO: this probably wont work either as there can be many clients, probably need client tracking for multiple clients
-                    if client.address == address {
-                        activity_tracker.lock().await.update_activity(&client.id);
-                        if let Err(e) = client.socket_tx.send(data).await {
-                            error!("Failed to send data to client. Reason: {:?}", e);
-                            target_client.take();
-                            // TODO: Cancel client
-                        }
-
+                {
+                    let mut client_host = client_host.lock().await;
+                    if client_host.client_exists(&address) {
+                        client_host.send(&address, data).await;
                         continue;
                     }
                 }
@@ -89,14 +71,7 @@ pub async fn start(
 
                 let channel_socket = ChannelSocket::new(leaf_data_tx.clone(), cancel_token.clone());
 
-                let id = activity_tracker.lock().await.add(cancel_token.clone());
-
-                target_client = Some(TargetClient {
-                    id,
-                    address,
-                    socket_tx: channel_socket.get_socket_tx(),
-                    cancel_token: cancel_token.clone(),
-                });
+                client_host.lock().await.add(Client::new(channel_socket.get_id(), port, address, channel_socket.get_socket_tx(), cancel_token.clone()));
 
                 let Ok(_) = hub_tx
                     .request(ClientConnect {
@@ -118,45 +93,23 @@ pub async fn start(
             },
             data = leaf_data_rx.recv() => {
                 match data {
-                    Some(data) => {
-                        if let Some(client) = target_client.as_ref() {
-                            activity_tracker.lock().await.update_activity(&client.id);
-                            if let Err(e) = connection.write_all_to(&data, &client.address).await {
+                    Some(ChannelPacket(client_id, data)) => {
+                        if let Some(client_address) = client_host.lock().await.get_client_address(&client_id) {
+                            if let Err(e) = connection.write_all_to(&data, &client_address).await {
                                 debug!("Failed to send data to client. Reason: {}", e);
                                 continue;
                             };
+                            client_host.lock().await.update_activity(&client_id);
                         } else {
                             error!("No target address set, cannot send UDP datagram at port '{}'.", port);
                         }
                     }
                     None => {
-                        if let Some(client) = target_client.take() {
-                            debug!("Target client cancelled, removing from activity tracker.");
-                            activity_tracker.lock().await.cancel(&client.id);
-                        }
-
+                        cancel_token.cancel();
                         continue;
                     }
                 }
             },
-            _ = track_target_client(&mut target_client) => {}
-        }
-    }
-
-    Ok(())
-}
-
-async fn track_target_client(target_client: &mut Option<TargetClient>) -> Result<()> {
-    let mut interval = interval(Duration::from_secs(30));
-
-    loop {
-        interval.tick().await;
-
-        if let Some(client) = target_client.as_ref() {
-            client.cancel_token.cancelled().await;
-            target_client.take();
-            debug!("Target client cancelled.");
-            break;
         }
     }
 

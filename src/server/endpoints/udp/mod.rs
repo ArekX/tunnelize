@@ -1,6 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
-use activity_tracker::ActivityTracker;
+use client_host::ClientHost;
 use configuration::UdpEndpointConfig;
 use log::{debug, error, info};
 use messages::UdpChannelRequest;
@@ -15,8 +15,8 @@ use crate::{
 
 use super::messages::EndpointChannelRequest;
 
-mod activity_tracker;
 mod channel_handler;
+mod client_host;
 pub mod configuration;
 mod leaf_endpoint;
 mod messages;
@@ -35,7 +35,8 @@ pub async fn start(
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
     let mut tunnel_host = TunnelHost::new(&config);
-    let activity_tracker = Arc::new(Mutex::new(ActivityTracker::new()));
+    let client_host = Arc::new(Mutex::new(ClientHost::new()));
+
     let udp_config = Arc::new(config);
 
     let (leaf_hub_tx, mut leaf_hub_rx) = create_channel::<UdpChannelRequest>();
@@ -44,10 +45,9 @@ pub async fn start(
         let hub_tx = leaf_hub_tx.clone();
         let services = services.clone();
         let config = udp_config.clone();
-        let activity_tracker = activity_tracker.clone();
+        let client_host = client_host.clone();
         tokio::spawn(async move {
-            if let Err(e) =
-                leaf_endpoint::start(port, hub_tx, config, activity_tracker, services).await
+            if let Err(e) = leaf_endpoint::start(port, hub_tx, config, client_host, services).await
             {
                 error!("Failed to create leaf endpoint: {}", e);
             }
@@ -56,7 +56,7 @@ pub async fn start(
 
     tokio::spawn(start_cleanup_handler(
         udp_config.clone(),
-        activity_tracker.clone(),
+        client_host.clone(),
     ));
 
     let cancel_token = services.get_cancel_token();
@@ -64,6 +64,7 @@ pub async fn start(
     loop {
         tokio::select! {
             _ = cancel_token.cancelled() => {
+                client_host.lock().await.cancel_all();
                 info!("Endpoint '{}' has been shutdown", name);
                 return Ok(());
             }
@@ -71,7 +72,7 @@ pub async fn start(
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
-                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host, &udp_config).await {
+                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host, &client_host, &udp_config).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
                     },
@@ -101,19 +102,16 @@ pub async fn start(
     }
 }
 
-async fn start_cleanup_handler(
-    confg: Arc<UdpEndpointConfig>,
-    activity_tracker: Arc<Mutex<ActivityTracker>>,
-) {
+async fn start_cleanup_handler(confg: Arc<UdpEndpointConfig>, client_host: Arc<Mutex<ClientHost>>) {
     let mut interval = interval(Duration::from_secs(confg.inactivity_timeout));
 
     loop {
         interval.tick().await;
 
-        activity_tracker
+        client_host
             .lock()
             .await
-            .cancel_all_after_timeout(confg.inactivity_timeout)
+            .cleanup_inactive_clients(confg.inactivity_timeout)
             .await
     }
 }

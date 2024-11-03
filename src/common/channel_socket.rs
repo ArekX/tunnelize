@@ -3,20 +3,25 @@ use std::io::{Error, ErrorKind};
 use tokio::io::Result;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio_util::sync::CancellationToken;
+use uuid::Uuid;
+
+pub struct ChannelPacket(pub Uuid, pub Vec<u8>);
 
 #[derive(Debug)]
 pub struct ChannelSocket {
-    pub link_to_tx: Sender<Vec<u8>>,
+    id: Uuid,
+    pub link_to_tx: Sender<ChannelPacket>,
     pub socket_rx: Receiver<Vec<u8>>,
     pub socket_tx: Sender<Vec<u8>>,
     cancel_token: CancellationToken,
 }
 
 impl ChannelSocket {
-    pub fn new(link_to_tx: Sender<Vec<u8>>, cancel_token: CancellationToken) -> Self {
+    pub fn new(link_to_tx: Sender<ChannelPacket>, cancel_token: CancellationToken) -> Self {
         let (socket_tx, socket_rx) = mpsc::channel(1);
 
         Self {
+            id: Uuid::new_v4(),
             link_to_tx,
             socket_rx,
             socket_tx,
@@ -24,12 +29,16 @@ impl ChannelSocket {
         }
     }
 
+    pub fn get_id(&self) -> Uuid {
+        self.id
+    }
+
     pub fn get_socket_tx(&self) -> Sender<Vec<u8>> {
         self.socket_tx.clone()
     }
 
     pub async fn send(&self, data: Vec<u8>) -> Result<()> {
-        match self.link_to_tx.send(data).await {
+        match self.link_to_tx.send(ChannelPacket(self.id, data)).await {
             Ok(_) => Ok(()),
             Err(_) => Err(tokio::io::Error::new(
                 tokio::io::ErrorKind::Other,
