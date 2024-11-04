@@ -19,6 +19,7 @@ pub async fn handle(
 ) -> Result<()> {
     match &mut request.data {
         TcpChannelRequest::ClientConnect(client_request) => {
+            // TODO: Simplify this, move into leaf_endpoint
             let Some(tunnel) = tunnel_host.get_tunnel(client_request.port) else {
                 error!("No tunnel found for port {}", client_request.port);
 
