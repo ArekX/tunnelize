@@ -4,15 +4,16 @@ use uuid::Uuid;
 
 use super::configuration::UdpEndpointConfig;
 
+#[derive(Clone, Debug)]
+pub struct Tunnel {
+    pub tunnel_id: Uuid,
+    pub proxy_id: Uuid,
+}
+
 pub struct TunnelHost {
     max_port: u16,
     min_port: u16,
     host_tunnel_map: HashMap<u16, Tunnel>,
-}
-
-pub struct Tunnel {
-    pub tunnel_id: Uuid,
-    pub proxy_id: Uuid,
 }
 
 impl TunnelHost {
@@ -78,7 +79,10 @@ impl TunnelHost {
             .retain(|_, v| &v.tunnel_id != tunnel_id);
     }
 
-    pub fn get_tunnel(&self, port: u16) -> Option<&Tunnel> {
-        self.host_tunnel_map.get(&port)
+    pub fn get_tunnel(&self, port: u16) -> Option<Tunnel> {
+        match self.host_tunnel_map.get(&port) {
+            Some(tunnel) => Some(tunnel.clone()),
+            None => None,
+        }
     }
 }

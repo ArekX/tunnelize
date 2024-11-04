@@ -7,30 +7,28 @@ use uuid::Uuid;
 
 pub struct Client {
     id: Uuid,
-    port: u16,
     address: SocketAddr,
     socket_tx: Sender<Vec<u8>>,
     cancel_token: CancellationToken,
     last_activity: Instant,
-    connected_tunnel_id: Option<Uuid>,
+    tunnel_id: Uuid,
 }
 
 impl Client {
     pub fn new(
         id: Uuid,
-        port: u16,
         address: SocketAddr,
+        tunnel_id: Uuid,
         socket_tx: Sender<Vec<u8>>,
         cancel_token: CancellationToken,
     ) -> Self {
         Self {
             id,
-            port,
             address,
             socket_tx,
             cancel_token,
             last_activity: Instant::now(),
-            connected_tunnel_id: None,
+            tunnel_id,
         }
     }
 
@@ -40,10 +38,6 @@ impl Client {
 
     pub fn cancel(&self) {
         self.cancel_token.cancel();
-    }
-
-    pub fn connect_tunnel(&mut self, tunnel_id: Uuid) {
-        self.connected_tunnel_id = Some(tunnel_id);
     }
 
     pub fn update_activity(&mut self) {
@@ -103,11 +97,7 @@ impl ClientHost {
 
     pub async fn cleanup_by_tunnel(&mut self, tunnel_id: &Uuid) {
         self.client_map.retain(|_, client| {
-            let Some(connected_tunnel_id) = client.connected_tunnel_id.as_ref() else {
-                return true;
-            };
-
-            if connected_tunnel_id == tunnel_id {
+            if &client.tunnel_id == tunnel_id {
                 client.cancel();
                 self.address_client_map.remove(&client.address);
                 false
@@ -117,23 +107,27 @@ impl ClientHost {
         });
     }
 
-    pub async fn cleanup_inactive_clients(&mut self, timeout: u64) {
+    pub async fn cleanup_inactive_clients(&mut self, timeout: u64) -> Vec<Uuid> {
+        let mut inactive_clients = Vec::new();
+
         self.client_map.retain(|_, client| {
             if client.is_inactive(timeout) {
                 client.cancel();
                 self.address_client_map.remove(&client.address);
+                inactive_clients.push(client.id);
                 false
             } else {
                 true
             }
         });
+
+        inactive_clients
     }
 
-    pub fn connect_tunnel(&mut self, port: u16, tunnel_id: Uuid) {
-        for client in self.client_map.values_mut() {
-            if client.port == port {
-                client.connect_tunnel(tunnel_id);
-            }
+    pub fn cancel_client(&mut self, client_id: &Uuid) {
+        if let Some(client) = self.client_map.get(client_id) {
+            client.cancel();
+            self.address_client_map.remove(&client.address);
         }
     }
 

@@ -23,7 +23,6 @@ pub async fn handle(
             let mut proxy_info = HashMap::<Uuid, ResolvedEndpointInfo>::new();
             let config = services.get_config();
             let mut tunnel_host = services.get_tunnel_host().await;
-            let mut client_host = services.get_client_host().await;
 
             for session in register_request.proxy_sessions.iter() {
                 let ProxyConfiguration::Udp { desired_port } = session.config else {
@@ -62,8 +61,6 @@ pub async fn handle(
 
                     return Ok(());
                 };
-
-                client_host.connect_tunnel(port, tunnel_id);
 
                 proxy_info.insert(
                     session.proxy_id,

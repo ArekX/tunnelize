@@ -38,14 +38,14 @@ pub struct ClientInfo {
 impl Client {
     pub fn new(
         id: Uuid,
-        service_name: String,
+        endpoint_name: String,
         stream: Connection,
         context: Option<ConnectionStreamContext>,
         initial_tunnel_data: Option<Vec<u8>>,
     ) -> Self {
         Self {
             id,
-            endpoint_name: service_name,
+            endpoint_name,
             link: Some(ClientLink {
                 stream,
                 context,
@@ -74,9 +74,13 @@ impl ClientManager {
         self.clients.insert(client.id, client);
     }
 
-    pub async fn cancel_client(&mut self, id: &Uuid, cancel_with_data: &Vec<u8>) {
+    pub async fn cancel_client(&mut self, id: &Uuid, cancel_with_data: &Option<Vec<u8>>) {
         if let Some(mut link) = self.take_client_link(id) {
-            link.stream.close_with_data(cancel_with_data).await;
+            if let Some(cancel_data) = cancel_with_data {
+                link.stream.close_with_data(cancel_data).await;
+            } else {
+                link.stream.shutdown().await;
+            }
         }
 
         self.remove_client(id);

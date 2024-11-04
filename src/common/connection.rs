@@ -303,8 +303,10 @@ impl Connection {
     }
 
     pub async fn close_with_data(&mut self, message: &[u8]) {
-        if let Err(e) = self.write_all(message).await {
-            debug!("Error while sending message: {:?}", e);
+        if message.len() > 0 {
+            if let Err(e) = self.write_all(message).await {
+                debug!("Error while sending message: {:?}", e);
+            }
         }
 
         self.shutdown().await;

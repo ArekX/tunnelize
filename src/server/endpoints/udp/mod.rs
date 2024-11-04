@@ -2,15 +2,11 @@ use std::{sync::Arc, time::Duration};
 
 use configuration::UdpEndpointConfig;
 use log::{debug, error, info};
-use messages::UdpChannelRequest;
 use serde::{Deserialize, Serialize};
 use tokio::{io::Result, time::interval};
 use udp_services::UdpServices;
 
-use crate::{
-    common::channel::{create_channel, RequestReceiver},
-    server::services::Services,
-};
+use crate::{common::channel::RequestReceiver, server::services::Services};
 
 use super::messages::EndpointChannelRequest;
 
@@ -18,9 +14,7 @@ mod channel_handler;
 mod client_host;
 pub mod configuration;
 mod leaf_endpoint;
-mod messages;
 mod tunnel_host;
-mod udp_channel_handler;
 mod udp_services;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -34,12 +28,10 @@ pub async fn start(
     config: UdpEndpointConfig,
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
-    let (leaf_hub_tx, mut leaf_hub_rx) = create_channel::<UdpChannelRequest>();
-
     let udp_services = Arc::new(UdpServices::new(
         config.clone(),
+        name.clone(),
         services.clone(),
-        leaf_hub_tx,
     ));
 
     for port in config.reserve_ports_from..=config.reserve_ports_to {
@@ -76,22 +68,6 @@ pub async fn start(
                     }
                 }
             }
-            leaf_request = leaf_hub_rx.wait_for_requests() => {
-                match leaf_request {
-                    Some(request) => {
-                        debug!("Received leaf endpoint message");
-                        if let Err(e) = udp_channel_handler::handle(request, &name, &udp_services).await {
-                            error!("Failed to handle leaf endpoint message: {}", e);
-                        }
-                    },
-                    None => {
-                        info!("Leaf endpoint channel has been shutdown");
-                        cancel_token.cancel();
-                        return Ok(());
-                    }
-                }
-            }
-
         }
     }
 }
@@ -103,10 +79,22 @@ async fn start_cleanup_handler(services: Arc<UdpServices>) {
     loop {
         interval.tick().await;
 
-        services
+        let inactive_clients = services
             .get_client_host()
             .await
             .cleanup_inactive_clients(inactivity_timeout)
-            .await
+            .await;
+
+        if inactive_clients.is_empty() {
+            continue;
+        }
+
+        let main_services = services.get_main_services();
+        let mut client_manager = main_services.get_client_manager().await;
+
+        for client_id in inactive_clients {
+            client_manager.cancel_client(&client_id, &None).await;
+            info!("Client '{}' has been removed due to inactivity", client_id);
+        }
     }
 }

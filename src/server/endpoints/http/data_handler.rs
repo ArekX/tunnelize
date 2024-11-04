@@ -92,7 +92,7 @@ pub async fn handle(
                     .await
                     .cancel_client(
                         &client_id,
-                        &HttpResponseBuilder::as_error(&reason).build_bytes(),
+                        &Some(HttpResponseBuilder::as_error(&reason).build_bytes()),
                     )
                     .await;
 
@@ -112,8 +112,8 @@ pub async fn handle(
                 .await
                 .cancel_client(
                     &client_id,
-                    &HttpResponseBuilder::as_error("Failed to link client to tunnel")
-                        .build_bytes(),
+                    &Some(HttpResponseBuilder::as_error("Failed to link client to tunnel")
+                        .build_bytes()),
                 )
                 .await;
 
