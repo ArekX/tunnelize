@@ -6,28 +6,19 @@ use log::{debug, error};
 use tokio::io::{Error, ErrorKind, Result};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::channel;
-use tokio::sync::Mutex;
 
-use crate::common::channel::RequestSender;
 use crate::common::channel_socket::{ChannelPacket, ChannelSocket};
 use crate::common::connection::Connection;
 use crate::common::data_bridge::UdpSession;
 use crate::server::endpoints::udp::client_host::Client;
 use crate::server::endpoints::udp::messages::ClientConnect;
-use crate::server::services::Services;
 
-use super::client_host::ClientHost;
-use super::configuration::UdpEndpointConfig;
-use super::messages::UdpChannelRequest;
+use super::udp_services::UdpServices;
 
-pub async fn start(
-    port: u16,
-    hub_tx: RequestSender<UdpChannelRequest>,
-    config: Arc<UdpEndpointConfig>,
-    client_host: Arc<Mutex<ClientHost>>,
-    services: Arc<Services>,
-) -> Result<()> {
+pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
+    let config = services.get_config();
     let cancel_token = services.get_cancel_token();
+    let hub_tx = services.get_leaf_hub_tx();
 
     let mut connection = match UdpSocket::bind(config.get_bind_address(port)).await {
         Ok(socket) => Connection::from(socket),
@@ -55,7 +46,7 @@ pub async fn start(
                 };
 
                 {
-                    let mut client_host = client_host.lock().await;
+                    let mut client_host = services.get_client_host().await;
                     if client_host.client_exists(&address) {
                         client_host.send(&address, data).await;
                         continue;
@@ -71,7 +62,7 @@ pub async fn start(
 
                 let channel_socket = ChannelSocket::new(leaf_data_tx.clone(), cancel_token.clone());
 
-                client_host.lock().await.add(Client::new(channel_socket.get_id(), port, address, channel_socket.get_socket_tx(), cancel_token.clone()));
+                services.get_client_host().await.add(Client::new(channel_socket.get_id(), port, address, channel_socket.get_socket_tx(), cancel_token.clone()));
 
                 let Ok(_) = hub_tx
                     .request(ClientConnect {
@@ -94,12 +85,12 @@ pub async fn start(
             data = leaf_data_rx.recv() => {
                 match data {
                     Some(ChannelPacket(client_id, data)) => {
-                        if let Some(client_address) = client_host.lock().await.get_client_address(&client_id) {
+                        if let Some(client_address) = services.get_client_host().await.get_client_address(&client_id) {
                             if let Err(e) = connection.write_all_to(&data, &client_address).await {
                                 debug!("Failed to send data to client. Reason: {}", e);
                                 continue;
                             };
-                            client_host.lock().await.update_activity(&client_id);
+                            services.get_client_host().await.update_activity(&client_id);
                         } else {
                             error!("No target address set, cannot send UDP datagram at port '{}'.", port);
                         }

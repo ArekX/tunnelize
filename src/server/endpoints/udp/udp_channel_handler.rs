@@ -14,16 +14,16 @@ use crate::{
     },
 };
 
-use super::{messages::UdpChannelRequest, tunnel_host::TunnelHost};
+use super::{messages::UdpChannelRequest, udp_services::UdpServices};
 
 pub async fn handle(
     mut request: Request<UdpChannelRequest>,
     name: &str,
-    tunnel_host: &mut TunnelHost,
-    services: &Arc<Services>,
+    services: &Arc<UdpServices>,
 ) -> Result<()> {
     match &mut request.data {
         UdpChannelRequest::ClientConnect(client_request) => {
+            let tunnel_host = services.get_tunnel_host().await;
             let Some(tunnel) = tunnel_host.get_tunnel(client_request.port) else {
                 error!("No tunnel found for port {}", client_request.port);
                 request.respond(OkResponse);
@@ -55,9 +55,14 @@ pub async fn handle(
                 client_request.initial_data.take(),
             );
 
-            services.get_client_manager().await.subscribe_client(client);
+            let main_services = services.get_main_services();
 
-            let Ok(response) = services
+            main_services
+                .get_client_manager()
+                .await
+                .subscribe_client(client);
+
+            let Ok(response) = main_services
                 .get_tunnel_manager()
                 .await
                 .send_session_request(
@@ -70,7 +75,7 @@ pub async fn handle(
                 .await
             else {
                 error!("Error sending client link request");
-                discard_client(client_id, services).await;
+                discard_client(client_id, &main_services).await;
                 return Ok(());
             };
 
@@ -83,7 +88,7 @@ pub async fn handle(
                 }
                 ClientLinkResponse::Rejected { reason } => {
                     error!("Client rejected by tunnel: {}", reason);
-                    discard_client(client_id, services).await;
+                    discard_client(client_id, &main_services).await;
                 }
             }
 
