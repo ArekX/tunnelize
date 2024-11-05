@@ -25,7 +25,7 @@ pub async fn handle(
             let mut tunnel_host = services.get_tunnel_host().await;
 
             for session in register_request.proxy_sessions.iter() {
-                let ProxyConfiguration::Udp { desired_port } = session.config else {
+                let ProxyConfiguration::Udp { desired_port, .. } = session.config else {
                     debug!("Proxy session configuration passed is not for Udp endpoint");
                     reject_tunnel(
                         &mut request,

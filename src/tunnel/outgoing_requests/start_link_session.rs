@@ -21,7 +21,7 @@ pub async fn start_link_session(
 
     info!("Starting link session.");
     let (mut forward_connection, context) = match timeout(
-        Duration::from_secs(5),
+        Duration::from_secs(config.forward_connection_timeout_seconds),
         services
             .get_proxy_manager()
             .await
@@ -64,8 +64,6 @@ pub async fn start_link_session(
         error!("Tunnel server link rejected: {}", reason);
         return Err(tokio::io::Error::new(ErrorKind::Other, reason));
     }
-
-    // TODO: Consider cleanup on UDP socket
 
     tokio::spawn(async move {
         info!("Starting relay session.");

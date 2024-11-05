@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::common::connection::ConnectionStreamContext;
 use crate::common::data_bridge::UdpSession;
-use crate::common::protocol_socket::connect_to_address;
+use crate::common::protocol_socket::{connect_to_address, UdpSocketConnectionContext};
 use crate::tunnel::configuration::ProxyConfiguration;
 use crate::{common::connection::Connection, tunnel::configuration::TunnelProxy};
 
@@ -24,7 +24,7 @@ impl Proxy {
     ) -> Result<(Connection, Option<ConnectionStreamContext>)> {
         Ok(match self.protocol {
             ProxyProtocol::Tcp => {
-                match connect_to_address::<TcpStream>(&self.address, self.port).await {
+                match connect_to_address::<TcpStream>(&self.address, self.port, ()).await {
                     Ok((stream, _)) => (Connection::from(stream), None),
                     Err(e) => {
                         error!("Failed to connect to forward address: {}", e);
@@ -32,8 +32,16 @@ impl Proxy {
                     }
                 }
             }
-            ProxyProtocol::Udp => {
-                match connect_to_address::<UdpSocket>(&self.address, self.port).await {
+            ProxyProtocol::Udp { ref bind_address } => {
+                match connect_to_address::<UdpSocket>(
+                    &self.address,
+                    self.port,
+                    UdpSocketConnectionContext {
+                        bind_address: bind_address.clone(),
+                    },
+                )
+                .await
+                {
                     Ok((socket, address)) => (
                         Connection::from(socket),
                         Some(ConnectionStreamContext::Udp(UdpSession {
@@ -53,7 +61,7 @@ impl Proxy {
 
 pub enum ProxyProtocol {
     Tcp,
-    Udp,
+    Udp { bind_address: Option<String> },
 }
 
 impl From<&ProxyConfiguration> for ProxyProtocol {
@@ -61,7 +69,9 @@ impl From<&ProxyConfiguration> for ProxyProtocol {
         match value {
             ProxyConfiguration::Http { .. } => ProxyProtocol::Tcp,
             ProxyConfiguration::Tcp { .. } => ProxyProtocol::Tcp,
-            ProxyConfiguration::Udp { .. } => ProxyProtocol::Udp,
+            ProxyConfiguration::Udp { bind_address, .. } => ProxyProtocol::Udp {
+                bind_address: bind_address.clone(),
+            },
         }
     }
 }

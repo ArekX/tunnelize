@@ -21,6 +21,7 @@ fn get_configuration() -> TunnelConfiguration {
         name: Some("test".to_string()),
         server_address: "127.0.0.1".to_string(),
         server_port: 3456,
+        forward_connection_timeout_seconds: 5,
         encryption: Encryption::Tls {
             cert: "testing/certs/ca.crt".to_owned(),
         },
@@ -45,7 +46,10 @@ fn get_configuration() -> TunnelConfiguration {
                 endpoint_name: "udp".to_string(),
                 address: "0.0.0.0".to_string(),
                 port: 8089,
-                config: ProxyConfiguration::Udp { desired_port: None },
+                config: ProxyConfiguration::Udp {
+                    desired_port: None,
+                    bind_address: None,
+                },
             },
         ],
     }

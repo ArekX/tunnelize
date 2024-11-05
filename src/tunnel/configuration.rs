@@ -9,6 +9,7 @@ pub struct TunnelConfiguration {
     pub name: Option<String>,
     pub server_address: String,
     pub server_port: u16,
+    pub forward_connection_timeout_seconds: u64,
     pub encryption: Encryption,
     pub tunnel_key: Option<String>,
     pub monitor_key: Option<String>,
@@ -57,9 +58,16 @@ pub struct TunnelProxy {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProxyConfiguration {
-    Http { desired_name: Option<String> },
-    Tcp { desired_port: Option<u16> },
-    Udp { desired_port: Option<u16> },
+    Http {
+        desired_name: Option<String>,
+    },
+    Tcp {
+        desired_port: Option<u16>,
+    },
+    Udp {
+        desired_port: Option<u16>,
+        bind_address: Option<String>,
+    },
 }
 
 impl ProxyConfiguration {
