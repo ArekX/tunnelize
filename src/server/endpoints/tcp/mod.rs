@@ -2,23 +2,18 @@ use std::sync::Arc;
 
 use configuration::TcpEndpointConfig;
 use log::{debug, error, info};
-use messages::TcpChannelRequest;
 use serde::{Deserialize, Serialize};
+use tcp_services::TcpServices;
 use tokio::io::Result;
-use tunnel_host::TunnelHost;
 
-use crate::{
-    common::channel::{create_channel, RequestReceiver},
-    server::services::Services,
-};
+use crate::{common::channel::RequestReceiver, server::services::Services};
 
 use super::messages::EndpointChannelRequest;
 
 mod channel_handler;
 pub mod configuration;
 mod leaf_endpoint;
-mod messages;
-mod tcp_channel_handler;
+mod tcp_services;
 mod tunnel_host;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -32,17 +27,14 @@ pub async fn start(
     config: TcpEndpointConfig,
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
-    let mut tunnel_host = TunnelHost::new(&config);
-    let tcp_config = Arc::new(config);
+    let services = Arc::new(TcpServices::new(config, name, services)?);
 
-    let (leaf_hub_tx, mut leaf_hub_rx) = create_channel::<TcpChannelRequest>();
+    let config = services.get_config();
 
-    for port in tcp_config.reserve_ports_from..=tcp_config.reserve_ports_to {
-        let hub_tx = leaf_hub_tx.clone();
+    for port in config.reserve_ports_from..=config.reserve_ports_to {
         let services = services.clone();
-        let config = tcp_config.clone();
         tokio::spawn(async move {
-            if let Err(e) = leaf_endpoint::start(port, hub_tx, config, services).await {
+            if let Err(e) = leaf_endpoint::start(port, services).await {
                 error!("Failed to create leaf endpoint: {}", e);
             }
         });
@@ -53,34 +45,19 @@ pub async fn start(
     loop {
         tokio::select! {
             _ = cancel_token.cancelled() => {
-                info!("Endpoint '{}' has been shutdown", name);
+                info!("Endpoint '{}' has been shutdown", services.get_endpoint_name());
                 return Ok(());
             }
             request = channel_rx.wait_for_requests() => {
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
-                        if let Err(e) = channel_handler::handle(request, &mut tunnel_host, &tcp_config).await {
+                        if let Err(e) = channel_handler::handle(request, &services).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
                     },
                     None => {
-                        info!("Endpoint '{}' channel has been shutdown", name);
-                        cancel_token.cancel();
-                        return Ok(());
-                    }
-                }
-            }
-            leaf_request = leaf_hub_rx.wait_for_requests() => {
-                match leaf_request {
-                    Some(request) => {
-                        debug!("Received leaf endpoint message");
-                        if let Err(e) = tcp_channel_handler::handle(request, &name, &mut tunnel_host, &services).await {
-                            error!("Failed to handle leaf endpoint message: {}", e);
-                        }
-                    },
-                    None => {
-                        info!("Leaf endpoint channel has been shutdown");
+                        info!("Endpoint '{}' channel has been shutdown", services.get_endpoint_name());
                         cancel_token.cancel();
                         return Ok(());
                     }

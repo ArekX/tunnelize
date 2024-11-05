@@ -1,4 +1,8 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    io::{Error, ErrorKind},
+    sync::Arc,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +19,43 @@ pub enum EndpointServerEncryption {
     None,
     CustomTls { cert_path: String, key_path: String },
     ServerTls,
+}
+
+impl EndpointServerEncryption {
+    pub fn to_encryption(
+        &self,
+        server_config: &Arc<ServerConfiguration>,
+    ) -> tokio::io::Result<ServerEncryption> {
+        match self {
+            EndpointServerEncryption::None => Ok(ServerEncryption::None),
+            EndpointServerEncryption::CustomTls {
+                cert_path,
+                key_path,
+            } => Ok(ServerEncryption::Tls {
+                cert_path: cert_path.clone(),
+                key_path: key_path.clone(),
+            }),
+            EndpointServerEncryption::ServerTls => {
+                let (cert_path, key_path) = match server_config.encryption {
+                    ServerEncryption::Tls {
+                        ref cert_path,
+                        ref key_path,
+                    } => (cert_path, key_path),
+                    ServerEncryption::None => {
+                        return Err(Error::new(
+                            ErrorKind::InvalidInput,
+                            format!("Tunnel server TLS encryption is not set, but is required"),
+                        ));
+                    }
+                };
+
+                Ok(ServerEncryption::Tls {
+                    cert_path: cert_path.clone(),
+                    key_path: key_path.clone(),
+                })
+            }
+        }
+    }
 }
 
 // Set max tunnels and clients.

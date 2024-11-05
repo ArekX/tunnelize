@@ -1,7 +1,4 @@
-use std::{
-    io::{Error, ErrorKind},
-    sync::Arc,
-};
+use std::{io::ErrorKind, sync::Arc};
 
 use configuration::HttpEndpointConfig;
 use log::{debug, error, info};
@@ -16,10 +13,7 @@ use crate::{
         connection::Connection,
         tcp_server::{ServerEncryption, TcpServer},
     },
-    server::{
-        configuration::{EndpointServerEncryption, ServerConfiguration},
-        services::Services,
-    },
+    server::services::Services,
 };
 
 use super::messages::EndpointChannelRequest;
@@ -43,8 +37,7 @@ pub async fn start(
 ) -> Result<()> {
     let mut tunnel_host = TunnelHost::new(&config);
 
-    let encryption = match get_server_encryption(&name, &services.get_config(), &config.encryption)
-    {
+    let encryption = match config.encryption.to_encryption(&services.get_config()) {
         Ok(encryption) => encryption,
         Err(e) => {
             error!("Failed to get server encryption: {}", e);
@@ -109,42 +102,6 @@ pub async fn start(
                 info!("Endpoint '{}' has been cancelled", name);
                 return Ok(());
             }
-        }
-    }
-}
-
-fn get_server_encryption(
-    name: &str,
-    config: &Arc<ServerConfiguration>,
-    encryption: &EndpointServerEncryption,
-) -> Result<ServerEncryption> {
-    match encryption {
-        EndpointServerEncryption::None => Ok(ServerEncryption::None),
-        EndpointServerEncryption::CustomTls {
-            cert_path,
-            key_path,
-        } => Ok(ServerEncryption::Tls {
-            cert_path: cert_path.clone(),
-            key_path: key_path.clone(),
-        }),
-        EndpointServerEncryption::ServerTls => {
-            let (cert_path, key_path) = match config.encryption {
-                ServerEncryption::Tls {
-                    ref cert_path,
-                    ref key_path,
-                } => (cert_path, key_path),
-                ServerEncryption::None => {
-                    return Err(Error::new(
-                        ErrorKind::InvalidInput,
-                        format!("Tunnel server TLS encryption is not set, but required by monitor '{}' endpoint", name),
-                    ));
-                }
-            };
-
-            Ok(ServerEncryption::Tls {
-                cert_path: cert_path.clone(),
-                key_path: key_path.clone(),
-            })
         }
     }
 }

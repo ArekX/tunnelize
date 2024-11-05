@@ -8,20 +8,21 @@ use crate::{
     tunnel::configuration::ProxyConfiguration,
 };
 
-use super::{configuration::TcpEndpointConfig, tunnel_host::TunnelHost, TcpEndpointInfo};
+use super::{tcp_services::TcpServices, tunnel_host::TunnelHost, TcpEndpointInfo};
 use log::{debug, info};
 use tokio::io::Result;
 use uuid::Uuid;
 
 pub async fn handle(
     mut request: Request<EndpointChannelRequest>,
-    tunnel_host: &mut TunnelHost,
-    config: &Arc<TcpEndpointConfig>,
+    services: &Arc<TcpServices>,
 ) -> Result<()> {
     match &mut request.data {
         EndpointChannelRequest::RegisterTunnelRequest(register_request) => {
             let tunnel_id = register_request.tunnel_id.clone();
             let mut proxy_info = HashMap::<Uuid, ResolvedEndpointInfo>::new();
+            let mut tunnel_host = services.get_tunnel_host().await;
+            let config = services.get_config();
 
             for session in register_request.proxy_sessions.iter() {
                 let ProxyConfiguration::Tcp { desired_port } = session.config else {
@@ -29,7 +30,7 @@ pub async fn handle(
                     reject_tunnel(
                         &mut request,
                         &tunnel_id,
-                        tunnel_host,
+                        &mut tunnel_host,
                         "Invalid configuration for TCP endpoint.",
                     )
                     .await;
@@ -40,7 +41,7 @@ pub async fn handle(
                     reject_tunnel(
                         &mut request,
                         &tunnel_id,
-                        tunnel_host,
+                        &mut tunnel_host,
                         "No available ports to be assigned.",
                     )
                     .await;
@@ -53,7 +54,7 @@ pub async fn handle(
                     reject_tunnel(
                         &mut request,
                         &tunnel_id,
-                        tunnel_host,
+                        &mut tunnel_host,
                         "Failed to assign port.",
                     )
                     .await;
@@ -76,7 +77,10 @@ pub async fn handle(
                 "Removing tunnel ID '{}' from tcp endpoint.",
                 remove_request.tunnel_id
             );
-            tunnel_host.remove_tunnel(&remove_request.tunnel_id);
+            services
+                .get_tunnel_host()
+                .await
+                .remove_tunnel(&remove_request.tunnel_id);
             request.respond(OkResponse);
         }
     }

@@ -69,6 +69,7 @@ pub async fn start() -> Result<()> {
             reserve_ports_from: 4000,
             reserve_ports_to: 4002,
             allow_desired_port: true,
+            encryption: EndpointServerEncryption::ServerTls,
             full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
             address: None,
         }),
