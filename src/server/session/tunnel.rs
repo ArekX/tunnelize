@@ -141,4 +141,7 @@ pub async fn start(
             }
         }
     }
+
+    stream.shutdown().await;
+    channel_rx.close();
 }

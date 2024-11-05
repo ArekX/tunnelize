@@ -77,8 +77,10 @@ impl ClientHost {
         self.address_client_map.contains_key(address)
     }
 
-    pub fn get_client_address(&self, client_id: &Uuid) -> Option<&SocketAddr> {
-        self.client_map.get(client_id).map(|client| &client.address)
+    pub fn get_client_address(&self, client_id: &Uuid) -> Option<SocketAddr> {
+        self.client_map
+            .get(client_id)
+            .map(|client| client.address.clone())
     }
 
     pub async fn send(&mut self, address: &SocketAddr, data: Vec<u8>) {

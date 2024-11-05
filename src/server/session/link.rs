@@ -50,5 +50,8 @@ pub async fn start(
         }
     }
 
+    response_stream.shutdown().await;
+    client_link.stream.shutdown().await;
+
     info!("Link session, client_id '{}' ended", client_id);
 }

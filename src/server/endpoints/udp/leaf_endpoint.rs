@@ -37,17 +37,22 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
 
     let (leaf_data_tx, mut leaf_data_rx) = channel::<ChannelPacket>(100);
 
+    let mut receive_buffer = BytesMut::with_capacity(2048);
+    receive_buffer.resize(2048, 0);
+
     loop {
         tokio::select! {
             _ = cancel_token.cancelled() => {
                 debug!("Leaf endpoint for UDP port '{}' cancelled.", port);
                 break;
             }
-            result = wait_for_client(&mut connection) => {
+            result = wait_for_client(&mut connection, &mut receive_buffer) => {
                 let Ok((data, address)) = result else {
                     error!("Failed to accept connection.");
                     continue;
                 };
+
+                println!("Received data from client: {}", address);
 
                 {
                     let mut client_host = services.get_client_host().await;
@@ -62,12 +67,17 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
             data = leaf_data_rx.recv() => {
                 match data {
                     Some(ChannelPacket(client_id, data)) => {
-                        if let Some(client_address) = services.get_client_host().await.get_client_address(&client_id) {
+                        println!("Sending data to client: {}", client_id);
+
+                        let mut client_host = services.get_client_host().await;
+
+                        if let Some(client_address) = client_host.get_client_address(&client_id) {
                             if let Err(e) = connection.write_all_to(&data, &client_address).await {
                                 debug!("Failed to send data to client. Reason: {}", e);
                                 continue;
                             };
-                            services.get_client_host().await.update_activity(&client_id);
+                            client_host.update_activity(&client_id);
+                            println!("Sent data to client: {}", client_address);
                         } else {
                             error!("No target address set, cannot send UDP datagram at port '{}'.", port);
                         }
@@ -84,11 +94,11 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
     Ok(())
 }
 
-async fn wait_for_client(connection: &mut Connection) -> Result<(Vec<u8>, SocketAddr)> {
-    let mut buffer = BytesMut::with_capacity(2048);
-    buffer.resize(2048, 0);
-
-    match connection.read_with_address(&mut buffer).await {
+async fn wait_for_client(
+    connection: &mut Connection,
+    buffer: &mut BytesMut,
+) -> Result<(Vec<u8>, SocketAddr)> {
+    match connection.read_with_address(buffer).await {
         Ok((size, address)) => Ok((buffer[..size].to_vec(), address)),
         Err(e) => {
             error!("Failed to read data from client: {:?}", e);

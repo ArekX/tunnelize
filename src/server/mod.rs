@@ -80,7 +80,7 @@ pub async fn start() -> Result<()> {
             reserve_ports_from: 5000,
             allow_desired_port: true,
             reserve_ports_to: 5002,
-            inactivity_timeout: 60,
+            inactivity_timeout: 20,
             full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
             address: None,
         }),

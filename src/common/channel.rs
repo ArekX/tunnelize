@@ -120,6 +120,10 @@ impl<T: RequestEnum> RequestReceiver<T> {
     pub async fn wait_for_requests(&mut self) -> Option<Request<T>> {
         self.rx.recv().await
     }
+
+    pub fn close(&mut self) {
+        self.rx.close();
+    }
 }
 
 pub fn create_channel<T: RequestEnum>() -> (RequestSender<T>, RequestReceiver<T>) {
