@@ -1,6 +1,8 @@
 use configuration::{EndpointConfiguration, EndpointServerEncryption, ServerConfiguration};
 use endpoints::http::configuration::HttpEndpointConfig;
-use endpoints::monitor::configuration::{MonitorAuthentication, MonitorEndpointConfig};
+use endpoints::monitor::configuration::{
+    MonitorAuthentication, MonitorEndpointConfig, MonitorOrigin,
+};
 use endpoints::tcp::configuration::TcpEndpointConfig;
 use endpoints::udp::configuration::UdpEndpointConfig;
 use log::{debug, info};
@@ -57,6 +59,7 @@ pub async fn start() -> Result<()> {
             encryption: EndpointServerEncryption::None,
             port: 3000,
             address: None,
+            allow_cors_origins: MonitorOrigin::Any,
             authentication: MonitorAuthentication::Bearer {
                 token: "opop".to_owned(),
             },

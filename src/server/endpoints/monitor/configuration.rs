@@ -8,6 +8,15 @@ pub struct MonitorEndpointConfig {
     pub encryption: EndpointServerEncryption,
     pub address: Option<String>,
     pub authentication: MonitorAuthentication,
+    pub allow_cors_origins: MonitorOrigin,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum MonitorOrigin {
+    Any,
+    List(Vec<String>),
+    None,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
