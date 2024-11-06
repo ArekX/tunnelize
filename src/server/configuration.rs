@@ -69,6 +69,9 @@ pub struct ServerConfiguration {
     pub monitor_key: Option<String>,
     pub endpoints: HashMap<String, EndpointConfiguration>,
     pub encryption: ServerEncryption,
+    pub max_tunnels: u16,
+    pub max_clients: u16,
+    pub max_links: u16,
 }
 
 impl ServerConfiguration {

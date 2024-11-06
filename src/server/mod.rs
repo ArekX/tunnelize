@@ -33,6 +33,9 @@ pub async fn start() -> Result<()> {
         max_tunnel_input_wait: 30,
         tunnel_key: None,
         endpoints: HashMap::new(),
+        max_tunnels: 10,
+        max_clients: 10,
+        max_links: 10,
         encryption: ServerEncryption::Tls {
             cert_path: "testing/certs/server.crt".to_owned(),
             key_path: "testing/certs/server.key".to_owned(),

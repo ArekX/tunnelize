@@ -71,7 +71,7 @@ impl TunnelManager {
     }
 
     pub fn register_tunnel_session(&mut self, tunnel: &TunnelSession) {
-        self.tunnels.insert(tunnel.get_id(), tunnel.clone());
+        self.tunnels.insert(tunnel.get_id(), tunnel.clone()); // TODO: max tunnels
     }
 
     pub fn remove_tunnel_session(&mut self, id: &Uuid) {
