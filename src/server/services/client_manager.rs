@@ -1,10 +1,12 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    io::{Error, ErrorKind},
+};
 
+use crate::common::connection::{Connection, ConnectionStreamContext};
 use log::info;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-
-use crate::common::connection::{Connection, ConnectionStreamContext};
 
 use super::{events::ServiceEvent, HandleServiceEvent};
 
@@ -57,21 +59,39 @@ impl Client {
     pub fn get_id(&self) -> Uuid {
         self.id
     }
+
+    pub fn take_link(&mut self) -> Option<ClientLink> {
+        self.link.take()
+    }
 }
 
 pub struct ClientManager {
     clients: HashMap<Uuid, Client>,
+    max_clients: usize,
 }
 
 impl ClientManager {
-    pub fn new() -> Self {
+    pub fn new(max_clients: usize) -> Self {
         Self {
             clients: HashMap::new(),
+            max_clients,
         }
     }
 
-    pub fn subscribe_client(&mut self, client: Client) {
+    pub fn subscribe_client(
+        &mut self,
+        mut client: Client,
+    ) -> Result<(), (Error, Option<ClientLink>)> {
+        if self.clients.len() >= self.max_clients {
+            return Err((
+                Error::new(ErrorKind::Other, "Maximum number of clients reached"),
+                client.take_link(),
+            ));
+        }
+
         self.clients.insert(client.id, client);
+
+        Ok(())
     }
 
     pub async fn cancel_client(&mut self, id: &Uuid, cancel_with_data: &Option<Vec<u8>>) {

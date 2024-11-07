@@ -58,6 +58,15 @@ pub async fn process(
 ) {
     let config = services.get_config();
 
+    if services.get_tunnel_manager().await.get_count() == config.max_tunnels {
+        response_stream
+            .respond_message(&InitTunnelResponse::Rejected {
+                reason: "Too many tunnels connected".to_string(),
+            })
+            .await;
+        return;
+    }
+
     if let Err(e) = validate_server_access(&config, &request, &mut response_stream).await {
         debug!("Error validating server access: {:?}", e);
         return;

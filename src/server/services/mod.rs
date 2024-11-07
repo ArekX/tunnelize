@@ -42,7 +42,7 @@ pub struct Services {
 impl Services {
     pub fn new(config: ServerConfiguration, cancel_token: CancellationToken) -> Self {
         Self {
-            client_manager: Mutex::new(ClientManager::new()),
+            client_manager: Mutex::new(ClientManager::new(config.max_clients)),
             tunnel_manager: Mutex::new(TunnelManager::new()),
             endpoint_manager: Mutex::new(EndpointManager::new()),
             link_manager: Mutex::new(LinkManager::new()),

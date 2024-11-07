@@ -66,7 +66,18 @@ pub async fn handle(
         Some(request.get_request_bytes()),
     );
 
-    services.get_client_manager().await.subscribe_client(client);
+    if let Err((error, link)) = services.get_client_manager().await.subscribe_client(client) {
+        error!("Failed to subscribe client: {}", error);
+
+        if let Some(mut link) = link {
+            link.stream.close_with_data(
+                &HttpResponseBuilder::as_error(&format!("Could not accept client. Reason: {}", error)).build_bytes(),
+            )
+            .await;
+        }
+
+        return Err(error);
+    }
 
     match services
         .get_tunnel_manager()

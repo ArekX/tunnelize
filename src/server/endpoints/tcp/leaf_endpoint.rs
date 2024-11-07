@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use log::warn;
 use log::{debug, error, info};
 use tokio::io::{Error, ErrorKind, Result};
 use uuid::Uuid;
@@ -74,10 +75,19 @@ pub async fn start_client(port: u16, mut connection: Connection, services: &Arc<
     );
 
     let main_services = services.get_main_services();
-    main_services
+    if let Err((error, link)) = main_services
         .get_client_manager()
         .await
-        .subscribe_client(client);
+        .subscribe_client(client)
+    {
+        if let Some(mut link) = link {
+            link.stream.shutdown().await;
+        }
+
+        discard_client(client_id, &main_services).await;
+        warn!("Failed to subscribe client: {}", error);
+        return;
+    }
 
     let Ok(response) = main_services
         .get_tunnel_manager()

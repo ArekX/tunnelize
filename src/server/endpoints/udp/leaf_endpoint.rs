@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::Sender;
 
 use bytes::BytesMut;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use tokio::io::{Error, ErrorKind, Result};
 use tokio::net::UdpSocket;
 use tokio::sync::mpsc::channel;
@@ -148,10 +148,19 @@ async fn start_new_client(
 
     let main_services = services.get_main_services();
 
-    main_services
+    if let Err((error, link)) = main_services
         .get_client_manager()
         .await
-        .subscribe_client(client);
+        .subscribe_client(client)
+    {
+        if let Some(mut link) = link {
+            link.stream.shutdown().await;
+        }
+
+        discard_client(client_id, &services).await;
+        warn!("Failed to subscribe client: {}", error);
+        return;
+    }
 
     let Ok(response) = main_services
         .get_tunnel_manager()
