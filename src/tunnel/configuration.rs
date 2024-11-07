@@ -47,6 +47,18 @@ impl Encryption {
     }
 }
 
+impl From<Option<ClientEncryptionType>> for Encryption {
+    fn from(value: Option<ClientEncryptionType>) -> Self {
+        match value {
+            Some(ClientEncryptionType::CustomTls { ca_cert_path }) => {
+                Self::Tls { cert: ca_cert_path }
+            }
+            Some(ClientEncryptionType::NativeTls) => Self::NativeTls,
+            None => Self::None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TunnelProxy {
     pub endpoint_name: String,

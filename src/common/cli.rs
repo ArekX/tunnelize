@@ -31,6 +31,8 @@ pub enum InitCommands {
     Tunnel {
         #[arg(short = 's', long)]
         server: Option<String>,
+        #[arg(short = 't', long, default_value = "false")]
+        tls: bool,
         #[arg(short = 'c', long)]
         cert: Option<String>,
         #[arg(short = 'k', long)]

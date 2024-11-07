@@ -66,6 +66,7 @@ pub struct HttpPublicEndpointConfig {
     pub is_secure: bool,
     pub address: Option<String>,
     pub allow_custom_hostnames: bool,
+    pub hostname_template: String,
 }
 
 impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
@@ -75,6 +76,7 @@ impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
             is_secure: config.get_is_secure(),
             address: config.address.clone(),
             allow_custom_hostnames: config.allow_custom_hostnames,
+            hostname_template: config.hostname_template.clone(),
         }
     }
 }

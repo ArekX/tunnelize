@@ -9,7 +9,10 @@ mod init_link;
 mod init_tunnel;
 mod monitoring_request;
 
-pub use config_request::{ConfigRequest, ProcessConfigRequest, ProcessConfigResponse};
+pub use config_request::{
+    ConfigRequest, ProcessConfigRequest, ProcessConfigResponse, PublicEndpointConfig,
+    PublicServerEndpointConfig,
+};
 pub use init_link::{InitLinkRequest, InitLinkResponse};
 pub use init_tunnel::{InitTunelRequest, InitTunnelResponse, InputProxy, ProxySession};
 pub use monitoring_request::{ProcessMonitoringRequest, ProcessMonitoringResponse};
