@@ -17,7 +17,7 @@ use tokio_util::sync::CancellationToken;
 use crate::common::tasks::start_cancel_listener;
 use crate::common::tcp_server::ServerEncryption;
 
-mod configuration;
+pub mod configuration;
 pub mod endpoints;
 mod hub_server;
 pub mod incoming_requests;
@@ -35,7 +35,6 @@ pub async fn start() -> Result<()> {
         endpoints: HashMap::new(),
         max_tunnels: 10,
         max_clients: 10,
-        max_links: 10,
         encryption: ServerEncryption::Tls {
             cert_path: "testing/certs/server.crt".to_owned(),
             key_path: "testing/certs/server.key".to_owned(),

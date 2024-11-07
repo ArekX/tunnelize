@@ -2,9 +2,11 @@ use common::{
     cli::{parse_command, Commands},
     logger::initialize_logger,
 };
+use init::init_for;
 use log::{debug, info};
 
 mod common;
+mod init;
 mod server;
 pub mod tunnel;
 
@@ -24,24 +26,15 @@ async fn main() -> Result<(), std::io::Error> {
 
 async fn run_command(command: Commands) -> Result<(), std::io::Error> {
     match command {
-        Commands::Init => {
-            tunnel::process_get_tunnel_config().await?;
-            return Ok(());
+        Commands::Init(commands) => {
+            init_for(commands).await?;
         }
-        Commands::Server { init } => {
-            if init {
-                return Ok(());
-            }
-
+        Commands::Server => {
             info!("Starting server...");
 
             server::start().await?;
         }
-        Commands::Tunnel { init, .. } => {
-            if init {
-                return Ok(());
-            }
-
+        Commands::Tunnel { .. } => {
             tunnel::start().await?;
         }
         Commands::Monitor(monitor_command) => {

@@ -71,7 +71,6 @@ pub struct ServerConfiguration {
     pub encryption: ServerEncryption,
     pub max_tunnels: usize,
     pub max_clients: usize,
-    pub max_links: u16,
 }
 
 impl ServerConfiguration {
