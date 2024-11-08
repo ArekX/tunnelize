@@ -84,17 +84,11 @@ pub enum MonitorCommands {
 pub fn parse_command() -> Commands {
     let args = Cli::parse();
 
-    let mut commands = args.command.unwrap_or(Commands::Tunnel {
+    args.command.unwrap_or(Commands::Tunnel {
         config: None,
+        #[cfg(debug_assertions)]
+        verbose: true,
+        #[cfg(not(debug_assertions))]
         verbose: false,
-    });
-
-    #[cfg(debug_assertions)]
-    {
-        if let Commands::Tunnel { verbose, .. } = &mut commands {
-            *verbose = true;
-        }
-    }
-
-    commands
+    })
 }
