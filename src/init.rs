@@ -1,10 +1,8 @@
-use std::{collections::HashMap, fs::File, io::BufWriter};
+use std::collections::HashMap;
 
 use crate::{
-    common::{
-        cli::InitCommands, encryption::ClientEncryptionType, tcp_client::create_tcp_client,
-        tcp_server::ServerEncryption,
-    },
+    common::{cli::InitCommands, encryption::ClientEncryptionType, tcp_client::create_tcp_client},
+    configuration::{write_configuration, ServerEncryption},
     server::{
         configuration::{EndpointConfiguration, EndpointServerEncryption, ServerConfiguration},
         endpoints::{
@@ -24,16 +22,7 @@ use crate::{
 pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
     match command {
         InitCommands::Server => {
-            let config_path = get_configuration_path()?;
-            serde_json::to_writer_pretty(
-                BufWriter::new(File::create(&config_path)?),
-                &get_default_server_configuration(),
-            )?;
-
-            println!(
-                "Initialized server configuration at {}",
-                config_path.to_str().unwrap_or("<unknown>")
-            );
+            write_configuration(get_default_server_configuration().into())?;
         }
         InitCommands::Tunnel {
             server,
@@ -42,16 +31,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
             key,
         } => {
             let Some(mut server_address) = server else {
-                let config_path = get_configuration_path()?;
-                serde_json::to_writer_pretty(
-                    BufWriter::new(File::create(&config_path)?),
-                    &get_default_tunnel_configuration(),
-                )?;
-
-                println!(
-                    "Initialized tunnel configuration at {}",
-                    config_path.to_str().unwrap_or("<unknown>")
-                );
+                write_configuration(get_default_tunnel_configuration().into())?;
 
                 return Ok(());
             };
@@ -154,34 +134,13 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 }
             }
 
-            let config_path = get_configuration_path()?;
-            serde_json::to_writer_pretty(
-                BufWriter::new(File::create(&config_path)?),
-                &tunnel_config,
-            )?;
-
-            println!(
-                "Initialized tunnel configuration at {}",
-                config_path.to_str().unwrap_or("<unknown>")
-            );
+            write_configuration(tunnel_config.into())?;
 
             connection.shutdown().await;
         }
     }
 
     Ok(())
-}
-
-fn get_configuration_path() -> Result<std::path::PathBuf, std::io::Error> {
-    let exe_path = std::env::current_exe()?;
-    let exe_dir = exe_path.parent().ok_or_else(|| {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Failed to get executable directory",
-        )
-    })?;
-
-    Ok(exe_dir.join("tunnelize.json"))
 }
 
 fn get_default_tunnel_configuration() -> TunnelConfiguration {

@@ -8,10 +8,8 @@ use tokio::io::Result;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 
 use crate::{
-    common::{
-        channel::{InvalidResponse, OkResponse, RequestReceiver},
-        tcp_server::ServerEncryption,
-    },
+    common::channel::{InvalidResponse, OkResponse, RequestReceiver},
+    configuration::ServerEncryption,
     server::{configuration::EndpointServerEncryption, services::Services},
 };
 

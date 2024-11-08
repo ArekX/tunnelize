@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-use crate::common::{
-    connection::Connection, encryption::ClientEncryptionType, tcp_client::create_tcp_client,
+use crate::{
+    common::{
+        connection::Connection, encryption::ClientEncryptionType, tcp_client::create_tcp_client,
+    },
+    configuration::TunnelizeConfiguration,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -24,6 +27,26 @@ impl TunnelConfiguration {
             self.encryption.to_encryption_type(),
         )
         .await
+    }
+}
+
+impl Into<TunnelizeConfiguration> for TunnelConfiguration {
+    fn into(self) -> TunnelizeConfiguration {
+        TunnelizeConfiguration {
+            server: None,
+            tunnel: Some(self),
+        }
+    }
+}
+
+impl TryFrom<TunnelizeConfiguration> for TunnelConfiguration {
+    type Error = &'static str;
+
+    fn try_from(value: TunnelizeConfiguration) -> Result<Self, Self::Error> {
+        match value.tunnel {
+            Some(tunnel) => Ok(tunnel),
+            None => Err("Server configuration is required."),
+        }
     }
 }
 

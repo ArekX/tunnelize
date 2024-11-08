@@ -6,6 +6,7 @@ use init::init_for;
 use log::{debug, info};
 
 mod common;
+pub mod configuration;
 mod init;
 mod server;
 pub mod tunnel;

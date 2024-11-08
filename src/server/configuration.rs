@@ -8,10 +8,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::{
-        tcp_server::ServerEncryption,
-        validate::{Validatable, ValidationResult},
-    },
+    common::validate::{Validatable, ValidationResult},
+    configuration::{ServerEncryption, TunnelizeConfiguration},
     tunnel::configuration::ProxyConfiguration,
 };
 
@@ -65,7 +63,7 @@ impl EndpointServerEncryption {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ServerConfiguration {
     pub server_port: u16,
     pub server_address: Option<String>,
@@ -77,6 +75,26 @@ pub struct ServerConfiguration {
     pub max_tunnels: usize,
     pub max_clients: usize,
     pub max_proxies_per_tunnel: usize,
+}
+
+impl Into<TunnelizeConfiguration> for ServerConfiguration {
+    fn into(self) -> TunnelizeConfiguration {
+        TunnelizeConfiguration {
+            server: Some(self),
+            tunnel: None,
+        }
+    }
+}
+
+impl TryFrom<TunnelizeConfiguration> for ServerConfiguration {
+    type Error = &'static str;
+
+    fn try_from(value: TunnelizeConfiguration) -> Result<Self, Self::Error> {
+        match value.server {
+            Some(server) => Ok(server),
+            None => Err("Server configuration is required."),
+        }
+    }
 }
 
 impl ServerConfiguration {

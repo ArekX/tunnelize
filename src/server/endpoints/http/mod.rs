@@ -8,11 +8,8 @@ use tokio::io::Result;
 use tunnel_host::TunnelHost;
 
 use crate::{
-    common::{
-        channel::RequestReceiver,
-        connection::Connection,
-        tcp_server::{ServerEncryption, TcpServer},
-    },
+    common::{channel::RequestReceiver, connection::Connection, tcp_server::TcpServer},
+    configuration::ServerEncryption,
     server::services::Services,
 };
 
