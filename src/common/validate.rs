@@ -1,13 +1,21 @@
 pub trait Validatable {
-    fn validate(&self, result: &mut ValidationResult);
+    fn validate(&self, result: &mut Validation);
 }
 
-pub struct ValidationResult {
+pub struct Validation {
     breadcrumbs: Vec<String>,
     errors: Vec<String>,
 }
 
-impl ValidationResult {
+impl Validation {
+    pub fn validate(item: &impl Validatable) -> Validation {
+        let mut instance = Validation::new();
+
+        item.validate(&mut instance);
+
+        instance
+    }
+
     pub fn new() -> Self {
         Self {
             errors: vec![],
@@ -15,9 +23,9 @@ impl ValidationResult {
         }
     }
 
-    pub fn with_breadcrumb<T: FnOnce(&mut ValidationResult)>(&mut self, breadcrumb: &str, f: T) {
+    pub fn validate_with_breadcrumb(&mut self, breadcrumb: &str, item: &impl Validatable) {
         self.push_breadcrumb(breadcrumb);
-        f(self);
+        item.validate(self);
         self.pop_breadcrumb();
     }
 
@@ -54,10 +62,4 @@ impl ValidationResult {
     pub fn errors(&self) -> &Vec<String> {
         &self.errors
     }
-}
-
-pub fn validate<T: Validatable>(item: &T) -> ValidationResult {
-    let mut result = ValidationResult::new();
-    item.validate(&mut result);
-    result
 }

@@ -35,7 +35,7 @@ impl MonitorEndpointConfig {
 }
 
 impl Validatable for MonitorEndpointConfig {
-    fn validate(&self, _result: &mut crate::common::validate::ValidationResult) {
+    fn validate(&self, _result: &mut crate::common::validate::Validation) {
         // TODO: Needs improvement
     }
 }

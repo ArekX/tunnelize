@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::{
         configuration::ServerEncryption,
-        validate::{Validatable, ValidationResult},
+        validate::{Validatable, Validation},
     },
     configuration::TunnelizeConfiguration,
     tunnel::configuration::ProxyConfiguration,
@@ -139,7 +139,7 @@ impl EndpointConfiguration {
 }
 
 impl Validatable for ServerConfiguration {
-    fn validate(&self, result: &mut ValidationResult) {
+    fn validate(&self, result: &mut Validation) {
         if self.server_port == 0 {
             result.add_field_error(
                 "server_pot",
@@ -183,15 +183,13 @@ impl Validatable for ServerConfiguration {
         }
 
         for (name, endpoint) in &self.endpoints {
-            result.with_breadcrumb(&format!("endpoints.{}", name), |result| {
-                endpoint.validate(result);
-            });
+            result.validate_with_breadcrumb(&format!("endpoints.{}", name), endpoint);
         }
     }
 }
 
 impl Validatable for EndpointConfiguration {
-    fn validate(&self, result: &mut ValidationResult) {
+    fn validate(&self, result: &mut Validation) {
         match self {
             Self::Http(config) => config.validate(result),
             Self::Tcp(config) => config.validate(result),
@@ -202,7 +200,7 @@ impl Validatable for EndpointConfiguration {
 }
 
 impl Validatable for EndpointServerEncryption {
-    fn validate(&self, result: &mut ValidationResult) {
+    fn validate(&self, result: &mut Validation) {
         if let EndpointServerEncryption::CustomTls {
             cert_path,
             key_path,

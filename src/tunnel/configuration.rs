@@ -2,7 +2,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     common::{
-        connection::Connection, encryption::ClientEncryptionType, tcp_client::create_tcp_client,
+        connection::Connection,
+        encryption::ClientEncryptionType,
+        tcp_client::create_tcp_client,
+        validate::{Validatable, Validation},
     },
     configuration::TunnelizeConfiguration,
 };
@@ -112,5 +115,15 @@ impl ProxyConfiguration {
             Self::Tcp { .. } => "tcp",
             Self::Udp { .. } => "udp",
         }
+    }
+}
+
+impl Validatable for TunnelConfiguration {
+    fn validate(&self, result: &mut Validation) {
+        if self.server_port == 0 {
+            result.add_error("Server port is required.");
+        }
+
+        // TODO: Validate other
     }
 }

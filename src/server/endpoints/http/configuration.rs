@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::validate::{Validatable, ValidationResult},
+    common::validate::{Validatable, Validation},
     server::configuration::EndpointServerEncryption,
 };
 
@@ -82,7 +82,7 @@ impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
 }
 
 impl Validatable for HttpEndpointConfig {
-    fn validate(&self, result: &mut ValidationResult) {
+    fn validate(&self, result: &mut Validation) {
         // TODO: Needs fixing
         if self.port == 0 {
             result.add_error("HTTP endpoint port cannot be 0.");

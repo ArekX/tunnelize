@@ -2,7 +2,7 @@ use std::fs::exists;
 
 use serde::{Deserialize, Serialize};
 
-use super::validate::{Validatable, ValidationResult};
+use super::validate::{Validatable, Validation};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ServerEncryption {
@@ -11,7 +11,7 @@ pub enum ServerEncryption {
 }
 
 impl Validatable for ServerEncryption {
-    fn validate(&self, result: &mut ValidationResult) {
+    fn validate(&self, result: &mut Validation) {
         if let ServerEncryption::Tls {
             cert_path,
             key_path,

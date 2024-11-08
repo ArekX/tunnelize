@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::common::validate::{Validatable, ValidationResult};
+use crate::common::validate::{Validatable, Validation};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UdpEndpointConfig {
@@ -48,7 +48,7 @@ impl From<&UdpEndpointConfig> for UdpPublicEndpointConfig {
 }
 
 impl Validatable for UdpEndpointConfig {
-    fn validate(&self, result: &mut ValidationResult) {
+    fn validate(&self, result: &mut Validation) {
         // TODO: Needs improvement
         if self.reserve_ports_from > self.reserve_ports_to {
             result.add_error("reserve_ports_from must be less than or equal to reserve_ports_to.");

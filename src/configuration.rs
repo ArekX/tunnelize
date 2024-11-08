@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tokio::io::Result;
 
 use crate::{
-    common::validate::{validate, Validatable, ValidationResult},
+    common::validate::{Validatable, Validation},
     server::configuration::ServerConfiguration,
     tunnel::configuration::TunnelConfiguration,
 };
@@ -20,18 +20,13 @@ pub struct TunnelizeConfiguration {
 }
 
 impl Validatable for TunnelizeConfiguration {
-    fn validate(&self, result: &mut ValidationResult) {
+    fn validate(&self, result: &mut Validation) {
         if let Some(server) = &self.server {
-            result.with_breadcrumb("server", |result| {
-                server.validate(result);
-            });
+            result.validate_with_breadcrumb("server", server);
         }
 
-        if let Some(_tunnel) = &self.tunnel {
-            result.with_breadcrumb("tunnel", |_result| {
-                // tunnel.validate(result);
-                // TODO: Implement tunnel validation
-            });
+        if let Some(tunnel) = &self.tunnel {
+            result.validate_with_breadcrumb("tunnel", tunnel);
         }
     }
 }
@@ -70,7 +65,7 @@ where
 
     let config: TunnelizeConfiguration = serde_json::from_reader(reader)?;
 
-    let validation_result = validate(&config);
+    let validation_result = Validation::validate(&config);
 
     if !validation_result.is_valid() {
         eprintln!("Configuration is invalid:");
