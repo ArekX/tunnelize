@@ -99,7 +99,7 @@ impl ProxyManager {
         let proxy = Proxy {
             address: proxy.address.clone(),
             port: proxy.port,
-            protocol: ProxyProtocol::from(&proxy.config),
+            protocol: ProxyProtocol::from(&proxy.endpoint_config),
         };
 
         self.proxy_map.insert(id, proxy);

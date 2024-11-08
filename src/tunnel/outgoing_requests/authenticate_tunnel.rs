@@ -53,7 +53,7 @@ async fn process_input_proxies(
         results.push(InputProxy {
             proxy_id,
             endpoint_name: proxy.endpoint_name.clone(),
-            proxy: proxy.config.clone(),
+            proxy: proxy.endpoint_config.clone(),
         });
     }
 

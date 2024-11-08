@@ -64,7 +64,7 @@ pub struct TunnelProxy {
     pub endpoint_name: String,
     pub address: String,
     pub port: u16,
-    pub config: ProxyConfiguration,
+    pub endpoint_config: ProxyConfiguration,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
