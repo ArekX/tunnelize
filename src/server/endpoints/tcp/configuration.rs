@@ -5,7 +5,7 @@ use crate::server::configuration::EndpointServerEncryption;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TcpEndpointConfig {
     pub address: Option<String>,
-    pub allow_desired_port: bool, // TODO: Implement this
+    pub allow_desired_port: bool,
     pub reserve_ports_from: u16,
     pub reserve_ports_to: u16,
     pub encryption: EndpointServerEncryption,

@@ -2,9 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::server::configuration::EndpointServerEncryption;
 
-// TODO: Add max proxies per tunnel
-// TODO: Add max tunnels
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpEndpointConfig {
     pub port: u16,

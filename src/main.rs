@@ -25,6 +25,7 @@ async fn main() -> Result<(), std::io::Error> {
 }
 
 async fn run_command(command: Commands) -> Result<(), std::io::Error> {
+    // TODO: Server/Tunnel load and validate config
     match command {
         Commands::Init(commands) => {
             init_for(commands).await?;

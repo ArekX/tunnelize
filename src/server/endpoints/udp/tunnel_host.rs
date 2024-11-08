@@ -13,6 +13,7 @@ pub struct Tunnel {
 pub struct TunnelHost {
     max_port: u16,
     min_port: u16,
+    allow_desired_port: bool,
     host_tunnel_map: HashMap<u16, Tunnel>,
 }
 
@@ -22,6 +23,7 @@ impl TunnelHost {
             host_tunnel_map: HashMap::new(),
             max_port: config.reserve_ports_to,
             min_port: config.reserve_ports_from,
+            allow_desired_port: config.allow_desired_port,
         }
     }
 
@@ -41,7 +43,13 @@ impl TunnelHost {
 
     pub fn resolve_port(&self, port: Option<u16>) -> Option<u16> {
         let port = match port {
-            Some(port) => port,
+            Some(port) => {
+                if self.allow_desired_port {
+                    port
+                } else {
+                    self.get_first_available_port()?
+                }
+            }
             None => self.get_first_available_port()?,
         };
 
