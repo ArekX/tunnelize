@@ -22,12 +22,16 @@ pub struct TunnelizeConfiguration {
 impl Validatable for TunnelizeConfiguration {
     fn validate(&self, result: &mut ValidationResult) {
         if let Some(server) = &self.server {
-            server.validate(result);
+            result.with_breadcrumb("server", |result| {
+                server.validate(result);
+            });
         }
 
         if let Some(_tunnel) = &self.tunnel {
-            // tunnel.validate(result);
-            // TODO: Implement tunnel validation
+            result.with_breadcrumb("tunnel", |_result| {
+                // tunnel.validate(result);
+                // TODO: Implement tunnel validation
+            });
         }
     }
 }

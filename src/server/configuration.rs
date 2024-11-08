@@ -183,9 +183,9 @@ impl Validatable for ServerConfiguration {
         }
 
         for (name, endpoint) in &self.endpoints {
-            result.push_prefix(&format!("Endpoint ({})", name));
-            endpoint.validate(result);
-            result.pop_prefix();
+            result.with_breadcrumb(&format!("endpoints.{}", name), |result| {
+                endpoint.validate(result);
+            });
         }
     }
 }

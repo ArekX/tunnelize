@@ -3,8 +3,7 @@ pub trait Validatable {
 }
 
 pub struct ValidationResult {
-    prefix_stack: Vec<String>,
-    prefix: String,
+    breadcrumbs: Vec<String>,
     errors: Vec<String>,
 }
 
@@ -12,31 +11,40 @@ impl ValidationResult {
     pub fn new() -> Self {
         Self {
             errors: vec![],
-            prefix: "".to_string(),
-            prefix_stack: vec![],
+            breadcrumbs: vec![],
         }
     }
 
-    pub fn push_prefix(&mut self, prefix: &str) {
-        self.prefix_stack.push(self.prefix.clone());
-        self.prefix = format!("{}:", prefix.to_string());
+    pub fn with_breadcrumb<T: FnOnce(&mut ValidationResult)>(&mut self, breadcrumb: &str, f: T) {
+        self.push_breadcrumb(breadcrumb);
+        f(self);
+        self.pop_breadcrumb();
     }
 
-    pub fn pop_prefix(&mut self) {
-        self.prefix = match self.prefix_stack.pop() {
-            Some(old_prefix) => old_prefix,
-            None => "".to_string(),
-        };
+    pub fn push_breadcrumb(&mut self, prefix: &str) {
+        self.breadcrumbs.push(prefix.to_owned());
+    }
+
+    pub fn pop_breadcrumb(&mut self) {
+        self.breadcrumbs.pop();
     }
 
     pub fn add_error(&mut self, error: &str) {
-        self.errors
-            .push(format!("{}{}", self.prefix, error.to_owned()));
+        self.errors.push(format!(
+            "{}: {}",
+            self.breadcrumbs.join("."),
+            error.to_owned()
+        ));
     }
 
     pub fn add_field_error(&mut self, field: &str, error: &str) {
-        self.errors
-            .push(format!("{}{}: {}", self.prefix, field, error));
+        self.errors.push(format!(
+            "{}{}{}:{}",
+            self.breadcrumbs.join("."),
+            if self.breadcrumbs.len() > 0 { "." } else { "" },
+            field,
+            error.to_owned()
+        ));
     }
 
     pub fn is_valid(&self) -> bool {
