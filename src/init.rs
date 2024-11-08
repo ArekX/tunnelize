@@ -192,7 +192,7 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
         forward_connection_timeout_seconds: 5,
         encryption: Encryption::None,
         tunnel_key: Some("changethistunnelkey".to_owned()),
-        monitor_key: None,
+        monitor_key: Some("changethismonitorkey".to_owned()),
         proxies: Vec::new(),
     };
 
@@ -216,6 +216,7 @@ fn get_default_server_configuration() -> ServerConfiguration {
         endpoints: HashMap::new(),
         max_tunnels: 50,
         max_clients: 100,
+        max_proxies_per_tunnel: 10,
         encryption: ServerEncryption::None,
     };
 
@@ -251,7 +252,7 @@ fn get_default_server_configuration() -> ServerConfiguration {
         "tcp".to_owned(),
         EndpointConfiguration::Tcp(TcpEndpointConfig {
             reserve_ports_from: 4000,
-            reserve_ports_to: 4002,
+            reserve_ports_to: 4050,
             allow_desired_port: true,
             encryption: EndpointServerEncryption::None,
             full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
@@ -264,7 +265,7 @@ fn get_default_server_configuration() -> ServerConfiguration {
         EndpointConfiguration::Udp(UdpEndpointConfig {
             reserve_ports_from: 5000,
             allow_desired_port: true,
-            reserve_ports_to: 5002,
+            reserve_ports_to: 5050,
             inactivity_timeout: 20,
             full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
             address: None,

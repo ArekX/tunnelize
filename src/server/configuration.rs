@@ -1,12 +1,19 @@
 use std::{
     collections::HashMap,
+    fs::exists,
     io::{Error, ErrorKind},
     sync::Arc,
 };
 
 use serde::{Deserialize, Serialize};
 
-use crate::{common::tcp_server::ServerEncryption, tunnel::configuration::ProxyConfiguration};
+use crate::{
+    common::{
+        tcp_server::ServerEncryption,
+        validate::{Validatable, ValidationResult},
+    },
+    tunnel::configuration::ProxyConfiguration,
+};
 
 use super::endpoints::{
     http::configuration::HttpEndpointConfig, monitor::configuration::MonitorEndpointConfig,
@@ -58,8 +65,6 @@ impl EndpointServerEncryption {
     }
 }
 
-// Set max tunnels and clients.
-
 #[derive(Serialize, Deserialize)]
 pub struct ServerConfiguration {
     pub server_port: u16,
@@ -71,6 +76,7 @@ pub struct ServerConfiguration {
     pub encryption: ServerEncryption,
     pub max_tunnels: usize,
     pub max_clients: usize,
+    pub max_proxies_per_tunnel: usize,
 }
 
 impl ServerConfiguration {
@@ -107,6 +113,93 @@ impl EndpointConfiguration {
             Self::Tcp(_) => "tcp",
             Self::Udp(_) => "udp",
             Self::Monitoring(_) => "monitoring",
+        }
+    }
+}
+
+impl Validatable for ServerConfiguration {
+    fn validate(&self, result: &mut ValidationResult) {
+        if self.server_port == 0 {
+            result.add_field_error(
+                "server_pot",
+                "Server port must be set and must be larger than 0.",
+            );
+        }
+
+        if self.max_clients == 0 {
+            result.add_field_error(
+                "max_clients",
+                "Max clients must be set and must be larger than 0.",
+            );
+        }
+
+        if self.max_tunnels == 0 {
+            result.add_field_error(
+                "max_tunnels",
+                "Max tunnels must be set and must be larger than 0.",
+            );
+        }
+
+        if self.max_proxies_per_tunnel == 0 {
+            result.add_field_error(
+                "max_proxies_per_tunnel",
+                "Max proxies per tunnel must be set and must be larger than 0.",
+            );
+        }
+
+        self.encryption.validate(result);
+
+        if let Some(key) = &self.tunnel_key {
+            if key.is_empty() {
+                result.add_field_error("tunnel_key", "Tunnel key must not be empty.");
+            }
+        }
+
+        if let Some(key) = &self.monitor_key {
+            if key.is_empty() {
+                result.add_field_error("monitor_key", "Monitor key must not be empty.");
+            }
+        }
+
+        for (name, endpoint) in &self.endpoints {
+            result.push_prefix(&format!("Endpoint ({})", name));
+            endpoint.validate(result);
+            result.pop_prefix();
+        }
+    }
+}
+
+impl Validatable for EndpointConfiguration {
+    fn validate(&self, result: &mut ValidationResult) {
+        match self {
+            Self::Http(config) => config.validate(result),
+            Self::Tcp(config) => config.validate(result),
+            Self::Udp(config) => config.validate(result),
+            Self::Monitoring(config) => config.validate(result),
+        }
+    }
+}
+
+impl Validatable for EndpointServerEncryption {
+    fn validate(&self, result: &mut ValidationResult) {
+        if let EndpointServerEncryption::CustomTls {
+            cert_path,
+            key_path,
+        } = self
+        {
+            if !exists(cert_path).is_ok() {
+                result.add_error(&format!(
+                    "TLS cert path '{}' does not exist or is invalid.",
+                    cert_path
+                ));
+            }
+
+            if !exists(key_path).is_ok() {
+                result.add_error(&format!(
+                    "TLS key path '{}' does not exist or is invalid.",
+                    key_path
+                ));
+            }
         }
     }
 }

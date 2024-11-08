@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::server::configuration::EndpointServerEncryption;
+use crate::{
+    common::validate::{Validatable, ValidationResult},
+    server::configuration::EndpointServerEncryption,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TcpEndpointConfig {
@@ -47,6 +50,15 @@ impl From<&TcpEndpointConfig> for TcpPublicEndpointConfig {
             allow_desired_port: config.allow_desired_port.clone(),
             reserve_ports_from: config.reserve_ports_from.clone(),
             reserve_ports_to: config.reserve_ports_to.clone(),
+        }
+    }
+}
+
+impl Validatable for TcpEndpointConfig {
+    fn validate(&self, result: &mut ValidationResult) {
+        // TODO: Needs improvement
+        if self.reserve_ports_from > self.reserve_ports_to {
+            result.add_error("reserve_ports_from must be less than or equal to reserve_ports_to.");
         }
     }
 }

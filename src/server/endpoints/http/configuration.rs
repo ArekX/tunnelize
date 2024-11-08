@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::server::configuration::EndpointServerEncryption;
+use crate::{
+    common::validate::{Validatable, ValidationResult},
+    server::configuration::EndpointServerEncryption,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpEndpointConfig {
@@ -74,6 +77,33 @@ impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
             address: config.address.clone(),
             allow_custom_hostnames: config.allow_custom_hostnames,
             hostname_template: config.hostname_template.clone(),
+        }
+    }
+}
+
+impl Validatable for HttpEndpointConfig {
+    fn validate(&self, result: &mut ValidationResult) {
+        // TODO: Needs fixing
+        if self.port == 0 {
+            result.add_error("HTTP endpoint port cannot be 0.");
+        }
+
+        if self.max_client_input_wait_secs == 0 {
+            result.add_error("HTTP endpoint max client input wait time cannot be 0.");
+        }
+
+        if self.hostname_template.is_empty() {
+            result.add_error("HTTP endpoint hostname template cannot be empty.");
+        }
+
+        if let Some(authorization) = &self.require_authorization {
+            if authorization.username.is_empty() {
+                result.add_error("HTTP endpoint authorization username cannot be empty.");
+            }
+
+            if authorization.password.is_empty() {
+                result.add_error("HTTP endpoint authorization password cannot be empty.");
+            }
         }
     }
 }

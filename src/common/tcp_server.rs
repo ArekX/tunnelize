@@ -1,4 +1,5 @@
 use std::{
+    fs::exists,
     io::{Error, ErrorKind},
     net::SocketAddr,
 };
@@ -6,13 +7,41 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tokio::net::{TcpListener, TcpStream};
 
-use super::{connection::Connection, encryption::ServerTlsEncryption};
+use super::{
+    connection::Connection,
+    encryption::ServerTlsEncryption,
+    validate::{Validatable, ValidationResult},
+};
 use tokio::io::Result;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ServerEncryption {
     None,
     Tls { cert_path: String, key_path: String },
+}
+
+impl Validatable for ServerEncryption {
+    fn validate(&self, result: &mut ValidationResult) {
+        if let ServerEncryption::Tls {
+            cert_path,
+            key_path,
+        } = &self
+        {
+            if !exists(cert_path).is_ok() {
+                result.add_error(&format!(
+                    "TLS cert path '{}' does not exist or is invalid.",
+                    cert_path
+                ));
+            }
+
+            if !exists(key_path).is_ok() {
+                result.add_error(&format!(
+                    "TLS key path '{}' does not exist or is invalid.",
+                    key_path
+                ));
+            }
+        }
+    }
 }
 
 pub struct TcpServer {

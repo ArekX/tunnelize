@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::server::configuration::EndpointServerEncryption;
+use crate::{common::validate::Validatable, server::configuration::EndpointServerEncryption};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MonitorEndpointConfig {
@@ -31,5 +31,11 @@ impl MonitorEndpointConfig {
         let address = self.address.clone().unwrap_or_else(|| format!("0.0.0.0"));
 
         format!("{}:{}", address, self.port)
+    }
+}
+
+impl Validatable for MonitorEndpointConfig {
+    fn validate(&self, _result: &mut crate::common::validate::ValidationResult) {
+        // TODO: Needs improvement
     }
 }

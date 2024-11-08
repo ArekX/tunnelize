@@ -35,6 +35,7 @@ pub async fn start() -> Result<()> {
         endpoints: HashMap::new(),
         max_tunnels: 10,
         max_clients: 10,
+        max_proxies_per_tunnel: 10,
         encryption: ServerEncryption::Tls {
             cert_path: "testing/certs/server.crt".to_owned(),
             key_path: "testing/certs/server.key".to_owned(),

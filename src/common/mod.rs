@@ -12,3 +12,4 @@ pub mod tcp_client;
 pub mod tcp_server;
 pub mod text;
 pub mod transport;
+pub mod validate;
