@@ -5,7 +5,7 @@ use crate::{
         cli::InitCommands, configuration::ServerEncryption, encryption::ClientEncryptionType,
         tcp_client::create_tcp_client,
     },
-    configuration::write_configuration,
+    configuration::{write_configuration, TunnelizeConfiguration},
     server::{
         configuration::{EndpointConfiguration, EndpointServerEncryption, ServerConfiguration},
         endpoints::{
@@ -24,6 +24,12 @@ use crate::{
 
 pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
     match command {
+        InitCommands::All => {
+            write_configuration(TunnelizeConfiguration {
+                server: Some(get_default_server_configuration().into()),
+                tunnel: Some(get_default_tunnel_configuration().into()),
+            })?;
+        }
         InitCommands::Server => {
             write_configuration(get_default_server_configuration().into())?;
         }
@@ -149,7 +155,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
 fn get_default_tunnel_configuration() -> TunnelConfiguration {
     let mut configuration = TunnelConfiguration {
         name: Some("my-tunnel".to_owned()),
-        server_address: "tunnel-server.com".to_owned(),
+        server_address: "localhost".to_owned(),
         server_port: 3456,
         forward_connection_timeout_seconds: 5,
         encryption: Encryption::None,
@@ -172,7 +178,7 @@ fn get_default_server_configuration() -> ServerConfiguration {
     let mut configuration = ServerConfiguration {
         server_port: 3456,
         server_address: None,
-        monitor_key: Some("changethiskey".to_owned()),
+        monitor_key: Some("changethismonitorkey".to_owned()),
         max_tunnel_input_wait: 30,
         tunnel_key: Some("changethistunnelkey".to_owned()),
         endpoints: HashMap::new(),
@@ -217,7 +223,7 @@ fn get_default_server_configuration() -> ServerConfiguration {
             reserve_ports_to: 4050,
             allow_desired_port: true,
             encryption: EndpointServerEncryption::None,
-            full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
+            full_hostname_template: Some("localhost:{port}".to_owned()),
             address: None,
         }),
     );
@@ -229,7 +235,7 @@ fn get_default_server_configuration() -> ServerConfiguration {
             allow_desired_port: true,
             reserve_ports_to: 5050,
             inactivity_timeout: 20,
-            full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
+            full_hostname_template: Some("localhost:{port}".to_owned()),
             address: None,
         }),
     );

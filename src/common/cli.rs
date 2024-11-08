@@ -15,8 +15,10 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    #[command(subcommand)]
-    Init(InitCommands),
+    Init {
+        #[command(subcommand)]
+        command: Option<InitCommands>,
+    },
     Server,
     Tunnel {
         #[arg(long, short = 'v', default_value_t = false)]
@@ -28,6 +30,8 @@ pub enum Commands {
 
 #[derive(Subcommand, Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub enum InitCommands {
+    #[command(name = "all")]
+    All,
     Tunnel {
         #[arg(short = 's', long)]
         server: Option<String>,

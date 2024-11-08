@@ -1,5 +1,5 @@
 use common::{
-    cli::{parse_command, Commands},
+    cli::{parse_command, Commands, InitCommands},
     logger::initialize_logger,
 };
 use init::init_for;
@@ -28,8 +28,8 @@ async fn main() -> Result<(), std::io::Error> {
 async fn run_command(command: Commands) -> Result<(), std::io::Error> {
     // TODO: Server/Tunnel load and validate config
     match command {
-        Commands::Init(commands) => {
-            init_for(commands).await?;
+        Commands::Init { command } => {
+            init_for(command.unwrap_or_else(|| InitCommands::All)).await?;
         }
         Commands::Server => {
             info!("Starting server...");
