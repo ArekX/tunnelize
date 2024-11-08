@@ -1,4 +1,4 @@
-use configuration::{Encryption, ProxyConfiguration, TunnelConfiguration, TunnelProxy};
+use configuration::TunnelConfiguration;
 use log::debug;
 use services::Services;
 use std::io::{Error, ErrorKind};
@@ -9,6 +9,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::common::cli::MonitorCommands;
 use crate::common::tasks::start_cancel_listener;
+use crate::configuration::load_configuration;
 
 mod client;
 pub mod configuration;
@@ -16,61 +17,27 @@ pub mod incoming_requests;
 pub mod outgoing_requests;
 mod services;
 
-fn get_configuration() -> TunnelConfiguration {
-    TunnelConfiguration {
-        name: Some("test".to_string()),
-        server_address: "127.0.0.1".to_string(),
-        server_port: 3456,
-        forward_connection_timeout_seconds: 5,
-        encryption: Encryption::Tls {
-            cert: "testing/certs/ca.crt".to_owned(),
-        },
-        tunnel_key: None,
-        monitor_key: Some("key".to_string()),
-        proxies: vec![
-            TunnelProxy {
-                endpoint_name: "http".to_string(),
-                address: "0.0.0.0".to_string(),
-                port: 8080,
-                endpoint_config: ProxyConfiguration::Http {
-                    desired_name: Some("test".to_string()),
-                },
-            },
-            TunnelProxy {
-                endpoint_name: "tcp".to_string(),
-                address: "0.0.0.0".to_string(),
-                port: 8081,
-                endpoint_config: ProxyConfiguration::Tcp { desired_port: None },
-            },
-            TunnelProxy {
-                endpoint_name: "udp".to_string(),
-                address: "0.0.0.0".to_string(),
-                port: 8089,
-                endpoint_config: ProxyConfiguration::Udp {
-                    desired_port: None,
-                    bind_address: None,
-                },
-            },
-        ],
-    }
-}
-
-pub async fn process_monitor_command(command: MonitorCommands) -> Result<()> {
-    outgoing_requests::process_monitor_request(get_configuration(), command).await?;
+pub async fn process_monitor_command(
+    command: MonitorCommands,
+    configuration_file: Option<String>,
+) -> Result<()> {
+    outgoing_requests::process_monitor_request(load_configuration(configuration_file)?, command)
+        .await?;
 
     Ok(())
 }
 
-pub async fn process_get_tunnel_config() -> Result<()> {
-    let data = outgoing_requests::get_tunnel_config(get_configuration()).await?;
+pub async fn process_get_tunnel_config(configuration_file: Option<String>) -> Result<()> {
+    let data =
+        outgoing_requests::get_tunnel_config(load_configuration(configuration_file)?).await?;
 
     debug!("Received tunnel config: {:?}", data);
 
     Ok(())
 }
 
-pub async fn start() -> Result<()> {
-    let configuration = get_configuration();
+pub async fn start(configuration_file: Option<String>) -> Result<()> {
+    let configuration: TunnelConfiguration = load_configuration(configuration_file)?;
 
     let services = Arc::new(Services::new(configuration));
     let cancel_token = CancellationToken::new();

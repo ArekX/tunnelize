@@ -1,12 +1,5 @@
-use configuration::{EndpointConfiguration, EndpointServerEncryption, ServerConfiguration};
-use endpoints::http::configuration::HttpEndpointConfig;
-use endpoints::monitor::configuration::{
-    MonitorAuthentication, MonitorEndpointConfig, MonitorOrigin,
-};
-use endpoints::tcp::configuration::TcpEndpointConfig;
-use endpoints::udp::configuration::UdpEndpointConfig;
+use configuration::ServerConfiguration;
 use log::{debug, info};
-use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 use std::sync::Arc;
 use tokio::io::Result;
@@ -14,8 +7,8 @@ use tokio::io::Result;
 use services::Services;
 use tokio_util::sync::CancellationToken;
 
-use crate::common::configuration::ServerEncryption;
 use crate::common::tasks::start_cancel_listener;
+use crate::configuration::load_configuration;
 
 pub mod configuration;
 pub mod endpoints;
@@ -25,73 +18,8 @@ mod monitoring;
 mod services;
 mod session;
 
-pub async fn start() -> Result<()> {
-    let mut configuration = ServerConfiguration {
-        server_port: 3456,
-        server_address: None,
-        monitor_key: Some("key".to_owned()),
-        max_tunnel_input_wait: 30,
-        tunnel_key: None,
-        endpoints: HashMap::new(),
-        max_tunnels: 10,
-        max_clients: 10,
-        max_proxies_per_tunnel: 10,
-        encryption: ServerEncryption::Tls {
-            cert_path: "testing/certs/server.crt".to_owned(),
-            key_path: "testing/certs/server.key".to_owned(),
-        },
-    }; // TODO: This should be a parameter in start
-
-    configuration.endpoints.insert(
-        "http".to_owned(),
-        EndpointConfiguration::Http(HttpEndpointConfig {
-            port: 3457,
-            encryption: EndpointServerEncryption::ServerTls,
-            address: None,
-            max_client_input_wait_secs: 10,
-            hostname_template: "opop-{name}.localhost".to_owned(),
-            full_url_template: None,
-            allow_custom_hostnames: true,
-            require_authorization: None,
-        }),
-    );
-
-    configuration.endpoints.insert(
-        "monitor".to_owned(),
-        EndpointConfiguration::Monitoring(MonitorEndpointConfig {
-            encryption: EndpointServerEncryption::None,
-            port: 3000,
-            address: None,
-            allow_cors_origins: MonitorOrigin::Any,
-            authentication: MonitorAuthentication::Bearer {
-                token: "opop".to_owned(),
-            },
-        }),
-    );
-
-    configuration.endpoints.insert(
-        "tcp".to_owned(),
-        EndpointConfiguration::Tcp(TcpEndpointConfig {
-            reserve_ports_from: 4000,
-            reserve_ports_to: 4002,
-            allow_desired_port: true,
-            encryption: EndpointServerEncryption::ServerTls,
-            full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
-            address: None,
-        }),
-    );
-
-    configuration.endpoints.insert(
-        "udp".to_owned(),
-        EndpointConfiguration::Udp(UdpEndpointConfig {
-            reserve_ports_from: 5000,
-            allow_desired_port: true,
-            reserve_ports_to: 5002,
-            inactivity_timeout: 20,
-            full_hostname_template: Some("127.0.0.1:{port}".to_owned()),
-            address: None,
-        }),
-    );
+pub async fn start(configuration_file: Option<String>) -> Result<()> {
+    let configuration: ServerConfiguration = load_configuration(configuration_file)?;
 
     let cancel_token = CancellationToken::new();
     let services = Arc::new(Services::new(configuration, cancel_token.clone()));

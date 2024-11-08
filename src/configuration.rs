@@ -1,8 +1,10 @@
 use std::{
     fs::File,
     io::{BufReader, BufWriter, ErrorKind},
+    path::PathBuf,
 };
 
+use log::info;
 use serde::{Deserialize, Serialize};
 
 use tokio::io::Result;
@@ -56,12 +58,30 @@ pub fn write_configuration(configuration: TunnelizeConfiguration) -> Result<()> 
     Ok(())
 }
 
-pub fn load_configuration<T>() -> Result<T>
+pub fn load_configuration<T>(config_file: Option<String>) -> Result<T>
 where
     T: TryFrom<TunnelizeConfiguration, Error = &'static str>,
 {
-    let config_path = get_configuration_path()?;
-    let reader = BufReader::new(File::create(&config_path)?);
+    let config_path = config_file
+        .map(|f| Ok::<PathBuf, std::io::Error>(PathBuf::from(f)))
+        .unwrap_or_else(|| Ok::<PathBuf, std::io::Error>(get_configuration_path()?))?;
+
+    if !config_path.exists() {
+        println!(
+            "Configuration file not found at '{}'. Please run init command first.",
+            config_path.to_str().unwrap_or("<unknown>")
+        );
+        return Err(std::io::Error::new(
+            ErrorKind::NotFound,
+            "Configuration file not found.",
+        ));
+    }
+
+    info!(
+        "Loading configuration from {}",
+        config_path.to_str().unwrap_or("<unknown>")
+    );
+    let reader = BufReader::new(File::open(&config_path)?);
 
     let config: TunnelizeConfiguration = serde_json::from_reader(reader)?;
 

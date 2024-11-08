@@ -26,21 +26,20 @@ async fn main() -> Result<(), std::io::Error> {
 }
 
 async fn run_command(command: Commands) -> Result<(), std::io::Error> {
-    // TODO: Server/Tunnel load and validate config
     match command {
         Commands::Init { command } => {
             init_for(command.unwrap_or_else(|| InitCommands::All)).await?;
         }
-        Commands::Server => {
+        Commands::Server { config } => {
             info!("Starting server...");
 
-            server::start().await?;
+            server::start(config).await?;
         }
-        Commands::Tunnel { .. } => {
-            tunnel::start().await?;
+        Commands::Tunnel { config, .. } => {
+            tunnel::start(config).await?;
         }
-        Commands::Monitor(monitor_command) => {
-            tunnel::process_monitor_command(monitor_command).await?;
+        Commands::Monitor { command, config } => {
+            tunnel::process_monitor_command(command, config).await?;
         }
     }
 
