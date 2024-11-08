@@ -8,8 +8,11 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::validate::{Validatable, ValidationResult},
-    configuration::{ServerEncryption, TunnelizeConfiguration},
+    common::{
+        configuration::ServerEncryption,
+        validate::{Validatable, ValidationResult},
+    },
+    configuration::TunnelizeConfiguration,
     tunnel::configuration::ProxyConfiguration,
 };
 

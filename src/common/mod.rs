@@ -1,6 +1,7 @@
 pub mod channel;
 pub mod channel_socket;
 pub mod cli;
+pub mod configuration;
 pub mod connection;
 pub mod data_bridge;
 pub mod data_request;

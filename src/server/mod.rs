@@ -14,8 +14,8 @@ use tokio::io::Result;
 use services::Services;
 use tokio_util::sync::CancellationToken;
 
+use crate::common::configuration::ServerEncryption;
 use crate::common::tasks::start_cancel_listener;
-use crate::configuration::ServerEncryption;
 
 pub mod configuration;
 pub mod endpoints;

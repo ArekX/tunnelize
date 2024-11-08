@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 
 use crate::{
-    common::{cli::InitCommands, encryption::ClientEncryptionType, tcp_client::create_tcp_client},
-    configuration::{write_configuration, ServerEncryption},
+    common::{
+        cli::InitCommands, configuration::ServerEncryption, encryption::ClientEncryptionType,
+        tcp_client::create_tcp_client,
+    },
+    configuration::write_configuration,
     server::{
         configuration::{EndpointConfiguration, EndpointServerEncryption, ServerConfiguration},
         endpoints::{

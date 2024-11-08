@@ -7,9 +7,9 @@ use tokio::net::{TcpListener, TcpStream};
 
 use tokio::io::Result;
 
-use crate::configuration::ServerEncryption;
-
-use super::{connection::Connection, encryption::ServerTlsEncryption};
+use super::{
+    configuration::ServerEncryption, connection::Connection, encryption::ServerTlsEncryption,
+};
 
 pub struct TcpServer {
     encryption: Option<ServerTlsEncryption>,
