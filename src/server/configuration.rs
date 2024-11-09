@@ -183,7 +183,7 @@ impl Validatable for ServerConfiguration {
         }
 
         for (name, endpoint) in &self.endpoints {
-            result.validate_with_breadcrumb(&format!("endpoints.{}", name), endpoint);
+            result.validate_child(&format!("endpoints.{}", name), endpoint);
         }
     }
 }

@@ -19,7 +19,9 @@ use crate::{
             PublicServerEndpointConfig,
         },
     },
-    tunnel::configuration::{Encryption, ProxyConfiguration, TunnelConfiguration, TunnelProxy},
+    tunnel::configuration::{
+        ProxyConfiguration, TunnelConfiguration, TunnelEncryption, TunnelProxy,
+    },
 };
 
 pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
@@ -158,7 +160,7 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
         server_address: "localhost".to_owned(),
         server_port: 3456,
         forward_connection_timeout_seconds: 5,
-        encryption: Encryption::None,
+        encryption: TunnelEncryption::None,
         tunnel_key: Some("changethistunnelkey".to_owned()),
         monitor_key: Some("changethismonitorkey".to_owned()),
         proxies: Vec::new(),

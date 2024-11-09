@@ -2,6 +2,10 @@ pub trait Validatable {
     fn validate(&self, result: &mut Validation);
 }
 
+pub trait Rule<Value> {
+    fn validate(field: &str, value: &Value, result: &mut Validation);
+}
+
 pub struct Validation {
     breadcrumbs: Vec<String>,
     errors: Vec<String>,
@@ -23,7 +27,14 @@ impl Validation {
         }
     }
 
-    pub fn validate_with_breadcrumb(&mut self, breadcrumb: &str, item: &impl Validatable) {
+    pub fn validate_rule<RuleType, Value>(&mut self, field: &str, value: &Value)
+    where
+        RuleType: Rule<Value>,
+    {
+        RuleType::validate(field, value, self);
+    }
+
+    pub fn validate_child(&mut self, breadcrumb: &str, item: &impl Validatable) {
         self.push_breadcrumb(breadcrumb);
         item.validate(self);
         self.pop_breadcrumb();

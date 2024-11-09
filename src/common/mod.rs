@@ -14,3 +14,4 @@ pub mod tcp_server;
 pub mod text;
 pub mod transport;
 pub mod validate;
+pub mod validate_rules;

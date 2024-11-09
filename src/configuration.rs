@@ -24,11 +24,11 @@ pub struct TunnelizeConfiguration {
 impl Validatable for TunnelizeConfiguration {
     fn validate(&self, result: &mut Validation) {
         if let Some(server) = &self.server {
-            result.validate_with_breadcrumb("server", server);
+            result.validate_child("server", server);
         }
 
         if let Some(tunnel) = &self.tunnel {
-            result.validate_with_breadcrumb("tunnel", tunnel);
+            result.validate_child("tunnel", tunnel);
         }
     }
 }
