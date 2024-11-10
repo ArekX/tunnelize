@@ -16,6 +16,10 @@ Tunnelize is a self-hosted tunnel server and client written in Rust. It provides
 - **Monitoring via CLI**: perform monitoring commands via CLI from the tunnel
 - **Client provisioning**: Provision client settings from a server
 
+# Documentation
+
+User guide and documentation is available at [https://arekx.github.io/tunnelize/](https://arekx.github.io/tunnelize/).
+
 # Building
 
 To build the release version of Tunnelize, run:
