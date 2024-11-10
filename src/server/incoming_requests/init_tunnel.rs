@@ -110,7 +110,21 @@ async fn validate_requested_proxies(
     config: &ServerConfiguration,
     response_stream: &mut Connection,
 ) -> Result<()> {
-    // TODO: Limit number of request.proxies.
+    if request.proxies.len() > config.max_proxies_per_tunnel {
+        response_stream
+            .respond_message(&InitTunnelResponse::Rejected {
+                reason: format!(
+                    "Too many proxies requested. Max allowed: {}",
+                    config.max_proxies_per_tunnel
+                ),
+            })
+            .await;
+        return Err(Error::new(
+            ErrorKind::Other,
+            "Too many proxies requested.".to_owned(),
+        ));
+    }
+
     let mut errors: Vec<String> = vec![];
 
     for proxy in request.proxies.iter() {
