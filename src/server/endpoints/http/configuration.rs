@@ -1,7 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    common::validate::{Validatable, Validation},
+    common::{
+        validate::{Validatable, Validation},
+        validate_rules::{
+            HostAddressMustBeValid, HostnameTemplatemustBeValid, MustBeGreaterThanZero,
+            MustNotBeEmptyString, PortMustBeValid,
+        },
+    },
     server::configuration::EndpointServerEncryption,
 };
 
@@ -81,29 +87,38 @@ impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
     }
 }
 
+impl Validatable for AuthorizeUser {
+    fn validate(&self, result: &mut Validation) {
+        result.validate_rule::<MustNotBeEmptyString>("username", &self.username);
+        result.validate_rule::<MustNotBeEmptyString>("password", &self.password);
+
+        if let Some(realm) = &self.realm {
+            result.validate_rule::<MustNotBeEmptyString>("realm", realm);
+        }
+    }
+}
+
 impl Validatable for HttpEndpointConfig {
     fn validate(&self, result: &mut Validation) {
-        // TODO: Needs fixing
-        if self.port == 0 {
-            result.add_error("HTTP endpoint port cannot be 0.");
+        if let Some(address) = &self.address {
+            result.validate_rule::<HostAddressMustBeValid>("address", address);
         }
+        result.validate_rule::<PortMustBeValid>("port", &self.port);
 
-        if self.max_client_input_wait_secs == 0 {
-            result.add_error("HTTP endpoint max client input wait time cannot be 0.");
-        }
+        result.validate_child("encryption", &self.encryption);
 
-        if self.hostname_template.is_empty() {
-            result.add_error("HTTP endpoint hostname template cannot be empty.");
-        }
+        result.validate_rule_for::<_, MustBeGreaterThanZero>(
+            "max_client_input_wait_secs",
+            &self.max_client_input_wait_secs,
+        );
+
+        result.validate_rule::<HostnameTemplatemustBeValid>(
+            "hostname_template",
+            &self.hostname_template,
+        );
 
         if let Some(authorization) = &self.require_authorization {
-            if authorization.username.is_empty() {
-                result.add_error("HTTP endpoint authorization username cannot be empty.");
-            }
-
-            if authorization.password.is_empty() {
-                result.add_error("HTTP endpoint authorization password cannot be empty.");
-            }
+            result.validate_child("authorization", authorization);
         }
     }
 }

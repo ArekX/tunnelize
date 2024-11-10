@@ -1,8 +1,9 @@
-use super::validate::{Rule, StatefulRule, Validation};
+use super::validate::{Rule, RuleFor, Validation};
 
 pub struct FileMustExist;
 
-impl Rule<String> for FileMustExist {
+impl Rule for FileMustExist {
+    type Value = String;
     fn validate(field: &str, value: &String, result: &mut Validation) {
         if value.is_empty() {
             result.add_field_error(field, "Value cannot be empty.");
@@ -17,7 +18,8 @@ impl Rule<String> for FileMustExist {
 
 pub struct PortMustBeValid;
 
-impl Rule<u16> for PortMustBeValid {
+impl Rule for PortMustBeValid {
+    type Value = u16;
     fn validate(field: &str, value: &u16, result: &mut Validation) {
         if *value == 0 {
             result.add_field_error(field, "Port cannot be zero.");
@@ -27,7 +29,8 @@ impl Rule<u16> for PortMustBeValid {
 
 pub struct HostAddressMustBeValid;
 
-impl Rule<String> for HostAddressMustBeValid {
+impl Rule for HostAddressMustBeValid {
+    type Value = String;
     fn validate(field: &str, value: &String, result: &mut Validation) {
         if !value
             .chars()
@@ -43,7 +46,8 @@ impl Rule<String> for HostAddressMustBeValid {
 
 pub struct IpAddressMustBeValid;
 
-impl Rule<String> for IpAddressMustBeValid {
+impl Rule for IpAddressMustBeValid {
+    type Value = String;
     fn validate(field: &str, value: &String, result: &mut Validation) {
         if value.parse::<std::net::IpAddr>().is_err() {
             result.add_field_error(field, "Value must be a valid IP address.");
@@ -53,7 +57,8 @@ impl Rule<String> for IpAddressMustBeValid {
 
 pub struct AlphaNumericOnly;
 
-impl Rule<String> for AlphaNumericOnly {
+impl Rule for AlphaNumericOnly {
+    type Value = String;
     fn validate(field: &str, value: &String, result: &mut Validation) {
         if !value.chars().all(|c| c.is_alphanumeric() || c == '-') {
             result.add_field_error(
@@ -66,7 +71,8 @@ impl Rule<String> for AlphaNumericOnly {
 
 pub struct IpTemplateMustBeValid;
 
-impl Rule<String> for IpTemplateMustBeValid {
+impl Rule for IpTemplateMustBeValid {
+    type Value = String;
     fn validate(field: &str, value: &String, result: &mut Validation) {
         if !value.contains("{port}") {
             result.add_field_error(field, "Template must contain the {port} placeholder.");
@@ -79,13 +85,66 @@ impl Rule<String> for IpTemplateMustBeValid {
             .unwrap_or_else(|| ("", ""))
             .to_owned();
 
-        result.validate_rule::<IpAddressMustBeValid, String>("address", &address.to_owned());
+        result.validate_rule::<IpAddressMustBeValid>(field, &address.to_owned());
+    }
+}
+
+pub struct HostnameTemplatemustBeValid;
+
+impl Rule for HostnameTemplatemustBeValid {
+    type Value = String;
+    fn validate(field: &str, value: &String, result: &mut Validation) {
+        if !value.contains("{name}") {
+            result.add_field_error(field, "Template must contain the {name} placeholder.");
+            return;
+        }
+
+        let test_template = value.replace("{port}", "").replace("{name}", "");
+
+        result.validate_rule::<HostAddressMustBeValid>(field, &test_template);
+    }
+}
+
+pub struct PortHostnameTemplatemustBeValid;
+
+impl Rule for PortHostnameTemplatemustBeValid {
+    type Value = String;
+    fn validate(field: &str, value: &String, result: &mut Validation) {
+        if !value.contains("{port}") {
+            result.add_field_error(field, "Template must contain the {port} placeholder.");
+            return;
+        }
+
+        let test_template = value.replace(":{port}", "");
+
+        result.validate_rule::<HostAddressMustBeValid>(field, &test_template);
+    }
+}
+
+pub struct UrlTemplateMustBeValid;
+
+impl Rule for UrlTemplateMustBeValid {
+    type Value = String;
+    fn validate(field: &str, value: &String, result: &mut Validation) {
+        if !value.contains("{port}") {
+            result.add_field_error(field, "Template must contain the {port} placeholder.");
+            return;
+        }
+
+        if !value.contains("{hostname}") {
+            result.add_field_error(field, "Template must contain the {hostname} placeholder.");
+            return;
+        }
+
+        let test_template = value.replace("{port}", "").replace("{hostname}", "");
+
+        result.validate_rule::<AlphaNumericOnly>(field, &test_template);
     }
 }
 
 pub struct MustBeGreaterThanZero;
 
-impl Rule<u16> for MustBeGreaterThanZero {
+impl RuleFor<u16> for MustBeGreaterThanZero {
     fn validate(field: &str, value: &u16, result: &mut Validation) {
         if *value == 0 {
             result.add_field_error(field, "Value must be greater than zero.");
@@ -93,7 +152,7 @@ impl Rule<u16> for MustBeGreaterThanZero {
     }
 }
 
-impl Rule<u64> for MustBeGreaterThanZero {
+impl RuleFor<u64> for MustBeGreaterThanZero {
     fn validate(field: &str, value: &u64, result: &mut Validation) {
         if *value == 0 {
             result.add_field_error(field, "Value must be greater than zero.");
@@ -101,15 +160,21 @@ impl Rule<u64> for MustBeGreaterThanZero {
     }
 }
 
-pub struct MustBeBetween(u16, u16);
+impl RuleFor<usize> for MustBeGreaterThanZero {
+    fn validate(field: &str, value: &usize, result: &mut Validation) {
+        if *value == 0 {
+            result.add_field_error(field, "Value must be greater than zero.");
+        }
+    }
+}
 
-impl StatefulRule<u16> for MustBeBetween {
-    fn validate(&self, field: &str, value: &u16, result: &mut Validation) {
-        if *value < self.0 || *value > self.1 {
-            result.add_field_error(
-                field,
-                &format!("Value must be between {} and {}.", self.0, self.1),
-            );
+pub struct MustNotBeEmptyString;
+
+impl Rule for MustNotBeEmptyString {
+    type Value = String;
+    fn validate(field: &str, value: &String, result: &mut Validation) {
+        if value.trim().is_empty() {
+            result.add_field_error(field, "Value cannot be empty.");
         }
     }
 }

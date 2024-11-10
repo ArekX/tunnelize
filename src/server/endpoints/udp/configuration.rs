@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::common::{
     validate::{Validatable, Validation},
     validate_rules::{
-        HostAddressMustBeValid, IpTemplateMustBeValid, MustBeGreaterThanZero, PortMustBeValid,
+        HostAddressMustBeValid, MustBeGreaterThanZero, PortHostnameTemplatemustBeValid,
+        PortMustBeValid,
     },
 };
 
@@ -55,27 +56,24 @@ impl From<&UdpEndpointConfig> for UdpPublicEndpointConfig {
 impl Validatable for UdpEndpointConfig {
     fn validate(&self, result: &mut Validation) {
         if let Some(address) = &self.address {
-            result.validate_rule::<HostAddressMustBeValid, String>("address", address);
+            result.validate_rule::<HostAddressMustBeValid>("address", address);
         }
 
         if let Some(template) = &self.full_hostname_template {
-            result
-                .validate_rule::<IpTemplateMustBeValid, String>("full_hostname_template", template);
+            result.validate_rule::<PortHostnameTemplatemustBeValid>(
+                "full_hostname_template",
+                template,
+            );
         }
 
-        result.validate_rule::<MustBeGreaterThanZero, u64>(
+        result.validate_rule_for::<_, MustBeGreaterThanZero>(
             "inactivity_timeout",
             &self.inactivity_timeout,
         );
 
         if self.reserve_ports_from > self.reserve_ports_to {
-            result.validate_rule::<PortMustBeValid, u16>(
-                "reserve_ports_from",
-                &self.reserve_ports_from,
-            );
-
-            result
-                .validate_rule::<PortMustBeValid, u16>("reserve_ports_to", &self.reserve_ports_to);
+            result.validate_rule::<PortMustBeValid>("reserve_ports_from", &self.reserve_ports_from);
+            result.validate_rule::<PortMustBeValid>("reserve_ports_to", &self.reserve_ports_to);
 
             result.add_field_error(
                 "reserve_ports_from",

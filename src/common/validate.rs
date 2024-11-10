@@ -2,12 +2,13 @@ pub trait Validatable {
     fn validate(&self, result: &mut Validation);
 }
 
-pub trait Rule<Value> {
-    fn validate(field: &str, value: &Value, result: &mut Validation);
+pub trait Rule {
+    type Value;
+    fn validate(field: &str, value: &Self::Value, result: &mut Validation);
 }
 
-pub trait StatefulRule<Value> {
-    fn validate(&self, field: &str, value: &Value, result: &mut Validation);
+pub trait RuleFor<Value> {
+    fn validate(field: &str, value: &Value, result: &mut Validation);
 }
 
 pub struct Validation {
@@ -31,22 +32,18 @@ impl Validation {
         }
     }
 
-    pub fn validate_rule<RuleType, Value>(&mut self, field: &str, value: &Value)
+    pub fn validate_rule_for<Value, Rule>(&mut self, field: &str, value: &Value)
     where
-        RuleType: Rule<Value>,
+        Rule: RuleFor<Value>,
     {
-        RuleType::validate(field, value, self);
+        Rule::validate(field, value, self);
     }
 
-    pub fn validate_stateful_rule<RuleType, Value>(
-        &mut self,
-        rule: &RuleType,
-        field: &str,
-        value: &Value,
-    ) where
-        RuleType: StatefulRule<Value>,
+    pub fn validate_rule<RuleType>(&mut self, field: &str, value: &RuleType::Value)
+    where
+        RuleType: Rule,
     {
-        rule.validate(field, value, self);
+        RuleType::validate(field, value, self);
     }
 
     pub fn validate_child(&mut self, breadcrumb: &str, item: &impl Validatable) {
@@ -73,7 +70,7 @@ impl Validation {
 
     pub fn add_field_error(&mut self, field: &str, error: &str) {
         self.errors.push(format!(
-            "{}{}{}:{}",
+            "{}{}{}: {}",
             self.breadcrumbs.join("."),
             if self.breadcrumbs.len() > 0 { "." } else { "" },
             field,

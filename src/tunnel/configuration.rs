@@ -8,7 +8,7 @@ use crate::{
         validate::{Validatable, Validation},
         validate_rules::{
             AlphaNumericOnly, FileMustExist, HostAddressMustBeValid, IpAddressMustBeValid,
-            PortMustBeValid,
+            MustNotBeEmptyString, PortMustBeValid,
         },
     },
     configuration::TunnelizeConfiguration,
@@ -92,7 +92,7 @@ impl From<Option<ClientEncryptionType>> for TunnelEncryption {
 impl Validatable for TunnelEncryption {
     fn validate(&self, result: &mut Validation) {
         if let Self::Tls { cert } = self {
-            result.validate_rule::<FileMustExist, String>("cert", &cert);
+            result.validate_rule::<FileMustExist>("cert", &cert);
         }
     }
 }
@@ -136,8 +136,8 @@ impl Validatable for TunnelProxy {
             result.add_error("Endpoint name is required.");
         }
 
-        result.validate_rule::<HostAddressMustBeValid, String>("address", &self.address);
-        result.validate_rule::<PortMustBeValid, u16>("port", &self.port);
+        result.validate_rule::<HostAddressMustBeValid>("address", &self.address);
+        result.validate_rule::<PortMustBeValid>("port", &self.port);
 
         result.validate_child("endpoint_config", &self.endpoint_config);
     }
@@ -148,12 +148,13 @@ impl Validatable for ProxyConfiguration {
         match self {
             Self::Http { desired_name } => {
                 if let Some(name) = desired_name {
-                    result.validate_rule::<AlphaNumericOnly, String>("desired_name", name);
+                    result.validate_rule::<MustNotBeEmptyString>("desired_name", name);
+                    result.validate_rule::<AlphaNumericOnly>("desired_name", name);
                 }
             }
             Self::Tcp { desired_port } => {
                 if let Some(port) = desired_port {
-                    result.validate_rule::<PortMustBeValid, u16>("desired_port", port);
+                    result.validate_rule::<PortMustBeValid>("desired_port", port);
                 }
             }
             Self::Udp {
@@ -161,11 +162,11 @@ impl Validatable for ProxyConfiguration {
                 bind_address,
             } => {
                 if let Some(port) = desired_port {
-                    result.validate_rule::<PortMustBeValid, u16>("desired_port", port);
+                    result.validate_rule::<PortMustBeValid>("desired_port", port);
                 }
 
                 if let Some(address) = bind_address {
-                    result.validate_rule::<IpAddressMustBeValid, String>("bind_address", address);
+                    result.validate_rule::<IpAddressMustBeValid>("bind_address", address);
                 }
             }
         }
@@ -174,11 +175,8 @@ impl Validatable for ProxyConfiguration {
 
 impl Validatable for TunnelConfiguration {
     fn validate(&self, result: &mut Validation) {
-        result.validate_rule::<HostAddressMustBeValid, String>(
-            "server_address",
-            &self.server_address,
-        );
-        result.validate_rule::<PortMustBeValid, u16>("server_port", &self.server_port);
+        result.validate_rule::<HostAddressMustBeValid>("server_address", &self.server_address);
+        result.validate_rule::<PortMustBeValid>("server_port", &self.server_port);
 
         if self.forward_connection_timeout_seconds == 0 {
             result.add_field_error(
@@ -195,7 +193,7 @@ impl Validatable for TunnelConfiguration {
         }
 
         for (index, proxy) in self.proxies.iter().enumerate() {
-            result.validate_child(&format!("proxies[{}]", index), proxy);
+            result.validate_child(&format!("proxies.{}", index), proxy);
         }
     }
 }

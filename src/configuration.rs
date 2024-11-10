@@ -88,9 +88,9 @@ where
     let validation_result = Validation::validate(&config);
 
     if !validation_result.is_valid() {
-        eprintln!("Configuration is invalid:");
+        eprintln!("Configuration is invalid. Please fix following errors:");
         for error in validation_result.errors() {
-            eprintln!("{}", error);
+            eprintln!("- {}", error);
         }
 
         return Err(std::io::Error::new(

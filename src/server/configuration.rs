@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    fs::exists,
     io::{Error, ErrorKind},
     sync::Arc,
 };
@@ -11,6 +10,10 @@ use crate::{
     common::{
         configuration::ServerEncryption,
         validate::{Validatable, Validation},
+        validate_rules::{
+            FileMustExist, HostAddressMustBeValid, MustBeGreaterThanZero, MustNotBeEmptyString,
+            PortMustBeValid,
+        },
     },
     configuration::TunnelizeConfiguration,
     tunnel::configuration::ProxyConfiguration,
@@ -140,61 +143,48 @@ impl EndpointConfiguration {
 
 impl Validatable for ServerConfiguration {
     fn validate(&self, result: &mut Validation) {
-        if self.server_port == 0 {
-            result.add_field_error(
-                "server_pot",
-                "Server port must be set and must be larger than 0.",
-            );
+        result.validate_rule::<PortMustBeValid>("server_port", &self.server_port);
+
+        if let Some(address) = &self.server_address {
+            result.validate_rule::<HostAddressMustBeValid>("server_address", address);
         }
 
-        if self.max_clients == 0 {
-            result.add_field_error(
-                "max_clients",
-                "Max clients must be set and must be larger than 0.",
-            );
-        }
-
-        if self.max_tunnels == 0 {
-            result.add_field_error(
-                "max_tunnels",
-                "Max tunnels must be set and must be larger than 0.",
-            );
-        }
-
-        if self.max_proxies_per_tunnel == 0 {
-            result.add_field_error(
-                "max_proxies_per_tunnel",
-                "Max proxies per tunnel must be set and must be larger than 0.",
-            );
-        }
-
-        self.encryption.validate(result);
+        result.validate_rule_for::<_, MustBeGreaterThanZero>(
+            "max_tunnel_input_wait",
+            &self.max_tunnel_input_wait,
+        );
 
         if let Some(key) = &self.tunnel_key {
-            if key.is_empty() {
-                result.add_field_error("tunnel_key", "Tunnel key must not be empty.");
-            }
+            result.validate_rule::<MustNotBeEmptyString>("tunnel_key", key);
         }
 
         if let Some(key) = &self.monitor_key {
-            if key.is_empty() {
-                result.add_field_error("monitor_key", "Monitor key must not be empty.");
-            }
+            result.validate_rule::<MustNotBeEmptyString>("monitor_key", key);
         }
 
         for (name, endpoint) in &self.endpoints {
             result.validate_child(&format!("endpoints.{}", name), endpoint);
         }
+
+        result.validate_child("encryption", &self.encryption);
+
+        result.validate_rule_for::<_, MustBeGreaterThanZero>("max_tunnels", &self.max_tunnels);
+        result.validate_rule_for::<_, MustBeGreaterThanZero>("max_clients", &self.max_clients);
+
+        result.validate_rule_for::<_, MustBeGreaterThanZero>(
+            "max_proxies_per_tunnel",
+            &self.max_proxies_per_tunnel,
+        );
     }
 }
 
 impl Validatable for EndpointConfiguration {
     fn validate(&self, result: &mut Validation) {
         match self {
-            Self::Http(config) => config.validate(result),
-            Self::Tcp(config) => config.validate(result),
-            Self::Udp(config) => config.validate(result),
-            Self::Monitoring(config) => config.validate(result),
+            Self::Http(config) => result.validate_child("config", config),
+            Self::Tcp(config) => result.validate_child("config", config),
+            Self::Udp(config) => result.validate_child("config", config),
+            Self::Monitoring(config) => result.validate_child("config", config),
         }
     }
 }
@@ -206,19 +196,8 @@ impl Validatable for EndpointServerEncryption {
             key_path,
         } = self
         {
-            if !exists(cert_path).is_ok() {
-                result.add_error(&format!(
-                    "TLS cert path '{}' does not exist or is invalid.",
-                    cert_path
-                ));
-            }
-
-            if !exists(key_path).is_ok() {
-                result.add_error(&format!(
-                    "TLS key path '{}' does not exist or is invalid.",
-                    key_path
-                ));
-            }
+            result.validate_rule::<FileMustExist>("cert_path", cert_path);
+            result.validate_rule::<FileMustExist>("key_path", key_path);
         }
     }
 }
