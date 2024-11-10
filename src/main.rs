@@ -2,6 +2,7 @@ use common::{
     cli::{parse_command, Commands, InitCommands},
     logger::initialize_logger,
 };
+use configuration::get_default_command;
 use init::init_for;
 use log::{debug, info};
 
@@ -13,9 +14,14 @@ pub mod tunnel;
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
-    let command = parse_command();
+    let command = match parse_command() {
+        Some(command) => command,
+        None => get_default_command(),
+    };
 
     initialize_logger(&command);
+
+    println!("{:?}", command);
 
     if let Err(e) = run_command(command).await {
         debug!("Error running command: {:?}", e.to_string());
