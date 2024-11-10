@@ -81,14 +81,6 @@ pub enum MonitorCommands {
     DisconnectLink { id: Uuid },
 }
 
-pub fn parse_command() -> Commands {
-    let args = Cli::parse();
-
-    args.command.unwrap_or(Commands::Tunnel {
-        config: None,
-        #[cfg(debug_assertions)]
-        verbose: true,
-        #[cfg(not(debug_assertions))]
-        verbose: false,
-    })
+pub fn parse_command() -> Option<Commands> {
+    Cli::parse().command
 }
