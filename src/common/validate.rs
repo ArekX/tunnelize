@@ -6,6 +6,10 @@ pub trait Rule<Value> {
     fn validate(field: &str, value: &Value, result: &mut Validation);
 }
 
+pub trait StatefulRule<Value> {
+    fn validate(&self, field: &str, value: &Value, result: &mut Validation);
+}
+
 pub struct Validation {
     breadcrumbs: Vec<String>,
     errors: Vec<String>,
@@ -32,6 +36,17 @@ impl Validation {
         RuleType: Rule<Value>,
     {
         RuleType::validate(field, value, self);
+    }
+
+    pub fn validate_stateful_rule<RuleType, Value>(
+        &mut self,
+        rule: &RuleType,
+        field: &str,
+        value: &Value,
+    ) where
+        RuleType: StatefulRule<Value>,
+    {
+        rule.validate(field, value, self);
     }
 
     pub fn validate_child(&mut self, breadcrumb: &str, item: &impl Validatable) {

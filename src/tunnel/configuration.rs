@@ -1,5 +1,3 @@
-use std::fs::exists;
-
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -7,7 +5,7 @@ use crate::{
         connection::Connection,
         encryption::ClientEncryptionType,
         tcp_client::create_tcp_client,
-        validate::{Rule, Validatable, Validation},
+        validate::{Validatable, Validation},
         validate_rules::{
             AlphaNumericOnly, FileMustExist, HostAddressMustBeValid, IpAddressMustBeValid,
             PortMustBeValid,
@@ -138,10 +136,7 @@ impl Validatable for TunnelProxy {
             result.add_error("Endpoint name is required.");
         }
 
-        if self.address.is_empty() {
-            result.add_error("Address is required.");
-        }
-
+        result.validate_rule::<HostAddressMustBeValid, String>("address", &self.address);
         result.validate_rule::<PortMustBeValid, u16>("port", &self.port);
 
         result.validate_child("endpoint_config", &self.endpoint_config);
@@ -179,6 +174,10 @@ impl Validatable for ProxyConfiguration {
 
 impl Validatable for TunnelConfiguration {
     fn validate(&self, result: &mut Validation) {
+        result.validate_rule::<HostAddressMustBeValid, String>(
+            "server_address",
+            &self.server_address,
+        );
         result.validate_rule::<PortMustBeValid, u16>("server_port", &self.server_port);
 
         if self.forward_connection_timeout_seconds == 0 {
@@ -198,6 +197,5 @@ impl Validatable for TunnelConfiguration {
         for (index, proxy) in self.proxies.iter().enumerate() {
             result.validate_child(&format!("proxies[{}]", index), proxy);
         }
-        // TODO: Validate other
     }
 }

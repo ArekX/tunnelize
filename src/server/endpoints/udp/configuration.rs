@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-use crate::common::validate::{Validatable, Validation};
+use crate::common::{
+    validate::{Validatable, Validation},
+    validate_rules::{
+        HostAddressMustBeValid, IpTemplateMustBeValid, MustBeGreaterThanZero, PortMustBeValid,
+    },
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UdpEndpointConfig {
@@ -49,9 +54,33 @@ impl From<&UdpEndpointConfig> for UdpPublicEndpointConfig {
 
 impl Validatable for UdpEndpointConfig {
     fn validate(&self, result: &mut Validation) {
-        // TODO: Needs improvement
+        if let Some(address) = &self.address {
+            result.validate_rule::<HostAddressMustBeValid, String>("address", address);
+        }
+
+        if let Some(template) = &self.full_hostname_template {
+            result
+                .validate_rule::<IpTemplateMustBeValid, String>("full_hostname_template", template);
+        }
+
+        result.validate_rule::<MustBeGreaterThanZero, u64>(
+            "inactivity_timeout",
+            &self.inactivity_timeout,
+        );
+
         if self.reserve_ports_from > self.reserve_ports_to {
-            result.add_error("reserve_ports_from must be less than or equal to reserve_ports_to.");
+            result.validate_rule::<PortMustBeValid, u16>(
+                "reserve_ports_from",
+                &self.reserve_ports_from,
+            );
+
+            result
+                .validate_rule::<PortMustBeValid, u16>("reserve_ports_to", &self.reserve_ports_to);
+
+            result.add_field_error(
+                "reserve_ports_from",
+                "reserve_ports_from must be less than reserve_ports_to.",
+            );
         }
     }
 }
