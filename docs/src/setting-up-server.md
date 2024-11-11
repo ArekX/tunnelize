@@ -92,7 +92,7 @@ Supervisor is a process control system that allows you to monitor and control a 
     user=nobody
     ```
 
-    Make sure to replace `/usr/local/bin/tunnelize` with the actual path to the Tunnelize executable and `/path/to/your/config` with the directory where [tunnelize.json](http://_vscodecontentref_/0) is located.
+    Make sure to replace `/usr/local/bin/tunnelize` with the actual path to the Tunnelize executable and `/path/to/your/config` with the directory where `tunnelize.json` is located.
 
 3. **Update Supervisor Configuration:**
 

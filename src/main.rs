@@ -21,8 +21,6 @@ async fn main() -> Result<(), std::io::Error> {
 
     initialize_logger(&command);
 
-    println!("{:?}", command);
-
     if let Err(e) = run_command(command).await {
         debug!("Error running command: {:?}", e.to_string());
         std::process::exit(1);
