@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::validate::{Validatable, Validation};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum ServerEncryption {
     None,
     Tls { cert_path: String, key_path: String },

@@ -40,15 +40,8 @@ impl Validatable for TunnelizeConfiguration {
 }
 
 pub fn get_configuration_path() -> std::result::Result<std::path::PathBuf, std::io::Error> {
-    let exe_path = std::env::current_exe()?;
-    let exe_dir = exe_path.parent().ok_or_else(|| {
-        std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "Failed to get executable directory",
-        )
-    })?;
-
-    Ok(exe_dir.join("tunnelize.json"))
+    let path = PathBuf::from("tunnelize.json");
+    Ok(path)
 }
 
 pub fn write_configuration(configuration: TunnelizeConfiguration) -> Result<()> {
