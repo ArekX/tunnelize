@@ -4,7 +4,7 @@ use common::{
 };
 use configuration::get_default_command;
 use init::init_for;
-use log::{debug, info};
+use log::info;
 
 mod common;
 pub mod configuration;
@@ -22,7 +22,7 @@ async fn main() -> Result<(), std::io::Error> {
     initialize_logger(&command);
 
     if let Err(e) = run_command(command).await {
-        debug!("Error running command: {:?}", e.to_string());
+        println!("Could not run: {}", e.to_string());
         std::process::exit(1);
     }
 

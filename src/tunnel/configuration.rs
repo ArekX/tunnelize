@@ -52,7 +52,7 @@ impl TryFrom<TunnelizeConfiguration> for TunnelConfiguration {
     fn try_from(value: TunnelizeConfiguration) -> Result<Self, Self::Error> {
         match value.tunnel {
             Some(tunnel) => Ok(tunnel),
-            None => Err("Server configuration is required."),
+            None => Err("Tunnel configuration is required."),
         }
     }
 }
