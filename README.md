@@ -20,7 +20,7 @@ Tunnelize is a self-hosted tunnel server and client written in Rust. It provides
 
 User guide and documentation is available at [https://arekx.github.io/tunnelize/](https://arekx.github.io/tunnelize/).
 
-Pure markdown version is in [docs](docs/src/SUMMARY.md) folder.
+Pure markdown version is in [docs](docs/src/SUMMARY.md).
 
 # Building
 
