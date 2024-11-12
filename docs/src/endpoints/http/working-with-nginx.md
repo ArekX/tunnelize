@@ -5,9 +5,9 @@ case tunnelize server will use a HTTP endpoint and it will be proxied through th
 
 ## Configuration without SSL
 
-<div class="warning">
-Make sure your DNS support [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record).
-</div>
+> **Important**
+> 
+> Make sure your DNS support [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record).
 
 Configure your HTTP endpoint similar to this:
 
@@ -73,7 +73,25 @@ map $http_upgrade $connection_upgrade {
 
 ## Configuration with SSL
 
-<div class="warning">
-1. Make sure your DNS support [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record).
-2. Make sure that you have a certificate 
-</div>
+
+> **Important**
+> 
+> Make sure your DNS support [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record). Also make sure
+> that you have a [wildcard certificate setup](../../setting-up-certificates.md#setting-up-certificates-using-lets-encrypt).
+
+Use the same configuration for nginx as above, but with following changes:
+
+```nginx
+server {
+    # ...other settings
+    listen 443 ssl; # change listen to this
+
+    # Add SSL certificates 
+    ssl_certificate /etc/letsencrypt/live/example.com-0001/fullchain.pem; # make sure this path matches to the certificate for certbot
+    ssl_certificate_key /etc/letsencrypt/live/example.com-0001/privkey.pem; # make sure this path matches to the certificate for certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; 
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    #... other settings
+}
+```
