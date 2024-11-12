@@ -2,7 +2,8 @@
 
 - [Introduction](./introduction.md)
 - [Setting up a server](./setting-up-server.md)
-  - [Setup a service](./setup-a-service.md)
+  - [Setting up a service](./setting-up-service.md)
+  - [Setting up certificates](./setting-up-certificates.md)
   - [HTTP endpoint](./endpoints/http/http.md)
     - [Working with nginx](./endpoints/http/working-with-nginx.md)
     - [Working with apache](./endpoints/http/working-with-apache.md)

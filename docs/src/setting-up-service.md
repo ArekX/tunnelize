@@ -1,5 +1,5 @@
 
-# Setting up a server as a service
+# Setting up a service
 
 Tunnelize server will keep running as long as you dont stop it if you do not restart the server.
 To keep it running all of the time it is best to setup a service daemon to run it in background,

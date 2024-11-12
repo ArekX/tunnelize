@@ -79,12 +79,38 @@ that all data passed between tunnel and server is visible to a third party.
 Standard TLS encryption will be used. Keep in mind that in this case Tunnel must also use encryption with a certificate authority (if using self-signed) set or
 with `native-tls` if you are using a known certificate authority like Let's Encrypt.
 
+See [setting up certificates](./setting-up-certificates.md) for information on how to use certificate files.
+
 ## Configuring Endpoints
 
-Endpoints are end connections where tunnelize server listens for clients. Depending on the endpoint type these can be:
+Endpoints are configured as follows:
+
+
+```json
+{
+  "server": {
+    // ... other fields
+    "endpoints": { 
+        "endpoint-name-1": { 
+           "type": "http",
+           // ...configuration for HTTP endpoint
+        },
+        "endpoint-name-2": { 
+           "type": "tcp",
+           // ...configuration for TCP endpoint
+        },
+        // ... other endpoints
+     },
+  }
+}
+```
+
+You can create any number of endpoints to where clients can connect to your local servers. Each endpoint name
+has to be unique as this is the name that your tunnel will send to identify to which endpoint it wants to proxy data
+to.
+
+There are multiple types of endpoints:
 * [HTTP](./endpoints/http.md)
 * [TCP](./endpoints/tcp.md)
 * [UDP](./endpoints/udp.md)
 * [Monitoring](./endpoints/monitoring.md)
-
-See each of the endpoint on how it is configured.

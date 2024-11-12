@@ -18,7 +18,7 @@ connection.
 Default HTTP endpoint configuration looks like this:
 
 ```json
- {
+{
     "type": "http",
     "port": 3457,
     "encryption": {
