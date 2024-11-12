@@ -29,7 +29,7 @@ use super::endpoints::{
 pub enum EndpointServerEncryption {
     None,
     CustomTls { cert_path: String, key_path: String },
-    ServerTls,
+    Tls,
 }
 
 impl EndpointServerEncryption {
@@ -46,7 +46,7 @@ impl EndpointServerEncryption {
                 cert_path: cert_path.clone(),
                 key_path: key_path.clone(),
             }),
-            EndpointServerEncryption::ServerTls => {
+            EndpointServerEncryption::Tls => {
                 let (cert_path, key_path) = match server_config.encryption {
                     ServerEncryption::Tls {
                         ref cert_path,

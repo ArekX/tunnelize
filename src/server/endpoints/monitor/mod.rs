@@ -147,7 +147,7 @@ async fn start_server(
             ref cert_path,
             ref key_path,
         } => start_https_server(address, cert_path, key_path, app).await,
-        EndpointServerEncryption::ServerTls => {
+        EndpointServerEncryption::Tls => {
             let main_config = services.get_config();
 
             let (cert_path, key_path) = match main_config.encryption {
