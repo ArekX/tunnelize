@@ -30,6 +30,7 @@ pub async fn authenticate_tunnel(
         } => {
             services.get_tunnel_data().await.set_tunnel_id(tunnel_id);
 
+            // TODO: Write this out properly
             info!("Tunnel accepted: {}", tunnel_id);
             info!("Endpoints accepted: {:?}", endpoint_info);
         }

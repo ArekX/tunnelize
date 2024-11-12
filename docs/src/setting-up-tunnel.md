@@ -1,4 +1,4 @@
-# Tunneling
+# Setting up a tunnel
 
 Tunneling is the main purpose of tunnelize. It will allow you to tunnel any kind of local data packets from your local 
 through the tunnelize server of your choice up to the desired client.

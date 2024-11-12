@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant Client
+    participant TunnelServer
+    participant TunnelClient
+    participant LocalServer
+
+    Client->>TunnelServer: HTTP Request
+    TunnelServer->>TunnelClient: Forward Request
+    TunnelClient->>LocalServer: Forward Request
+    LocalServer->>TunnelClient: Forward Response
+    TunnelClient->>TunnelServer: Forward Response
+    TunnelServer->>Client: HTTP Response

@@ -1,0 +1,7 @@
+flowchart LR
+    Client -->|1. Request| TunnelServer
+    TunnelServer[Tunnelize Server] -->|2. Forward Request| TunnelClient[Tunnelize Client]
+    TunnelClient -->|3. Forward Request| LocalServer[Your local server]
+    LocalServer -->|4. Forward Response| TunnelClient
+    TunnelClient -->|5. Forward Response| TunnelServer
+    TunnelServer -->|6. Response| Client
