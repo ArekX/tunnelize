@@ -10,4 +10,4 @@
   - [Monitoring endpoint](./endpoints/monitoring.md)
 - [Setting up a tunnel](./setting-up-tunnel.md)
 - [Monitoring](./monitoring.md)
-- [Commands Reference](./commands.md)
+- [Command Reference](./commands.md)
