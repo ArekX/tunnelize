@@ -51,4 +51,10 @@ Fields:
 
 ### Configuring templates
 
-# Making Tunnelize work behind
+# Working with existing HTTP server
+
+If you are using a http server like Apache or nginx it is possible to make tunnelize work with it. See links below
+for your http server:
+
+* [Working with nginx](./working-with-nginx.md)
+* [Working with Apache](./working-with-apache.md)
