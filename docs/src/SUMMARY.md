@@ -10,6 +10,7 @@
   - [TCP endpoint](./endpoints/tcp.md)
   - [UDP endpoint](./endpoints/udp.md)
   - [Monitoring endpoint](./endpoints/monitoring.md)
+  - [Configuring encryption](./endpoints/configuring-encryption.md)
 - [Setting up a tunnel](./setting-up-tunnel.md)
 - [Monitoring](./monitoring.md)
 - [Command Reference](./commands.md)
