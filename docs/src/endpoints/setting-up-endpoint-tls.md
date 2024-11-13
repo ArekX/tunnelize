@@ -1,4 +1,4 @@
-# Configuring encryption
+# Setting up endpoint encryption
 
 Encryption is available for [HTTP](./http/http.md), [TCP](./tcp.md) and [Monitoring](./monitoring.md) endpoints.
 

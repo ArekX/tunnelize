@@ -39,7 +39,7 @@ Fields:
 | allow_desired_port     | Allows the use of a desired port if available. If not available, first available port will be chosen. | No default    |
 | reserve_ports_from     | The starting port of the reserved range for this endpoint.                                            | No default    |
 | reserve_ports_to       | The ending port of the reserved range range for this endpoint.                                        | No default    |
-| encryption             | The type of TLS encryption used. See [configuring encryption](../configuring-encryption.md).          | No default    |
+| encryption             | The type of TLS encryption used. See [configuring encryption](./setting-up-endpoint-tls.md).          | No default    |
 | full_hostname_template | Template for the full hostname with port. See [configuring templates](#configuring-templates) below.  | No default    |
 
 

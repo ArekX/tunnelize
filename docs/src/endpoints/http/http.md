@@ -47,7 +47,7 @@ Fields:
 | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | type                       | The type of the connection. Always `http` for http endpoint.                                                                 | No default                       |
 | port                       | The port number for the connection                                                                                           | No default                       |
-| encryption                 | The type of encryption used to enable HTTPS. See [configuring encryption](../configuring-encryption.md).                     | No default                       |
+| encryption                 | The type of encryption used to enable HTTPS. See [configuring encryption](../setting-up-endpoint-tls.md).                     | No default                       |
 | address                    | The address for the connection to bind to. Defaults to 0.0.0.0 (all interfaces).                                             | 0.0.0.0                          |
 | max_client_input_wait_secs | Maximum amount of seconds on how long to wait between start of TCP connection and first request being sent.                  | 10                               |
 | hostname_template          | Template for the hostname to use when generating a hostname. See [configuring templates](#configuring-templates) below.      | No default                       |
