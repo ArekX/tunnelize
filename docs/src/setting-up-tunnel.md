@@ -60,6 +60,8 @@ Use following options to handle other cases:
 
 # Setting up proxies
 
+Proxies decide what kind of tunneling you want to do on the server.
+
 ## Setting up HTTP
 
 ## Setting up TCP

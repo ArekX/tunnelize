@@ -32,6 +32,30 @@ pub async fn handle(
                     continue;
                 };
 
+                if let Some(desired_name) = desired_name {
+                    if !config.allow_custom_hostnames {
+                        request.respond(RegisterTunnelResponse::Rejected {
+                            reason: "Custom hostnames are not allowed for this endpoint".to_owned(),
+                        });
+                        return Ok(());
+                    }
+
+                    if desired_name.is_empty() {
+                        request.respond(RegisterTunnelResponse::Rejected {
+                            reason: "Desired hostname cannot be empty".to_owned(),
+                        });
+                        return Ok(());
+                    }
+
+                    if desired_name.len() > 20 {
+                        request.respond(RegisterTunnelResponse::Rejected {
+                            reason: "Desired hostname cannot be longer than 20 characters"
+                                .to_owned(),
+                        });
+                        return Ok(());
+                    }
+                }
+
                 let hostname = tunnel_host.register_host(
                     &desired_name,
                     &tunnel_request.tunnel_id,

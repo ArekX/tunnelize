@@ -247,10 +247,15 @@ async fn start_tunnel_session(
 ) {
     let tunnel_id = Uuid::new_v4();
 
-    let Ok((proxies, endpoint_info)) = resolve_endpoint_info(tunnel_id, &request, &services).await
-    else {
-        debug!("Error while resolving endpoint info!");
-        return;
+    let (proxies, endpoint_info) = match resolve_endpoint_info(tunnel_id, &request, &services).await
+    {
+        Ok(data) => data,
+        Err(_) => {
+            response_stream
+                .respond_message(&InitTunnelResponse::Rejected { reason: "".to_owned() })
+                .await;
+            return;
+        }
     };
 
     let (tunnel_session, channel_rx) =
@@ -260,16 +265,12 @@ async fn start_tunnel_session(
 
     info!("Tunnel connected. Assigned ID: {}", tunnel_id);
 
-    if let Err(e) = response_stream
-        .write_message(&InitTunnelResponse::Accepted {
+    response_stream
+        .respond_message(&InitTunnelResponse::Accepted {
             tunnel_id,
             endpoint_info,
         })
-        .await
-    {
-        debug!("Error while sending tunnel accepted message: {:?}", e);
-        return;
-    }
+        .await;
 
     services
         .push_event(ServiceEvent::TunnelConnected {
