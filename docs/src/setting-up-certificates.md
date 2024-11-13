@@ -24,10 +24,9 @@ openssl req -new -x509 -days 365 -key ca.key -out ca.crt \
 
 This will generate a `ca.crt` file which you will will use by the tunnel to validate the server certificate.
 
-<div class="warning">
-Certificates have an expiry time. In this example expiration is set to 1 year.
-</div>
 
+> Certificates have an expiry time. In this example expiration is set to 1 year.
+ 
 Make sure you replace `/C=US/ST=State/L=City/O=YourCA/CN=localhost` with proper values for your certificate, in this
 case a dummy localhost certificate will be created.
 
@@ -196,6 +195,11 @@ Your certificates will be stored at (based on your domain name):
 - Private key: `/etc/letsencrypt/live/your-hostname.com/privkey.pem`
 - Certificate: `/etc/letsencrypt/live/your-hostname.com/fullchain.pem`
 
+> Important
+> 
+> Let's encrypt certificate usually lasts for 90 days, after which you will need to renew it by running the same generate
+> command above and following the process. If your DNS zone has an API, you could automate this process with Certbot
+> [DNS plugins](https://eff-certbot.readthedocs.io/en/stable/using.html#dns-plugins).
 
 Server will need to be configured as: 
 
@@ -226,11 +230,3 @@ Tunnel will need to be configured as:
 
 In this case `native-tls` is used to use your OS certificates because Let's encrypt Certificate Authority (CA) is
 normally trusted by your operating system.
-
-<div class="warning">
-Important
-</div>
-
-Let's encrypt certificate usually lasts for 90 days, after which you will need to renew it by running the same generate
-command above and following the process. If your DNS zone has an API, you could automate this process with Certbot
-[DNS plugins](https://eff-certbot.readthedocs.io/en/stable/using.html#dns-plugins).

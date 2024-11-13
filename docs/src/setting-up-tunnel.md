@@ -57,3 +57,11 @@ Use following options to handle other cases:
     </tr>
   </tbody>
 </table>
+
+# Setting up proxies
+
+## Setting up HTTP
+
+## Setting up TCP
+
+## Setting up UDP
