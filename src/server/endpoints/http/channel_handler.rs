@@ -31,7 +31,6 @@ pub async fn handle(
                     debug!("Proxy session configuration passed is not for Http endpoint");
                     continue;
                 };
-
                 if let Some(desired_name) = desired_name {
                     if !config.allow_custom_hostnames {
                         request.respond(RegisterTunnelResponse::Rejected {

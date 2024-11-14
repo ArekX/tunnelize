@@ -37,6 +37,7 @@ async fn has_monitoring_access(
     request: &ProcessMonitoringRequest,
     config: &Arc<ServerConfiguration>,
 ) -> bool {
+    // TODO: Also check for tunnel key
     if let Some(config_monitor_key) = config.monitor_key.as_ref() {
         if let Some(request_monitor_key) = request.monitor_key.as_ref() {
             return config_monitor_key == request_monitor_key;

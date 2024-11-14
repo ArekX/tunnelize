@@ -58,9 +58,89 @@ Use following options to handle other cases:
   </tbody>
 </table>
 
-# Setting up proxies
+# Configuring a tunnel manually
 
-Proxies decide what kind of tunneling you want to do on the server.
+To configure the tunnel manually, create a `tuhnelize.json` and configure it:
+
+```json
+{
+  "tunnel": {
+    "name": "my-ttunnel",
+    "server_address": "localhost",
+    "server_port": 3456,
+    "forward_connection_timeout_seconds": 5,
+    "encryption": {
+      "type": "none"
+    },
+    "tunnel_key": "changethistunnelkey",
+    "monitor_key": "changethismonitorkey",
+    "proxies": [
+      // ...proxy configuration
+    ]
+  }  
+}
+```
+
+Fields:
+
+| Name                               | Description                                                                           | Default Value    |
+| ---------------------------------- | ------------------------------------------------------------------------------------- | ---------------- |
+| name                               | Name of the tunnel. Optional, helps identify the tunnel in monitoring.                | Empty string     |
+| server_address                     | Hostname or address to the main tunnelize server.                                     | No default       |
+| server_port                        | Port of the server                                                                    | 3456             |
+| forward_connection_timeout_seconds | How much time to wait for first response from your local server before disconnecting. | No default       |
+| encryption                         | Type of encryption. See [configuring encryption](#configuring-encryption) below.      | No default       |
+| tunnel_key                         | Key for the tunnel                                                                    | No key specified |
+| monitor_key                        | Key for monitoring                                                                    | No key specified |
+| proxies                            | Proxy configuration. See [configuring proxies](#configuring-proxies) below.           | No default       |
+
+# Configuring encryption
+
+
+# Configuring proxies
+
+Proxies decide what kind of traffic you want to tunnel. Keep in mind that if tunnelize server is not configured to
+tunnel a specific endpoint, you will not be able to tunnel that kind of traffic. Another thing to note, you will need
+to know names of the endpoints specified in the server in order to use them. If you are hosting the server yourself, 
+that is easy to find out, but if you are using someone else's server, that might be a challenge, in which case you
+should [provision the configuration](#provisioning-via-server-config) via the server.
+
+To setup a proxy, add a new value in proxies array:
+
+```json
+{
+  "tunnel": {
+    "proxies": [
+       {
+        "endpoint_name": "http",
+        "address": "localhost",
+        "port": 8080,
+        "endpoint_config": {
+           // proxy specific endpoint settings
+        }
+      }
+    ]
+  }  
+}
+```
+
+Fields:
+| Name            | Description                                                                               | Default Value |
+| --------------- | ----------------------------------------------------------------------------------------- | ------------- |
+| endpoint_name   | The name of the endpoint of the same type this proxy will forward connections to.         | No default    |
+| address         | The IP address of the server you want to forward connection from.                         | No default    |
+| port            | The port number of server you want to forward connection from.                            | No default    |
+| endpoint_config | Proxy settings to pass to the endpoint. Must be valid values for the endpoint. See below. | No default    |
+
+> Important
+>
+> When defining an endpoint for a proxy, you must make sure that type of the proxy matches the type of the endpoint
+> otherwise, your tunnel connection will be rejected.
+
+You can set up following proxies:
+* HTTP
+* TCP
+* UDP
 
 ## Setting up HTTP
 

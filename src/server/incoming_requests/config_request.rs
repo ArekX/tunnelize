@@ -68,6 +68,7 @@ pub async fn process(
 ) {
     match &request.request {
         ConfigRequest::GetPublicEndpointConfig => {
+            // TODO: Add configuratiom check for tunnel_key and whether the config allows this kind of request
             let endpoints = services.get_endpoint_manager().await.list_endpoints();
 
             let mut results: Vec<PublicEndpointConfig> = vec![];

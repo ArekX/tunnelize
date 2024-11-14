@@ -105,4 +105,93 @@ Configuration looks like this:
 
 # Configuring CORS
 
+CORS (Cross-Origin Resource Sharing) allows you to control which origins are permitted to access resources on your 
+server. This is important for security, especially if your monitoring endpoint is accessed from web applications hosted 
+on different domains.
+
+You can configure CORS in the `allow_cors_origins` field. There are three types of CORS configurations you can set: `any`, `none`, and `list`.
+
+**Allow any origin**
+
+This configuration allows any origin to access the monitoring endpoint.
+
+```json
+{
+    "server":{
+        // ...other fields
+        "endpoints":{
+            "monitoring-endpoint": {
+                // ...other fields
+                "allow_cors_origins": {
+                    "type": "any"
+                }
+            }
+        }
+    }
+}
+```
+
+**Disallow all origins**
+
+This configuration disallows all origins from accessing the monitoring endpoint.
+
+```json
+{
+    "server":{
+        // ...other fields
+        "endpoints":{
+            "monitoring-endpoint": {
+                // ...other fields
+                "allow_cors_origins": {
+                    "type": "none"
+                }
+            }
+        }
+    }
+}
+```
+
+**Allow specific origins**
+
+This configuration allows only specified origins to access the monitoring endpoint. You need to provide a list 
+of allowed origins.
+
+```json
+{
+    "server":{
+        // ...other fields
+        "endpoints":{
+            "monitoring-endpoint": {
+                // ...other fields
+                "allow_cors_origins": {
+                    "type": "list",
+                    "origins": [
+                        "https://example.com",
+                        "https://anotherdomain.com"
+                    ]
+                }
+            }
+        }
+    }
+}
+```
+
+Make sure to configure CORS according to your security requirements to prevent unauthorized access from untrusted 
+origins.
+
 # API endpoints
+
+| Endpoint                | Method | Description                                                           |
+| ----------------------- | ------ | --------------------------------------------------------------------- |
+| /system/info            | GET    | Retrieves system information including CPU usage, memory, and uptime. |
+| /system/endpoints       | GET    | Lists all configured endpoints on the server.                         |
+| /system/endpoints/:name | GET    | Retrieves information about a specific endpoint by name.              |
+| /system/clients         | GET    | Lists all connected clients.                                          |
+| /system/clients/:id     | GET    | Retrieves information about a specific client by ID.                  |
+| /tunnels                | GET    | Lists all active tunnels.                                             |
+| /tunnels/:id            | GET    | Retrieves information about a specific tunnel by ID.                  |
+| /tunnels/:id            | DELETE | Disconnects a specific tunnel by ID.                                  |
+| /links                  | GET    | Lists all active links.                                               |
+| /links/:id              | GET    | Retrieves information about a specific link by ID.                    |
+| /links/:id              | DELETE | Disconnects a specific link by ID.                                    |
+
