@@ -65,7 +65,7 @@ To configure the tunnel manually, create a `tuhnelize.json` and configure it:
 ```json
 {
   "tunnel": {
-    "name": "my-ttunnel",
+    "name": "my-tunnel",
     "server_address": "localhost",
     "server_port": 3456,
     "forward_connection_timeout_seconds": 5,
@@ -87,7 +87,7 @@ Fields:
 | ---------------------------------- | ------------------------------------------------------------------------------------- | ---------------- |
 | name                               | Name of the tunnel. Optional, helps identify the tunnel in monitoring.                | Empty string     |
 | server_address                     | Hostname or address to the main tunnelize server.                                     | No default       |
-| server_port                        | Port of the server                                                                    | 3456             |
+| server_port                        | Port of the server                                                                    | No default       |
 | forward_connection_timeout_seconds | How much time to wait for first response from your local server before disconnecting. | No default       |
 | encryption                         | Type of encryption. See [configuring encryption](#configuring-encryption) below.      | No default       |
 | tunnel_key                         | Key for the tunnel                                                                    | No key specified |
@@ -144,6 +144,84 @@ You can set up following proxies:
 
 ## Setting up HTTP
 
+To setup endpoint config for HTTP, set the following JSON on the HTTP proxy:
+
+```json
+{
+  "tunnel": {
+    // ...other fields
+    "proxies": [
+      {
+         // ...other fields for http proxy
+         "endpoint_config": {
+            "type": "http",
+            "desired_name": "desired-name"
+         }
+      }
+    ]
+  }
+}
+```
+
+Fields:
+| Name         | Description                                                                                                                                                                                                                       | Default Value |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| type         | Type of tunnel. For HTTP endpoint, always http.                                                                                                                                                                                   | No default    |
+| desired_name | Desired name, will be used in `{name}` part in endpoint [hostname template](./endpoints/http/http.md#configuring-templates) which will be assigned to this proxy if allowed and not already taken. Otherwise, it will be ignored. | No value      |
+
 ## Setting up TCP
 
+To setup endpoint config for HTTP, set the following JSON on the HTTP proxy:
+
+```json
+{
+  "tunnel": {
+    // ...other fields
+    "proxies": [
+      {
+         // ...other fields for http proxy
+         "endpoint_config": {
+            "type": "tcp",
+            "desired_port": 1234
+         }
+      }
+    ]
+  }
+}
+```
+
+Fields:
+| Name         | Description                                                                                                        | Default Value |
+| ------------ | ------------------------------------------------------------------------------------------------------------------ | ------------- |
+| type         | Type of tunnel. For TCP endpoint, always tcp.                                                                      | No default    |
+| desired_port | Desired port which will be assigned to this proxy if allowed and not already taken. Otherwise, it will be ignored. | No value      |
+
 ## Setting up UDP
+
+
+To setup endpoint config for HTTP, set the following JSON on the HTTP proxy:
+
+```json
+{
+  "tunnel": {
+    // ...other fields
+    "proxies": [
+      {
+         // ...other fields for http proxy
+         "endpoint_config": {
+            "type": "udp",
+            "desired_port": 1234,
+            "bind_address": "0.0.0.0:0"
+         }
+      }
+    ]
+  }
+}
+```
+
+Fields:
+| Name         | Description                                                                                                                                                  | Default Value |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| type         | Type of tunnel. For UDP endpoint, always udp.                                                                                                                | No default    |
+| desired_port | Desired port which will be assigned to this proxy if allowed and not already taken. Otherwise, it will be ignored.                                           | No value      |
+| bind_address | Bind address and port which will be used to listen to the data from your local UDP server. If not set, random available port on addres 0.0.0.0 will be used. | 0.0.0.0:0     |

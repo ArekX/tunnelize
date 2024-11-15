@@ -109,11 +109,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                             endpoint_name: name,
                             port: http.port,
                             endpoint_config: ProxyConfiguration::Http {
-                                desired_name: http.allow_custom_hostnames.then(|| {
-                                    http.hostname_template
-                                        .replace("{name}", "custom_name")
-                                        .replace("{port}", &http.port.to_string())
-                                }),
+                                desired_name: Some("desired-name".to_owned()),
                             },
                         });
                     }
@@ -175,6 +171,8 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
 
     configuration
 }
+
+// TODO: Add configuration for all endpoints
 
 fn get_default_server_configuration() -> ServerConfiguration {
     let mut configuration = ServerConfiguration {
