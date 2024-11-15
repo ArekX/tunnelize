@@ -2,8 +2,6 @@
 
 HTTP endpoint is a listening point where the Tunnelize server listens for incoming HTTP requests. It allows clients to tunnel local HTTP traffic through the Tunnelize server. 
 
-<img src="../../diagrams/httpendpoint.mermaid.svg" alt="Http tunnel explanation">
-
 Tunnels configured to forward HTTP traffic first connect to the server where they get
 assigned a domain to where a client can connect to through a browser to access the local
 HTTP server.
