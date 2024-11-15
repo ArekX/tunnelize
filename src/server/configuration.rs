@@ -48,11 +48,11 @@ impl EndpointServerEncryption {
             }),
             EndpointServerEncryption::Tls => {
                 let (cert_path, key_path) = match server_config.encryption {
-                    ServerEncryption::Tls {
+                    Some(ServerEncryption::Tls {
                         ref cert_path,
                         ref key_path,
-                    } => (cert_path, key_path),
-                    ServerEncryption::None => {
+                    }) => (cert_path, key_path),
+                    _ => {
                         return Err(Error::new(
                             ErrorKind::InvalidInput,
                             format!("Tunnel server TLS encryption is not set, but is required"),
@@ -71,16 +71,34 @@ impl EndpointServerEncryption {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ServerConfiguration {
-    pub server_port: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_port: Option<u16>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub server_address: Option<String>,
-    pub max_tunnel_input_wait: u16,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_tunnel_input_wait: Option<u16>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tunnel_key: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub monitor_key: Option<String>,
+
     pub endpoints: HashMap<String, EndpointConfiguration>,
-    pub encryption: ServerEncryption,
-    pub max_tunnels: usize,
-    pub max_clients: usize,
-    pub max_proxies_per_tunnel: usize,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encryption: Option<ServerEncryption>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_tunnels: Option<usize>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_clients: Option<usize>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_proxies_per_tunnel: Option<usize>,
 }
 
 impl Into<TunnelizeConfiguration> for ServerConfiguration {
@@ -109,6 +127,30 @@ impl ServerConfiguration {
             .as_ref()
             .map(|s| s.to_owned())
             .unwrap_or_else(|| "0.0.0.0".to_owned())
+    }
+
+    pub fn get_server_port(&self) -> u16 {
+        self.server_port.unwrap_or(3456)
+    }
+
+    pub fn get_max_tunnel_input_wait(&self) -> u16 {
+        self.max_tunnel_input_wait.unwrap_or(30)
+    }
+
+    pub fn get_max_tunnnels(&self) -> usize {
+        self.max_tunnels.unwrap_or(100)
+    }
+
+    pub fn get_max_clients(&self) -> usize {
+        self.max_clients.unwrap_or(100)
+    }
+
+    pub fn get_max_proxies_per_tunnel(&self) -> usize {
+        self.max_proxies_per_tunnel.unwrap_or(10)
+    }
+
+    pub fn get_encryption(&self) -> ServerEncryption {
+        self.encryption.clone().unwrap_or(ServerEncryption::None)
     }
 }
 
@@ -143,7 +185,7 @@ impl EndpointConfiguration {
 
 impl Validatable for ServerConfiguration {
     fn validate(&self, result: &mut Validation) {
-        result.validate_rule::<PortMustBeValid>("server_port", &self.server_port);
+        result.validate_rule::<PortMustBeValid>("server_port", &self.get_server_port());
 
         if let Some(address) = &self.server_address {
             result.validate_rule::<HostAddressMustBeValid>("server_address", address);
@@ -151,7 +193,7 @@ impl Validatable for ServerConfiguration {
 
         result.validate_rule_for::<_, MustBeGreaterThanZero>(
             "max_tunnel_input_wait",
-            &self.max_tunnel_input_wait,
+            &self.get_max_tunnel_input_wait(),
         );
 
         if let Some(key) = &self.tunnel_key {
@@ -166,14 +208,16 @@ impl Validatable for ServerConfiguration {
             result.validate_child(&format!("endpoints.{}", name), endpoint);
         }
 
-        result.validate_child("encryption", &self.encryption);
+        result.validate_child("encryption", &self.get_encryption());
 
-        result.validate_rule_for::<_, MustBeGreaterThanZero>("max_tunnels", &self.max_tunnels);
-        result.validate_rule_for::<_, MustBeGreaterThanZero>("max_clients", &self.max_clients);
+        result
+            .validate_rule_for::<_, MustBeGreaterThanZero>("max_tunnels", &self.get_max_tunnnels());
+        result
+            .validate_rule_for::<_, MustBeGreaterThanZero>("max_clients", &self.get_max_clients());
 
         result.validate_rule_for::<_, MustBeGreaterThanZero>(
             "max_proxies_per_tunnel",
-            &self.max_proxies_per_tunnel,
+            &self.get_max_proxies_per_tunnel(),
         );
     }
 }

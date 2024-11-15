@@ -83,16 +83,16 @@ To configure the tunnel manually, create a `tuhnelize.json` and configure it:
 
 Fields:
 
-| Name                               | Description                                                                           | Default Value    |
-| ---------------------------------- | ------------------------------------------------------------------------------------- | ---------------- |
-| name                               | Name of the tunnel. Optional, helps identify the tunnel in monitoring.                | Empty string     |
-| server_address                     | Hostname or address to the main tunnelize server.                                     | No default       |
-| server_port                        | Port of the server                                                                    | No default       |
-| forward_connection_timeout_seconds | How much time to wait for first response from your local server before disconnecting. | No default       |
-| encryption                         | Type of encryption. See [configuring encryption](#configuring-encryption) below.      | No default       |
-| tunnel_key                         | Key for the tunnel                                                                    | No key specified |
-| monitor_key                        | Key for monitoring                                                                    | No key specified |
-| proxies                            | Proxy configuration. See [configuring proxies](#configuring-proxies) below.           | No default       |
+| Name                               | Description                                                                                      | Default Value    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------- |
+| name                               | Name of the tunnel. Optional, helps identify the tunnel in monitoring.                           | Empty string     |
+| server_address                     | Hostname or address to the main tunnelize server.                                                | No default       |
+| server_port                        | Port of the server                                                                               | 3456             |
+| forward_connection_timeout_seconds | How much time to wait in seconds for first response from your local server before disconnecting. | 30               |
+| encryption                         | Type of encryption. See [configuring encryption](#configuring-encryption) below.                 | No encryption    |
+| tunnel_key                         | Key for the tunnel                                                                               | No key specified |
+| monitor_key                        | Key for monitoring                                                                               | No key specified |
+| proxies                            | Proxy configuration. See [configuring proxies](#configuring-proxies) below.                      | No default       |
 
 # Configuring encryption
 

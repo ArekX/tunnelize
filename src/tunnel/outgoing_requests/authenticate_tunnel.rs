@@ -58,8 +58,6 @@ pub async fn authenticate_tunnel(
                     }
                 );
             }
-
-            // TODO: Implement tunnel --service command. Effectively, runs tunneling in the background, and exposes api for managing the tunnel.
         }
         InitTunnelResponse::Rejected { reason } => {
             return Err(io::Error::new(io::ErrorKind::Other, reason));

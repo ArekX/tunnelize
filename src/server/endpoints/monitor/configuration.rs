@@ -11,10 +11,35 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct MonitorEndpointConfig {
     pub port: u16,
-    pub encryption: EndpointServerEncryption,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encryption: Option<EndpointServerEncryption>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
+
     pub authentication: MonitorAuthentication,
-    pub allow_cors_origins: MonitorOrigin,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_cors_origins: Option<MonitorOrigin>,
+}
+
+impl MonitorEndpointConfig {
+    pub fn get_address(&self) -> String {
+        self.address.clone().unwrap_or_else(|| format!("0.0.0.0"))
+    }
+
+    pub fn get_encryption(&self) -> EndpointServerEncryption {
+        self.encryption
+            .clone()
+            .unwrap_or_else(|| EndpointServerEncryption::None)
+    }
+
+    pub fn get_allow_cors_origins(&self) -> MonitorOrigin {
+        self.allow_cors_origins
+            .clone()
+            .unwrap_or_else(|| MonitorOrigin::Any)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -73,7 +98,7 @@ impl Validatable for MonitorAuthentication {
 impl Validatable for MonitorEndpointConfig {
     fn validate(&self, result: &mut Validation) {
         result.validate_rule::<PortMustBeValid>("port", &self.port);
-        result.validate_child("encryption", &self.encryption);
+        result.validate_child("encryption", &self.get_encryption());
 
         if let Some(address) = &self.address {
             result.validate_rule::<HostAddressMustBeValid>("address", address);

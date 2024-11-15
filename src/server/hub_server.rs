@@ -16,8 +16,8 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
 
     let server = match TcpServer::new(
         config.get_server_address(),
-        config.server_port,
-        config.encryption.clone(),
+        config.get_server_port(),
+        config.get_encryption(),
     )
     .await
     {

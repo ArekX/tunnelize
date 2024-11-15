@@ -10,11 +10,19 @@ use crate::common::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UdpEndpointConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
-    pub allow_desired_port: bool,
-    pub inactivity_timeout: u64,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_desired_port: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inactivity_timeout: Option<u64>,
+
     pub reserve_ports_from: u16,
     pub reserve_ports_to: u16,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub full_hostname_template: Option<String>,
 }
 
@@ -32,6 +40,14 @@ impl UdpEndpointConfig {
 
         self.get_bind_address(port)
     }
+
+    pub fn get_allow_desired_port(&self) -> bool {
+        self.allow_desired_port.clone().unwrap_or_else(|| true)
+    }
+
+    pub fn get_inactivity_timeout(&self) -> u64 {
+        self.inactivity_timeout.clone().unwrap_or_else(|| 300)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -46,7 +62,7 @@ impl From<&UdpEndpointConfig> for UdpPublicEndpointConfig {
     fn from(config: &UdpEndpointConfig) -> Self {
         Self {
             address: config.address.clone(),
-            allow_desired_port: config.allow_desired_port.clone(),
+            allow_desired_port: config.get_allow_desired_port(),
             reserve_ports_from: config.reserve_ports_from.clone(),
             reserve_ports_to: config.reserve_ports_to.clone(),
         }
@@ -68,7 +84,7 @@ impl Validatable for UdpEndpointConfig {
 
         result.validate_rule_for::<_, MustBeGreaterThanZero>(
             "inactivity_timeout",
-            &self.inactivity_timeout,
+            &self.get_inactivity_timeout(),
         );
 
         if self.reserve_ports_from > self.reserve_ports_to {

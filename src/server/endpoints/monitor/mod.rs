@@ -102,7 +102,7 @@ fn start_channel_handler(
 }
 
 fn apply_cors(app: Router, config: &MonitorEndpointConfig) -> Router {
-    match config.allow_cors_origins {
+    match config.get_allow_cors_origins() {
         MonitorOrigin::Any => {
             return app.layer(
                 CorsLayer::new()
@@ -141,7 +141,7 @@ async fn start_server(
     name: String,
     services: Arc<Services>,
 ) -> Result<()> {
-    match config.encryption {
+    match config.get_encryption() {
         EndpointServerEncryption::None => start_http_server(address, app).await,
         EndpointServerEncryption::CustomTls {
             ref cert_path,
@@ -151,11 +151,11 @@ async fn start_server(
             let main_config = services.get_config();
 
             let (cert_path, key_path) = match main_config.encryption {
-                ServerEncryption::Tls {
+                Some(ServerEncryption::Tls {
                     ref cert_path,
                     ref key_path,
-                } => (cert_path, key_path),
-                ServerEncryption::None => {
+                }) => (cert_path, key_path),
+                _ => {
                     return Err(tokio::io::Error::new(
                         tokio::io::ErrorKind::InvalidInput,
                         format!("Tunnel server TLS encryption is not set, but required by monitor '{}' endpoint", name),

@@ -1,16 +1,13 @@
 use std::collections::HashMap;
 
 use crate::{
-    common::{
-        cli::InitCommands, configuration::ServerEncryption, encryption::ClientEncryptionType,
-        tcp_client::create_tcp_client,
-    },
+    common::{cli::InitCommands, encryption::ClientEncryptionType, tcp_client::create_tcp_client},
     configuration::{write_configuration, TunnelizeConfiguration},
     server::{
-        configuration::{EndpointConfiguration, EndpointServerEncryption, ServerConfiguration},
+        configuration::{EndpointConfiguration, ServerConfiguration},
         endpoints::{
             http::configuration::HttpEndpointConfig,
-            monitor::configuration::{MonitorAuthentication, MonitorEndpointConfig, MonitorOrigin},
+            monitor::configuration::{MonitorAuthentication, MonitorEndpointConfig},
             tcp::configuration::TcpEndpointConfig,
             udp::configuration::UdpEndpointConfig,
         },
@@ -19,9 +16,7 @@ use crate::{
             PublicServerEndpointConfig,
         },
     },
-    tunnel::configuration::{
-        ProxyConfiguration, TunnelConfiguration, TunnelEncryption, TunnelProxy,
-    },
+    tunnel::configuration::{ProxyConfiguration, TunnelConfiguration, TunnelProxy},
 };
 
 pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
@@ -93,9 +88,9 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
             let mut tunnel_config = TunnelConfiguration {
                 name: Some("my-tunnel".to_owned()),
                 server_address: address.clone(),
-                server_port: port,
-                forward_connection_timeout_seconds: 5,
-                encryption: encryption.into(),
+                server_port: None,
+                forward_connection_timeout_seconds: None,
+                encryption: Some(encryption.into()),
                 tunnel_key: key,
                 monitor_key: None,
                 proxies: Vec::new(),
@@ -154,10 +149,10 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
     let mut configuration = TunnelConfiguration {
         name: Some("my-tunnel".to_owned()),
         server_address: "localhost".to_owned(),
-        server_port: 3456,
-        forward_connection_timeout_seconds: 5,
-        encryption: TunnelEncryption::None,
-        tunnel_key: Some("changethistunnelkey".to_owned()),
+        server_port: None,
+        forward_connection_timeout_seconds: None,
+        encryption: None,
+        tunnel_key: None,
         monitor_key: Some("changethismonitorkey".to_owned()),
         proxies: Vec::new(),
     };
@@ -176,28 +171,28 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
 
 fn get_default_server_configuration() -> ServerConfiguration {
     let mut configuration = ServerConfiguration {
-        server_port: 3456,
+        server_port: None,
         server_address: None,
         monitor_key: Some("changethismonitorkey".to_owned()),
-        max_tunnel_input_wait: 30,
-        tunnel_key: Some("changethistunnelkey".to_owned()),
+        max_tunnel_input_wait: None,
+        tunnel_key: None,
         endpoints: HashMap::new(),
-        max_tunnels: 50,
-        max_clients: 100,
-        max_proxies_per_tunnel: 10,
-        encryption: ServerEncryption::None,
+        max_tunnels: None,
+        max_clients: None,
+        max_proxies_per_tunnel: None,
+        encryption: None,
     };
 
     configuration.endpoints.insert(
         "http".to_owned(),
         EndpointConfiguration::Http(HttpEndpointConfig {
             port: 3457,
-            encryption: EndpointServerEncryption::None,
+            encryption: None,
             address: None,
-            max_client_input_wait_secs: 10,
+            max_client_input_wait_secs: None,
             hostname_template: "tunnel-{name}.localhost".to_owned(),
             full_url_template: None,
-            allow_custom_hostnames: true,
+            allow_custom_hostnames: None,
             require_authorization: None,
         }),
     );
@@ -205,10 +200,10 @@ fn get_default_server_configuration() -> ServerConfiguration {
     configuration.endpoints.insert(
         "monitor".to_owned(),
         EndpointConfiguration::Monitoring(MonitorEndpointConfig {
-            encryption: EndpointServerEncryption::None,
+            encryption: None,
             port: 3000,
             address: None,
-            allow_cors_origins: MonitorOrigin::Any,
+            allow_cors_origins: None,
             authentication: MonitorAuthentication::Basic {
                 username: "admin".to_owned(),
                 password: "changethispassword".to_owned(),
@@ -221,8 +216,8 @@ fn get_default_server_configuration() -> ServerConfiguration {
         EndpointConfiguration::Tcp(TcpEndpointConfig {
             reserve_ports_from: 4000,
             reserve_ports_to: 4050,
-            allow_desired_port: true,
-            encryption: EndpointServerEncryption::None,
+            allow_desired_port: None,
+            encryption: None,
             full_hostname_template: Some("localhost:{port}".to_owned()),
             address: None,
         }),
@@ -232,9 +227,9 @@ fn get_default_server_configuration() -> ServerConfiguration {
         "udp".to_owned(),
         EndpointConfiguration::Udp(UdpEndpointConfig {
             reserve_ports_from: 5000,
-            allow_desired_port: true,
+            allow_desired_port: None,
             reserve_ports_to: 5050,
-            inactivity_timeout: 20,
+            inactivity_timeout: None,
             full_hostname_template: Some("localhost:{port}".to_owned()),
             address: None,
         }),

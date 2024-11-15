@@ -12,11 +12,19 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TcpEndpointConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
-    pub allow_desired_port: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_desired_port: Option<bool>,
+
     pub reserve_ports_from: u16,
     pub reserve_ports_to: u16,
-    pub encryption: EndpointServerEncryption,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encryption: Option<EndpointServerEncryption>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub full_hostname_template: Option<String>,
 }
 
@@ -38,6 +46,16 @@ impl TcpEndpointConfig {
 
         self.get_bind_address(port)
     }
+
+    pub fn get_allow_desired_port(&self) -> bool {
+        self.allow_desired_port.clone().unwrap_or_else(|| true)
+    }
+
+    pub fn get_encryption(&self) -> EndpointServerEncryption {
+        self.encryption
+            .clone()
+            .unwrap_or_else(|| EndpointServerEncryption::None)
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -52,7 +70,7 @@ impl From<&TcpEndpointConfig> for TcpPublicEndpointConfig {
     fn from(config: &TcpEndpointConfig) -> Self {
         Self {
             address: config.address.clone(),
-            allow_desired_port: config.allow_desired_port.clone(),
+            allow_desired_port: config.get_allow_desired_port(),
             reserve_ports_from: config.reserve_ports_from.clone(),
             reserve_ports_to: config.reserve_ports_to.clone(),
         }
@@ -65,7 +83,7 @@ impl Validatable for TcpEndpointConfig {
             result.validate_rule::<HostAddressMustBeValid>("address", address);
         }
 
-        result.validate_child("encryption", &self.encryption);
+        result.validate_child("encryption", &self.get_encryption());
 
         if let Some(template) = &self.full_hostname_template {
             result.validate_rule::<PortHostnameTemplatemustBeValid>(

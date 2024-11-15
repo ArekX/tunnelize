@@ -16,13 +16,26 @@ use crate::{
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TunnelConfiguration {
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+
     pub server_address: String,
-    pub server_port: u16,
-    pub forward_connection_timeout_seconds: u64,
-    pub encryption: TunnelEncryption,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_port: Option<u16>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forward_connection_timeout_seconds: Option<u64>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encryption: Option<TunnelEncryption>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub tunnel_key: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub monitor_key: Option<String>,
+
     pub proxies: Vec<TunnelProxy>,
 }
 
@@ -30,10 +43,22 @@ impl TunnelConfiguration {
     pub async fn create_tcp_client(&self) -> tokio::io::Result<Connection> {
         create_tcp_client(
             &self.server_address,
-            self.server_port,
-            self.encryption.to_encryption_type(),
+            self.get_server_port(),
+            self.get_encryption().to_encryption_type(),
         )
         .await
+    }
+
+    pub fn get_server_port(&self) -> u16 {
+        self.server_port.unwrap_or(3456)
+    }
+
+    pub fn get_forward_connection_timeout_seconds(&self) -> u64 {
+        self.forward_connection_timeout_seconds.unwrap_or(30)
+    }
+
+    pub fn get_encryption(&self) -> TunnelEncryption {
+        self.encryption.clone().unwrap_or(TunnelEncryption::None)
     }
 }
 
@@ -109,13 +134,17 @@ pub struct TunnelProxy {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProxyConfiguration {
     Http {
+        #[serde(skip_serializing_if = "Option::is_none")]
         desired_name: Option<String>,
     },
     Tcp {
+        #[serde(skip_serializing_if = "Option::is_none")]
         desired_port: Option<u16>,
     },
     Udp {
+        #[serde(skip_serializing_if = "Option::is_none")]
         desired_port: Option<u16>,
+        #[serde(skip_serializing_if = "Option::is_none")]
         bind_address: Option<String>,
     },
 }
@@ -176,16 +205,16 @@ impl Validatable for ProxyConfiguration {
 impl Validatable for TunnelConfiguration {
     fn validate(&self, result: &mut Validation) {
         result.validate_rule::<HostAddressMustBeValid>("server_address", &self.server_address);
-        result.validate_rule::<PortMustBeValid>("server_port", &self.server_port);
+        result.validate_rule::<PortMustBeValid>("server_port", &self.get_server_port());
 
-        if self.forward_connection_timeout_seconds == 0 {
+        if self.get_forward_connection_timeout_seconds() == 0 {
             result.add_field_error(
                 "forward_connection_timeout_seconds",
                 "Forward connection timeout is required.",
             );
         }
 
-        result.validate_child("encryption", &self.encryption);
+        result.validate_child("encryption", &self.get_encryption());
 
         if self.proxies.len() == 0 {
             result.add_field_error("proxies", "At least one proxy is required.");

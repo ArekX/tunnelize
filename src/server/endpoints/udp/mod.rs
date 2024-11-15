@@ -73,7 +73,7 @@ pub async fn start(
 }
 
 async fn start_cleanup_handler(services: Arc<UdpServices>) {
-    let inactivity_timeout = services.get_config().inactivity_timeout;
+    let inactivity_timeout = services.get_config().get_inactivity_timeout();
     let mut interval = interval(Duration::from_secs(inactivity_timeout));
 
     loop {

@@ -27,14 +27,15 @@ Configuration is setup as follows:
 
 Fields:
 
-| Key                    | Description                                                                                           | Default Value |
-| ---------------------- | ----------------------------------------------------------------------------------------------------- | ------------- |
-| type                   | The type of the endpoint, in this case, always UDP.                                                   | No default    |
-| address                | The address to bind to. If not set, 0.0.0.0 will be used, meaning all interfaces.                     | 0.0.0.0       |
-| allow_desired_port     | Allows the use of a desired port if available. If not available, first available port will be chosen. | No default    |
-| reserve_ports_from     | The starting port of the reserved range for this endpoint.                                            | No default    |
-| reserve_ports_to       | The ending port of the reserved range range for this endpoint.                                        | No default    |
-| full_hostname_template | Template for the full hostname with port. See [configuring templates](#configuring-templates) below.  | No default    |
+| Key                    | Description                                                                                                      | Default Value |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------- |
+| type                   | The type of the endpoint, in this case, always UDP.                                                              | No default    |
+| address                | The address to bind to.                                                                                          | 0.0.0.0       |
+| inactivity_timeout     | Amount of time in seconds for how long to wait (from last transmission) until UDP client is considered inactive. | 300           |
+| allow_desired_port     | Allows the use of a desired port if available. If not available, first available port will be chosen.            | true          |
+| reserve_ports_from     | The starting port of the reserved range for this endpoint.                                                       | No default    |
+| reserve_ports_to       | The ending port of the reserved range range for this endpoint.                                                   | No default    |
+| full_hostname_template | Template for the full hostname with port. See [configuring templates](#configuring-templates) below.             | No default    |
 
 ### Configuring templates
 

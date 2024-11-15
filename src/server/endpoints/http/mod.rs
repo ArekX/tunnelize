@@ -36,7 +36,10 @@ pub async fn start(
 ) -> Result<()> {
     let mut tunnel_host = TunnelHost::new(&config);
 
-    let encryption = match config.encryption.to_encryption(&services.get_config()) {
+    let encryption = match config
+        .get_encryption()
+        .to_encryption(&services.get_config())
+    {
         Ok(encryption) => encryption,
         Err(e) => {
             error!("Failed to get server encryption: {}", e);
@@ -106,17 +109,17 @@ pub async fn start(
 }
 
 async fn process_tls_redirection(connection: &mut Connection, config: &HttpEndpointConfig) {
-    let request = match HttpRequestReader::new(connection, config.max_client_input_wait_secs).await
-    {
-        Ok(request) => request,
-        Err(e) => {
-            debug!(
-                "Failed to read request data within allowed time frame: {}",
-                e
-            );
-            return;
-        }
-    };
+    let request =
+        match HttpRequestReader::new(connection, config.get_max_client_input_wait_secs()).await {
+            Ok(request) => request,
+            Err(e) => {
+                debug!(
+                    "Failed to read request data within allowed time frame: {}",
+                    e
+                );
+                return;
+            }
+        };
 
     match request.find_hostname() {
         Some(hostname) => {

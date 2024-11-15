@@ -18,7 +18,7 @@ pub async fn handle(
 ) -> Result<()> {
     
 
-    let request = match HttpRequestReader::new(&mut stream, config.max_client_input_wait_secs).await {
+    let request = match HttpRequestReader::new(&mut stream, config.get_max_client_input_wait_secs()).await {
         Ok(request) => request,
         Err(e) => {
             return Err(Error::new(ErrorKind::Other, e));

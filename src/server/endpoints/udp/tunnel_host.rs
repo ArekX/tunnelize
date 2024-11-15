@@ -23,7 +23,7 @@ impl TunnelHost {
             host_tunnel_map: HashMap::new(),
             max_port: config.reserve_ports_to,
             min_port: config.reserve_ports_from,
-            allow_desired_port: config.allow_desired_port,
+            allow_desired_port: config.get_allow_desired_port(),
         }
     }
 

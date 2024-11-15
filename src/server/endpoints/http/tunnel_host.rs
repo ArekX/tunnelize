@@ -21,7 +21,7 @@ impl TunnelHost {
     pub fn new(config: &HttpEndpointConfig) -> Self {
         Self {
             host_tunnel_map: HashMap::new(),
-            allow_custom_hostnames: config.allow_custom_hostnames,
+            allow_custom_hostnames: config.get_allow_custom_hostnames(),
             hostname_template: config.hostname_template.clone(),
         }
     }

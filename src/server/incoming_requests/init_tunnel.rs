@@ -58,7 +58,7 @@ pub async fn process(
 ) {
     let config = services.get_config();
 
-    if services.get_tunnel_manager().await.get_count() == config.max_tunnels {
+    if services.get_tunnel_manager().await.get_count() == config.get_max_tunnnels() {
         response_stream
             .respond_message(&InitTunnelResponse::Rejected {
                 reason: "Too many tunnels connected".to_string(),
@@ -110,12 +110,12 @@ async fn validate_requested_proxies(
     config: &ServerConfiguration,
     response_stream: &mut Connection,
 ) -> Result<()> {
-    if request.proxies.len() > config.max_proxies_per_tunnel {
+    if request.proxies.len() > config.get_max_proxies_per_tunnel() {
         response_stream
             .respond_message(&InitTunnelResponse::Rejected {
                 reason: format!(
                     "Too many proxies requested. Max allowed: {}",
-                    config.max_proxies_per_tunnel
+                    config.get_max_proxies_per_tunnel()
                 ),
             })
             .await;
@@ -252,7 +252,9 @@ async fn start_tunnel_session(
         Ok(data) => data,
         Err(_) => {
             response_stream
-                .respond_message(&InitTunnelResponse::Rejected { reason: "".to_owned() })
+                .respond_message(&InitTunnelResponse::Rejected {
+                    reason: "".to_owned(),
+                })
                 .await;
             return;
         }

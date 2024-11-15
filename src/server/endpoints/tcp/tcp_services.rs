@@ -23,7 +23,10 @@ impl TcpServices {
         let cancel_token = main_services.get_cancel_token();
         let tunnel_host = Arc::new(Mutex::new(TunnelHost::new(&config)));
 
-        let server_encryption = match config.encryption.to_encryption(&main_services.get_config()) {
+        let server_encryption = match config
+            .get_encryption()
+            .to_encryption(&main_services.get_config())
+        {
             Ok(encryption) => encryption,
             Err(e) => {
                 error!("Failed to get server encryption: {}", e);

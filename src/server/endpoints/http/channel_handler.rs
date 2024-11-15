@@ -32,7 +32,7 @@ pub async fn handle(
                     continue;
                 };
                 if let Some(desired_name) = desired_name {
-                    if !config.allow_custom_hostnames {
+                    if !config.get_allow_custom_hostnames() {
                         request.respond(RegisterTunnelResponse::Rejected {
                             reason: "Custom hostnames are not allowed for this endpoint".to_owned(),
                         });

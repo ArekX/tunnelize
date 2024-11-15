@@ -44,16 +44,16 @@ Fields:
 
 | Field                    | Description                                                                                       | Default Value   |
 | ------------------------ | ------------------------------------------------------------------------------------------------- | --------------- |
-| `server_port`            | Port on which the server listens for tunnel connections.                                          | No default      |
-| `server_address`         | Address to which the server will bind to. Defaults to 0.0.0.0 if not set or null.                 | 0.0.0.0         |
-| `max_tunnel_input_wait`  | Maximum amount of time (in seconds) to wait from tunnel connection to first message from tunnel.  | No default      |
+| `server_port`            | Port on which the server listens for tunnel connections.                                          | 3456            |
+| `server_address`         | Address to which the server will bind to.                                                         | 0.0.0.0         |
+| `max_tunnel_input_wait`  | Maximum amount of time (in seconds) to wait from tunnel connection to first message from tunnel.  | 30              |
 | `tunnel_key`             | Key which tunnel must have in order to be allowed to communicate.                                 | No key required |
 | `monitor_key`            | Key which tunnelize tunnel must have in order to execute monitor commands on the server.          | No key required |
 | `endpoints`              | Configuration for server endpoints. See [endpoints](#configuring-endpoints) for more information. | No default      |
-| `encryption`             | TLS encryption settings. See [encryption](#configuring-encryption)                                | No default      |
-| `max_tunnels`            | Maximum number of tunnels allowed on the server.                                                  | No default      |
-| `max_clients`            | Maximum number of clients allowed on the server.                                                  | No default      |
-| `max_proxies_per_tunnel` | Maximum number of proxies per tunnel allowed.                                                     | No default      |
+| `encryption`             | TLS encryption settings. See [encryption](#configuring-encryption)                                | No encryption   |
+| `max_tunnels`            | Maximum number of tunnels allowed on the server.                                                  | 100             |
+| `max_clients`            | Maximum number of clients allowed on the server.                                                  | 100             |
+| `max_proxies_per_tunnel` | Maximum number of proxies per tunnel allowed.                                                     | 10              |
 
 ## Configuring Encryption
 

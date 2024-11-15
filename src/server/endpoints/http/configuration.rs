@@ -14,12 +14,25 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpEndpointConfig {
     pub port: u16,
-    pub encryption: EndpointServerEncryption,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub encryption: Option<EndpointServerEncryption>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub address: Option<String>,
-    pub max_client_input_wait_secs: u64,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_client_input_wait_secs: Option<u64>,
+
     pub hostname_template: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub full_url_template: Option<String>,
-    pub allow_custom_hostnames: bool,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_custom_hostnames: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub require_authorization: Option<AuthorizeUser>,
 }
 
@@ -53,9 +66,25 @@ impl HttpEndpointConfig {
 
     pub fn get_is_secure(&self) -> bool {
         match &self.encryption {
-            EndpointServerEncryption::None => false,
+            Some(EndpointServerEncryption::None) => false,
             _ => true,
         }
+    }
+
+    pub fn get_encryption(&self) -> EndpointServerEncryption {
+        self.encryption
+            .clone()
+            .unwrap_or_else(|| EndpointServerEncryption::None)
+    }
+
+    pub fn get_max_client_input_wait_secs(&self) -> u64 {
+        self.max_client_input_wait_secs
+            .clone()
+            .unwrap_or_else(|| 300)
+    }
+
+    pub fn get_allow_custom_hostnames(&self) -> bool {
+        self.allow_custom_hostnames.clone().unwrap_or_else(|| true)
     }
 }
 
@@ -81,7 +110,7 @@ impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
             port: config.port,
             is_secure: config.get_is_secure(),
             address: config.address.clone(),
-            allow_custom_hostnames: config.allow_custom_hostnames,
+            allow_custom_hostnames: config.get_allow_custom_hostnames(),
             hostname_template: config.hostname_template.clone(),
         }
     }
@@ -105,11 +134,11 @@ impl Validatable for HttpEndpointConfig {
         }
         result.validate_rule::<PortMustBeValid>("port", &self.port);
 
-        result.validate_child("encryption", &self.encryption);
+        result.validate_child("encryption", &self.get_encryption());
 
         result.validate_rule_for::<_, MustBeGreaterThanZero>(
             "max_client_input_wait_secs",
-            &self.max_client_input_wait_secs,
+            &self.get_max_client_input_wait_secs(),
         );
 
         result.validate_rule::<HostnameTemplatemustBeValid>(

@@ -21,7 +21,7 @@ pub async fn start_link_session(
 
     info!("Starting link session.");
     let (mut forward_connection, context) = match timeout(
-        Duration::from_secs(config.forward_connection_timeout_seconds),
+        Duration::from_secs(config.get_forward_connection_timeout_seconds()),
         services
             .get_proxy_manager()
             .await
