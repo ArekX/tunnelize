@@ -24,7 +24,7 @@ use super::endpoints::{
     tcp::configuration::TcpEndpointConfig, udp::configuration::UdpEndpointConfig,
 };
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum EndpointServerEncryption {
     None,

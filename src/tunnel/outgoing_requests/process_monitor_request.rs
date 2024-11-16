@@ -15,6 +15,7 @@ pub async fn process_monitor_request(
         .request_message(ProcessMonitoringRequest {
             command,
             monitor_key: config.monitor_key.clone(),
+            tunnel_key: config.tunnel_key.clone(),
         })
         .await?;
 

@@ -138,3 +138,123 @@ impl HandleServiceEvent for LinkManager {
         };
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio_util::sync::CancellationToken;
+
+    fn create_test_client_info() -> ClientInfo {
+        ClientInfo {
+            id: Uuid::new_v4(),
+            endpoint_name: "test_endpoint".to_string(),
+        }
+    }
+
+    fn create_test_link_manager() -> LinkManager {
+        LinkManager::new()
+    }
+
+    #[test]
+    fn test_create_link_session() {
+        let mut manager = create_test_link_manager();
+        let client = create_test_client_info();
+        let tunnel_id = Uuid::new_v4();
+        let cancellation_token = CancellationToken::new();
+
+        let session_id =
+            manager.create_link_session(tunnel_id, client.clone(), cancellation_token.clone());
+
+        assert!(manager.link_sessions.contains_key(&session_id));
+        let session = manager.link_sessions.get(&session_id).unwrap();
+        assert_eq!(session.client.id, client.id);
+        assert_eq!(session.tunnel_id, tunnel_id);
+    }
+
+    #[test]
+    fn test_resolve_tunnel_session_client() {
+        let mut manager = create_test_link_manager();
+        let client = create_test_client_info();
+        let tunnel_id = Uuid::new_v4();
+        let cancellation_token = CancellationToken::new();
+
+        let session_id =
+            manager.create_link_session(tunnel_id, client.clone(), cancellation_token.clone());
+
+        let result = manager.resolve_tunnel_session_client(&session_id, &tunnel_id);
+        assert!(result.is_some());
+        let (resolved_client_id, _) = result.unwrap();
+        assert_eq!(resolved_client_id, client.id);
+    }
+
+    #[test]
+    fn test_remove_session() {
+        let mut manager = create_test_link_manager();
+        let client = create_test_client_info();
+        let tunnel_id = Uuid::new_v4();
+        let cancellation_token = CancellationToken::new();
+
+        let session_id = manager.create_link_session(tunnel_id, client, cancellation_token);
+        manager.remove_session(&session_id);
+
+        assert!(!manager.link_sessions.contains_key(&session_id));
+    }
+
+    #[test]
+    fn test_get_count() {
+        let mut manager = create_test_link_manager();
+        assert_eq!(manager.get_count(), 0);
+
+        let client = create_test_client_info();
+        let tunnel_id = Uuid::new_v4();
+        let cancellation_token = CancellationToken::new();
+
+        manager.create_link_session(tunnel_id, client, cancellation_token);
+        assert_eq!(manager.get_count(), 1);
+    }
+
+    #[test]
+    fn test_list_all_sessions() {
+        let mut manager = create_test_link_manager();
+        let client = create_test_client_info();
+        let tunnel_id = Uuid::new_v4();
+        let cancellation_token = CancellationToken::new();
+
+        let session_id = manager.create_link_session(tunnel_id, client.clone(), cancellation_token);
+        let sessions = manager.list_all_sessions();
+
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].id, session_id);
+        assert_eq!(sessions[0].endpoint_name, client.endpoint_name);
+        assert_eq!(sessions[0].tunnel_id, tunnel_id);
+    }
+
+    #[test]
+    fn test_get_session_info() {
+        let mut manager = create_test_link_manager();
+        let client = create_test_client_info();
+        let tunnel_id = Uuid::new_v4();
+        let cancellation_token = CancellationToken::new();
+
+        let session_id = manager.create_link_session(tunnel_id, client.clone(), cancellation_token);
+        let session_info = manager.get_session_info(&session_id);
+
+        assert!(session_info.is_some());
+        let session_info = session_info.unwrap();
+        assert_eq!(session_info.id, session_id);
+        assert_eq!(session_info.endpoint_name, client.endpoint_name);
+        assert_eq!(session_info.tunnel_id, tunnel_id);
+    }
+
+    #[test]
+    fn test_cancel_session() {
+        let mut manager = create_test_link_manager();
+        let client = create_test_client_info();
+        let tunnel_id = Uuid::new_v4();
+        let cancellation_token = CancellationToken::new();
+
+        let session_id = manager.create_link_session(tunnel_id, client, cancellation_token.clone());
+        assert!(manager.cancel_session(&session_id).is_ok());
+        assert!(cancellation_token.is_cancelled());
+    }
+}

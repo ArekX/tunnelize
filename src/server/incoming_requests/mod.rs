@@ -8,6 +8,7 @@ mod config_request;
 mod init_link;
 mod init_tunnel;
 mod monitoring_request;
+mod access;
 
 pub use config_request::{
     ConfigRequest, ProcessConfigRequest, ProcessConfigResponse, PublicEndpointConfig,

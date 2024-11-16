@@ -98,3 +98,101 @@ impl Validatable for UdpEndpointConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn get_config() -> UdpEndpointConfig {
+        UdpEndpointConfig {
+            address: Some("127.0.0.1".to_string()),
+            allow_desired_port: Some(true),
+            inactivity_timeout: Some(300),
+            reserve_ports_from: 1000,
+            reserve_ports_to: 2000,
+            full_hostname_template: Some("host:{port}".to_string()),
+        }
+    }
+
+    #[test]
+    fn test_get_bind_address() {
+        let config = get_config();
+        assert_eq!(config.get_bind_address(8080), "127.0.0.1:8080");
+    }
+
+    #[test]
+    fn test_get_assigned_hostname_with_template() {
+        let config = get_config();
+        assert_eq!(config.get_assigned_hostname(8080), "host:8080");
+    }
+
+    #[test]
+    fn test_get_assigned_hostname_without_template() {
+        let mut config = get_config();
+        config.full_hostname_template = None;
+        assert_eq!(config.get_assigned_hostname(8080), "127.0.0.1:8080");
+    }
+
+    #[test]
+    fn test_get_allow_desired_port() {
+        let config = get_config();
+        assert!(config.get_allow_desired_port());
+    }
+
+    #[test]
+    fn test_get_allow_desired_port_default() {
+        let mut config = get_config();
+        config.allow_desired_port = None;
+        assert!(config.get_allow_desired_port());
+    }
+
+    #[test]
+    fn test_get_inactivity_timeout() {
+        let config = get_config();
+        assert_eq!(config.get_inactivity_timeout(), 300);
+    }
+
+    #[test]
+    fn test_get_inactivity_timeout_default() {
+        let mut config = get_config();
+        config.inactivity_timeout = None;
+        assert_eq!(config.get_inactivity_timeout(), 300);
+    }
+
+    #[test]
+    fn test_udp_public_endpoint_config_from() {
+        let config = get_config();
+        let public_config: UdpPublicEndpointConfig = (&config).into();
+        assert_eq!(public_config.address, Some("127.0.0.1".to_string()));
+        assert!(public_config.allow_desired_port);
+        assert_eq!(public_config.reserve_ports_from, 1000);
+        assert_eq!(public_config.reserve_ports_to, 2000);
+    }
+
+    #[test]
+    fn test_validate() {
+        let config = get_config();
+        let mut validation = Validation::new();
+        config.validate(&mut validation);
+        assert!(validation.is_valid());
+    }
+
+    #[test]
+    fn test_validate_invalid_address() {
+        let mut config = get_config();
+        config.address = Some("invalid_address".to_string());
+        let mut validation = Validation::new();
+        config.validate(&mut validation);
+        assert!(!validation.is_valid());
+    }
+
+    #[test]
+    fn test_validate_invalid_ports() {
+        let mut config = get_config();
+        config.reserve_ports_from = 3000;
+        config.reserve_ports_to = 2000;
+        let mut validation = Validation::new();
+        config.validate(&mut validation);
+        assert!(!validation.is_valid());
+    }
+}

@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use log::error;
+
 use crate::{
     common::{cli::InitCommands, encryption::ClientEncryptionType, tcp_client::create_tcp_client},
     configuration::{write_configuration, TunnelizeConfiguration},
@@ -42,7 +44,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 return Ok(());
             };
 
-            println!("Connecting to server at {}", server_address);
+            println!("Connecting to: {}", server_address);
 
             if server_address.starts_with("http://") || server_address.starts_with("https://") {
                 server_address = server_address
@@ -70,7 +72,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
             let mut connection = match create_tcp_client(&address, port, encryption.clone()).await {
                 Ok(connection) => connection,
                 Err(e) => {
-                    eprintln!("Failed to connect to server: {}", e);
+                    error!("Could not retrieve configuration: {}", e);
                     return Err(std::io::Error::new(
                         std::io::ErrorKind::Other,
                         "Failed to connect to server",
@@ -78,12 +80,22 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 }
             };
 
-            let ProcessConfigResponse::GetPublicEndpointConfig(endpoint_config) = connection
+            let endpoint_config = match connection
                 .request_message(ProcessConfigRequest {
                     tunnel_key: key.clone(),
                     request: ConfigRequest::GetPublicEndpointConfig,
                 })
-                .await?;
+                .await?
+            {
+                ProcessConfigResponse::GetPublicEndpointConfig(config) => config,
+                ProcessConfigResponse::AccessDenied => {
+                    error!("Could not retrieve configuration: Access denied, please check your tunnel key.");
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "Access denied. Please check your tunnel key.",
+                    ));
+                }
+            };
 
             let mut tunnel_config = TunnelConfiguration {
                 name: Some("my-tunnel".to_owned()),

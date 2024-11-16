@@ -62,8 +62,12 @@ impl Validation {
 
     pub fn add_error(&mut self, error: &str) {
         self.errors.push(format!(
-            "{}: {}",
-            self.breadcrumbs.join("."),
+            "{}{}",
+            if self.breadcrumbs.is_empty() {
+                "".to_owned()
+            } else {
+                format!("{}: ", self.breadcrumbs.join("."))
+            },
             error.to_owned()
         ));
     }
@@ -84,5 +88,101 @@ impl Validation {
 
     pub fn errors(&self) -> &Vec<String> {
         &self.errors
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct TestValidatable {
+        is_valid: bool,
+    }
+
+    impl Validatable for TestValidatable {
+        fn validate(&self, result: &mut Validation) {
+            if !self.is_valid {
+                result.add_error("TestValidatable is invalid");
+            }
+        }
+    }
+
+    struct TestRule;
+
+    impl Rule for TestRule {
+        type Value = bool;
+
+        fn validate(field: &str, value: &Self::Value, result: &mut Validation) {
+            if !value {
+                result.add_field_error(field, "TestRule validation failed");
+            }
+        }
+    }
+
+    struct TestRuleFor;
+
+    impl RuleFor<bool> for TestRuleFor {
+        fn validate(field: &str, value: &bool, result: &mut Validation) {
+            if !value {
+                result.add_field_error(field, "TestRuleFor validation failed");
+            }
+        }
+    }
+
+    #[test]
+    fn test_validatable() {
+        let valid_item = TestValidatable { is_valid: true };
+        let invalid_item = TestValidatable { is_valid: false };
+
+        let valid_result = Validation::validate(&valid_item);
+        let invalid_result = Validation::validate(&invalid_item);
+
+        assert!(valid_result.is_valid());
+        assert!(!invalid_result.is_valid());
+        assert_eq!(invalid_result.errors(), &vec!["TestValidatable is invalid"]);
+    }
+
+    #[test]
+    fn test_rule() {
+        let mut validation = Validation::new();
+        validation.validate_rule::<TestRule>("test_field", &true);
+        assert!(validation.is_valid());
+        validation.validate_rule::<TestRule>("test_field", &false);
+
+        assert!(!validation.is_valid());
+        assert_eq!(validation.errors().len(), 1);
+        assert_eq!(
+            validation.errors()[0],
+            "test_field: TestRule validation failed"
+        );
+    }
+
+    #[test]
+    fn test_rule_for() {
+        let mut validation = Validation::new();
+        validation.validate_rule_for::<bool, TestRuleFor>("test_field", &true);
+        assert!(validation.is_valid());
+        validation.validate_rule_for::<bool, TestRuleFor>("test_field", &false);
+
+        assert!(!validation.is_valid());
+        assert_eq!(validation.errors().len(), 1);
+        assert_eq!(
+            validation.errors()[0],
+            "test_field: TestRuleFor validation failed"
+        );
+    }
+
+    #[test]
+    fn test_validate_child() {
+        let parent = TestValidatable { is_valid: true };
+        let child = TestValidatable { is_valid: false };
+
+        let mut validation = Validation::new();
+        validation.validate_child("parent", &parent);
+        validation.validate_child("child", &child);
+
+        assert!(!validation.is_valid());
+        assert_eq!(validation.errors().len(), 1);
+        assert_eq!(validation.errors()[0], "child: TestValidatable is invalid");
     }
 }

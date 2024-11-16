@@ -22,7 +22,7 @@ async fn main() -> Result<(), std::io::Error> {
     initialize_logger(&command);
 
     if let Err(e) = run_command(command).await {
-        println!("Could not run: {}", e.to_string());
+        info!("Command failed. Reason: {}", e.to_string());
         std::process::exit(1);
     }
 

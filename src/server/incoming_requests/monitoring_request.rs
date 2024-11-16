@@ -5,16 +5,18 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::{cli::MonitorCommands, connection::Connection},
     server::{
-        configuration::ServerConfiguration,
         monitoring::{self, Records, SystemInfo},
         services::{ClientInfo, EndpointInfo, LinkInfo, Services, TunnelInfo},
     },
 };
 
+use super::access::{has_monitoring_access, has_tunnel_access};
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProcessMonitoringRequest {
     pub command: MonitorCommands,
     pub monitor_key: Option<String>,
+    pub tunnel_key: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -33,30 +35,12 @@ pub enum ProcessMonitoringResponse {
     Rejected { reason: String },
 }
 
-async fn has_monitoring_access(
-    request: &ProcessMonitoringRequest,
-    config: &Arc<ServerConfiguration>,
-) -> bool {
-    // TODO: Also check for tunnel key
-    if let Some(config_monitor_key) = config.monitor_key.as_ref() {
-        if let Some(request_monitor_key) = request.monitor_key.as_ref() {
-            return config_monitor_key == request_monitor_key;
-        }
-
-        return false;
-    }
-
-    true
-}
-
 pub async fn process(
     services: Arc<Services>,
     request: ProcessMonitoringRequest,
     mut response_stream: Connection,
     address: SocketAddr,
 ) {
-    let config = services.get_config();
-
     let ip_address = address.ip();
 
     if services.get_bfp_manager().await.is_locked(&ip_address) {
@@ -70,7 +54,19 @@ pub async fn process(
         return;
     }
 
-    if !has_monitoring_access(&request, &config).await {
+    if !has_tunnel_access(&services, request.tunnel_key.as_ref()) {
+        services.get_bfp_manager().await.log_ip_attempt(&ip_address);
+        response_stream
+            .respond_message(&ProcessMonitoringResponse::Rejected {
+                reason: "Access denied. Invalid monitor key.".to_string(),
+            })
+            .await;
+
+        response_stream.shutdown().await;
+        return;
+    }
+
+    if !has_monitoring_access(&services, request.monitor_key.as_ref()) {
         services.get_bfp_manager().await.log_ip_attempt(&ip_address);
         response_stream
             .respond_message(&ProcessMonitoringResponse::Rejected {

@@ -103,3 +103,70 @@ impl Validatable for TcpEndpointConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::configuration::EndpointServerEncryption;
+
+    fn create_config(
+        address: Option<&str>,
+        allow_desired_port: Option<bool>,
+        encryption: Option<EndpointServerEncryption>,
+        full_hostname_template: Option<&str>,
+    ) -> TcpEndpointConfig {
+        TcpEndpointConfig {
+            address: address.map(|s| s.to_string()),
+            allow_desired_port,
+            reserve_ports_from: 8000,
+            reserve_ports_to: 9000,
+            encryption,
+            full_hostname_template: full_hostname_template.map(|s| s.to_string()),
+        }
+    }
+
+    #[test]
+    fn test_get_bind_address() {
+        let config = create_config(Some("127.0.0.1"), None, None, None);
+        assert_eq!(config.get_bind_address(8080), "127.0.0.1:8080");
+
+        let config = create_config(None, None, None, None);
+        assert_eq!(config.get_bind_address(8080), "0.0.0.0:8080");
+    }
+
+    #[test]
+    fn test_get_address() {
+        let config = create_config(Some("127.0.0.1"), None, None, None);
+        assert_eq!(config.get_address(), "127.0.0.1");
+
+        let config = create_config(None, None, None, None);
+        assert_eq!(config.get_address(), "0.0.0.0");
+    }
+
+    #[test]
+    fn test_get_assigned_hostname() {
+        let config = create_config(None, None, None, Some("host-{port}"));
+        assert_eq!(config.get_assigned_hostname(8080), "host-8080");
+
+        let config = create_config(None, None, None, None);
+        assert_eq!(config.get_assigned_hostname(8080), "0.0.0.0:8080");
+    }
+
+    #[test]
+    fn test_get_allow_desired_port() {
+        let config = create_config(None, Some(true), None, None);
+        assert!(config.get_allow_desired_port());
+
+        let config = create_config(None, None, None, None);
+        assert!(config.get_allow_desired_port());
+    }
+
+    #[test]
+    fn test_get_encryption() {
+        let config = create_config(None, None, Some(EndpointServerEncryption::Tls), None);
+        assert_eq!(config.get_encryption(), EndpointServerEncryption::Tls);
+
+        let config = create_config(None, None, None, None);
+        assert_eq!(config.get_encryption(), EndpointServerEncryption::None);
+    }
+}

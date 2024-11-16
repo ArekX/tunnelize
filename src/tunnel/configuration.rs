@@ -82,7 +82,7 @@ impl TryFrom<TunnelizeConfiguration> for TunnelConfiguration {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TunnelEncryption {
     None,
@@ -224,5 +224,118 @@ impl Validatable for TunnelConfiguration {
         for (index, proxy) in self.proxies.iter().enumerate() {
             result.validate_child(&format!("proxies.{}", index), proxy);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::encryption::ClientEncryptionType;
+
+    fn create_test_tunnel_configuration() -> TunnelConfiguration {
+        TunnelConfiguration {
+            name: Some("test_tunnel".to_string()),
+            server_address: "127.0.0.1".to_string(),
+            server_port: Some(8080),
+            forward_connection_timeout_seconds: Some(60),
+            encryption: Some(TunnelEncryption::None),
+            tunnel_key: Some("test_key".to_string()),
+            monitor_key: Some("monitor_key".to_string()),
+            proxies: vec![TunnelProxy {
+                endpoint_name: "test_proxy".to_string(),
+                address: "127.0.0.1".to_string(),
+                port: 8081,
+                endpoint_config: ProxyConfiguration::Http {
+                    desired_name: Some("test_http".to_string()),
+                },
+            }],
+        }
+    }
+
+    #[test]
+    fn test_get_server_port() {
+        let config = create_test_tunnel_configuration();
+        assert_eq!(config.get_server_port(), 8080);
+
+        let config = TunnelConfiguration {
+            server_port: None,
+            ..create_test_tunnel_configuration()
+        };
+        assert_eq!(config.get_server_port(), 3456);
+    }
+
+    #[test]
+    fn test_get_forward_connection_timeout_seconds() {
+        let config = create_test_tunnel_configuration();
+        assert_eq!(config.get_forward_connection_timeout_seconds(), 60);
+
+        let config = TunnelConfiguration {
+            forward_connection_timeout_seconds: None,
+            ..create_test_tunnel_configuration()
+        };
+        assert_eq!(config.get_forward_connection_timeout_seconds(), 30);
+    }
+
+    #[test]
+    fn test_get_encryption() {
+        let config = create_test_tunnel_configuration();
+        assert_eq!(config.get_encryption(), TunnelEncryption::None);
+
+        let config = TunnelConfiguration {
+            encryption: Some(TunnelEncryption::Tls {
+                cert: "path/to/cert".to_string(),
+            }),
+            ..create_test_tunnel_configuration()
+        };
+        assert_eq!(
+            config.get_encryption(),
+            TunnelEncryption::Tls {
+                cert: "path/to/cert".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_tunnel_encryption_to_encryption_type() {
+        let encryption = TunnelEncryption::None;
+        assert_eq!(encryption.to_encryption_type(), None);
+
+        let encryption = TunnelEncryption::Tls {
+            cert: "path/to/cert".to_string(),
+        };
+        assert_eq!(
+            encryption.to_encryption_type(),
+            Some(ClientEncryptionType::CustomTls {
+                ca_cert_path: "path/to/cert".to_string()
+            })
+        );
+
+        let encryption = TunnelEncryption::NativeTls;
+        assert_eq!(
+            encryption.to_encryption_type(),
+            Some(ClientEncryptionType::NativeTls)
+        );
+    }
+
+    #[test]
+    fn test_tunnel_encryption_from_client_encryption_type() {
+        let encryption = Some(ClientEncryptionType::CustomTls {
+            ca_cert_path: "path/to/cert".to_string(),
+        });
+        assert_eq!(
+            TunnelEncryption::from(encryption),
+            TunnelEncryption::Tls {
+                cert: "path/to/cert".to_string()
+            }
+        );
+
+        let encryption = Some(ClientEncryptionType::NativeTls);
+        assert_eq!(
+            TunnelEncryption::from(encryption),
+            TunnelEncryption::NativeTls
+        );
+
+        let encryption = None;
+        assert_eq!(TunnelEncryption::from(encryption), TunnelEncryption::None);
     }
 }

@@ -72,3 +72,95 @@ impl ChannelSocket {
         self.socket_rx.close();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::sync::mpsc;
+    use tokio_util::sync::CancellationToken;
+
+    #[tokio::test]
+    async fn test_channel_socket_new() {
+        let (tx, _rx) = mpsc::channel(1);
+        let cancel_token = CancellationToken::new();
+        let socket = ChannelSocket::new(tx, cancel_token);
+
+        assert_eq!(socket.socket_rx.capacity(), 1);
+        assert_eq!(socket.socket_tx.capacity(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_channel_socket_get_id() {
+        let (tx, _rx) = mpsc::channel(1);
+        let cancel_token = CancellationToken::new();
+        let socket = ChannelSocket::new(tx, cancel_token);
+
+        assert!(!socket.get_id().is_nil());
+    }
+
+    #[tokio::test]
+    async fn test_channel_socket_send() {
+        let (tx, mut rx) = mpsc::channel(1);
+        let cancel_token = CancellationToken::new();
+        let socket = ChannelSocket::new(tx, cancel_token);
+
+        let data = vec![1, 2, 3];
+        socket.send(data.clone()).await.unwrap();
+
+        let received = rx.recv().await.unwrap();
+        assert_eq!(received.1, data);
+    }
+
+    #[tokio::test]
+    async fn test_channel_socket_receive() {
+        let (tx, _rx) = mpsc::channel(1);
+        let cancel_token = CancellationToken::new();
+        let mut socket = ChannelSocket::new(tx, cancel_token);
+
+        let data = vec![1, 2, 3];
+
+        let socket_tx = socket.get_socket_tx();
+
+        socket_tx.send(data.clone()).await.unwrap();
+
+        let received = socket.receive().await.unwrap();
+        assert_eq!(received, data);
+    }
+
+    #[tokio::test]
+    async fn test_channel_socket_receive_cancelled() {
+        let (tx, _rx) = mpsc::channel(1);
+        let cancel_token = CancellationToken::new();
+        let mut socket = ChannelSocket::new(tx, cancel_token.clone());
+
+        cancel_token.cancel();
+        let result = socket.receive().await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().kind(), ErrorKind::ConnectionAborted);
+    }
+
+    #[tokio::test]
+    async fn test_top_channel_receives_written_data() {
+        let (tx, mut rx) = mpsc::channel(1);
+        let cancel_token = CancellationToken::new();
+        let socket = ChannelSocket::new(tx, cancel_token);
+
+        let data = vec![1, 2, 3];
+        socket.send(data.clone()).await.unwrap();
+
+        let received = rx.recv().await.unwrap();
+        assert_eq!(received.0, socket.get_id());
+        assert_eq!(received.1, data);
+    }
+
+    #[tokio::test]
+    async fn test_channel_socket_shutdown() {
+        let (tx, _rx) = mpsc::channel(1);
+        let cancel_token = CancellationToken::new();
+        let mut socket = ChannelSocket::new(tx, cancel_token);
+
+        socket.shutdown();
+        assert!(socket.socket_rx.is_closed());
+    }
+}

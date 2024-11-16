@@ -11,3 +11,29 @@ pub fn get_random_letters(max: i32) -> String {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_random_letters_length() {
+        let result = get_random_letters(10);
+        assert_eq!(result.len(), 10);
+    }
+
+    #[test]
+    fn test_get_random_letters_content() {
+        let result = get_random_letters(10);
+        for c in result.chars() {
+            assert!(CHARACTER_SET.contains(&(c as u8)));
+        }
+    }
+
+    #[test]
+    fn test_get_random_letters_zero_length() {
+        let result = get_random_letters(0);
+        assert_eq!(result.len(), 0);
+    }
+}
+

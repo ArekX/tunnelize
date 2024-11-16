@@ -33,7 +33,11 @@ impl HttpRequestReader {
             }
         };
 
-        Ok(Self { request })
+        Ok(Self::new_from_string(request))
+    }
+
+    pub fn new_from_string(request: String) -> Self {
+        Self { request }
     }
 
     pub fn find_hostname(&self) -> Option<String> {
@@ -88,6 +92,7 @@ impl HttpRequestReader {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub enum HttpStatusCode {
     Unauthorized,
     MovedPermanently,
@@ -193,5 +198,114 @@ impl HttpResponseBuilder {
 
     pub fn build_bytes(&self) -> Vec<u8> {
         self.build().into_bytes()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_http_request_reader(request: &str) -> HttpRequestReader {
+        HttpRequestReader::new_from_string(request.to_string())
+    }
+
+    fn create_http_response_builder(
+        status_code: HttpStatusCode,
+        body: &str,
+    ) -> HttpResponseBuilder {
+        HttpResponseBuilder::new(status_code, body)
+    }
+
+    #[tokio::test]
+    async fn test_http_request_reader_new() {
+        let request = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let reader = create_http_request_reader(request);
+        assert_eq!(reader.request, request);
+    }
+
+    #[test]
+    fn test_http_request_reader_find_hostname() {
+        let request = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let reader = create_http_request_reader(request);
+        assert_eq!(reader.find_hostname(), Some("example.com".to_string()));
+    }
+
+    #[test]
+    fn test_http_request_reader_is_authorization_matching() {
+        let request = "GET / HTTP/1.1\r\nAuthorization: Basic dXNlcjpwYXNz\r\n\r\n";
+        let reader = create_http_request_reader(request);
+        assert!(reader.is_authorization_matching("user", "pass"));
+    }
+
+    #[test]
+    fn test_http_request_reader_get_request_bytes() {
+        let request = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+        let reader = create_http_request_reader(request);
+        assert_eq!(reader.get_request_bytes(), request.as_bytes().to_vec());
+    }
+
+    #[test]
+    fn test_http_response_builder_new() {
+        let response = create_http_response_builder(HttpStatusCode::BadRequest, "Bad Request");
+        assert_eq!(response.status_code, HttpStatusCode::BadRequest);
+        assert_eq!(response.body, "Bad Request");
+        assert_eq!(response.headers.get("Content-Type").unwrap(), "text/plain");
+    }
+
+    #[test]
+    fn test_http_response_builder_as_unauthorized() {
+        let response =
+            HttpResponseBuilder::as_unauthorized(&Some("TestRealm".to_string()), "Unauthorized");
+        assert_eq!(response.status_code, HttpStatusCode::Unauthorized);
+        assert_eq!(
+            response.headers.get("WWW-Authenticate").unwrap(),
+            "Basic realm=\"TestRealm\""
+        );
+    }
+
+    #[test]
+    fn test_http_response_builder_as_redirect() {
+        let response = HttpResponseBuilder::as_redirect("http://example.com");
+        assert_eq!(response.status_code, HttpStatusCode::MovedPermanently);
+        assert_eq!(
+            response.headers.get("Location").unwrap(),
+            "http://example.com"
+        );
+    }
+
+    #[test]
+    fn test_http_response_builder_as_error() {
+        let response = HttpResponseBuilder::as_error("Error occurred");
+        assert_eq!(response.status_code, HttpStatusCode::BadGateway);
+        assert_eq!(response.body, "Error occurred");
+    }
+
+    #[test]
+    fn test_http_response_builder_as_bad_request() {
+        let response = HttpResponseBuilder::as_bad_request("Bad Request");
+        assert_eq!(response.status_code, HttpStatusCode::BadRequest);
+        assert_eq!(response.body, "Bad Request");
+    }
+
+    #[test]
+    fn test_http_response_builder_as_missing_header() {
+        let response = HttpResponseBuilder::as_missing_header();
+        assert_eq!(response.status_code, HttpStatusCode::BadRequest);
+        assert_eq!(response.body, "Host header is missing");
+    }
+
+    #[test]
+    fn test_http_response_builder_build() {
+        let response = create_http_response_builder(HttpStatusCode::BadRequest, "Bad Request");
+        let built_response = response.build();
+        assert!(built_response.contains("HTTP/1.1 400 Bad Request"));
+        assert!(built_response.contains("Content-Length: 11"));
+    }
+
+    #[test]
+    fn test_http_response_builder_build_bytes() {
+        let response = create_http_response_builder(HttpStatusCode::BadRequest, "Bad Request");
+        let built_response_bytes = response.build_bytes();
+        assert_eq!(built_response_bytes, response.build().into_bytes());
     }
 }

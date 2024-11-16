@@ -67,6 +67,7 @@ impl HttpEndpointConfig {
     pub fn get_is_secure(&self) -> bool {
         match &self.encryption {
             Some(EndpointServerEncryption::None) => false,
+            None => false,
             _ => true,
         }
     }
@@ -149,5 +150,79 @@ impl Validatable for HttpEndpointConfig {
         if let Some(authorization) = &self.require_authorization {
             result.validate_child("authorization", authorization);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn get_config() -> HttpEndpointConfig {
+        HttpEndpointConfig {
+            port: 8080,
+            encryption: None,
+            address: None,
+            max_client_input_wait_secs: None,
+            hostname_template: "example.com".to_string(),
+            full_url_template: None,
+            allow_custom_hostnames: None,
+            require_authorization: None,
+        }
+    }
+
+    #[test]
+    fn test_get_address() {
+        let mut config = get_config();
+        config.address = Some("127.0.0.1".to_string());
+        assert_eq!(config.get_address(), "127.0.0.1");
+
+        config.address = None;
+        assert_eq!(config.get_address(), "0.0.0.0");
+    }
+
+    #[test]
+    fn test_get_full_url() {
+        let mut config = get_config();
+        config.full_url_template = Some("http://{hostname}:{port}".to_string());
+        assert_eq!(
+            config.get_full_url("example.com"),
+            "http://example.com:8080"
+        );
+
+        config.full_url_template = None;
+        assert_eq!(
+            config.get_full_url("example.com"),
+            "http://example.com:8080"
+        );
+    }
+
+    #[test]
+    fn test_get_is_secure() {
+        let mut config = get_config();
+        config.encryption = Some(EndpointServerEncryption::None);
+        assert!(!config.get_is_secure());
+
+        config.encryption = Some(EndpointServerEncryption::Tls);
+        assert!(config.get_is_secure());
+    }
+
+    #[test]
+    fn test_get_max_client_input_wait_secs() {
+        let mut config = get_config();
+        config.max_client_input_wait_secs = Some(100);
+        assert_eq!(config.get_max_client_input_wait_secs(), 100);
+
+        config.max_client_input_wait_secs = None;
+        assert_eq!(config.get_max_client_input_wait_secs(), 300);
+    }
+
+    #[test]
+    fn test_get_allow_custom_hostnames() {
+        let mut config = get_config();
+        config.allow_custom_hostnames = Some(false);
+        assert!(!config.get_allow_custom_hostnames());
+
+        config.allow_custom_hostnames = None;
+        assert!(config.get_allow_custom_hostnames());
     }
 }

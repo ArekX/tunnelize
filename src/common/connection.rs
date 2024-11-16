@@ -343,6 +343,7 @@ macro_rules! allow_bridges {
     };
 }
 
+#[derive(Debug)]
 pub enum ConnectionStreamContext {
     Udp(UdpSession),
 }

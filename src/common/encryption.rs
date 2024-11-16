@@ -48,7 +48,7 @@ impl ServerTlsEncryption {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ClientEncryptionType {
     CustomTls { ca_cert_path: String },
     NativeTls,

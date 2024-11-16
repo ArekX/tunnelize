@@ -10,12 +10,14 @@ use uuid::Uuid;
 
 use super::{events::ServiceEvent, HandleServiceEvent};
 
+#[derive(Debug)]
 pub struct ClientLink {
     pub stream: Connection,
     pub context: Option<ConnectionStreamContext>,
     pub initial_tunnel_data: Option<Vec<u8>>,
 }
 
+#[derive(Debug)]
 pub struct Client {
     id: Uuid,
     endpoint_name: String,
@@ -53,6 +55,14 @@ impl Client {
                 context,
                 initial_tunnel_data,
             }),
+        }
+    }
+
+    pub fn new_without_link(id: Uuid, endpoint_name: String) -> Self {
+        Self {
+            id,
+            endpoint_name,
+            link: None,
         }
     }
 
@@ -141,5 +151,87 @@ impl HandleServiceEvent for ClientManager {
             }
             _ => {}
         };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    fn create_client(id: Uuid, endpoint_name: &str) -> Client {
+        Client::new_without_link(id, endpoint_name.to_string())
+    }
+
+    #[test]
+    fn test_subscribe_client() {
+        let mut manager = ClientManager::new(2);
+        let client1 = create_client(Uuid::new_v4(), "endpoint1");
+        let client2 = create_client(Uuid::new_v4(), "endpoint2");
+
+        assert!(manager.subscribe_client(client1).is_ok());
+        assert!(manager.subscribe_client(client2).is_ok());
+        assert_eq!(manager.get_count(), 2);
+    }
+
+    #[test]
+    fn test_subscribe_client_exceeds_max() {
+        let mut manager = ClientManager::new(1);
+        let client1 = create_client(Uuid::new_v4(), "endpoint1");
+        let client2 = create_client(Uuid::new_v4(), "endpoint2");
+
+        assert!(manager.subscribe_client(client1).is_ok());
+        assert!(manager.subscribe_client(client2).is_err());
+        assert_eq!(manager.get_count(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_cancel_client() {
+        let mut manager = ClientManager::new(1);
+        let client_id = Uuid::new_v4();
+        let client = create_client(client_id, "endpoint");
+
+        manager.subscribe_client(client).unwrap();
+        manager.cancel_client(&client_id, &None).await;
+
+        assert_eq!(manager.get_count(), 0);
+    }
+
+    #[test]
+    fn test_remove_client() {
+        let mut manager = ClientManager::new(1);
+        let client_id = Uuid::new_v4();
+        let client = create_client(client_id, "endpoint");
+
+        manager.subscribe_client(client).unwrap();
+        manager.remove_client(&client_id);
+
+        assert_eq!(manager.get_count(), 0);
+    }
+
+    #[test]
+    fn test_get_info() {
+        let mut manager = ClientManager::new(1);
+        let client_id = Uuid::new_v4();
+        let client = create_client(client_id, "endpoint");
+
+        manager.subscribe_client(client).unwrap();
+        let info = manager.get_info(&client_id).unwrap();
+
+        assert_eq!(info.id, client_id);
+        assert_eq!(info.endpoint_name, "endpoint");
+    }
+
+    #[test]
+    fn test_list_all_clients() {
+        let mut manager = ClientManager::new(2);
+        let client1 = create_client(Uuid::new_v4(), "endpoint1");
+        let client2 = create_client(Uuid::new_v4(), "endpoint2");
+
+        manager.subscribe_client(client1).unwrap();
+        manager.subscribe_client(client2).unwrap();
+
+        let clients = manager.list_all_clients();
+        assert_eq!(clients.len(), 2);
     }
 }

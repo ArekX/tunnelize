@@ -53,7 +53,7 @@ pub enum MonitorOrigin {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum MonitorAuthentication {
-    Basic { username: String, password: String }, // TODO: Realm?
+    Basic { username: String, password: String },
     Bearer { token: String },
 }
 

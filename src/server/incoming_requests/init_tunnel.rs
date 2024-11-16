@@ -21,7 +21,7 @@ use crate::{
     tunnel::configuration::ProxyConfiguration,
 };
 
-use super::super::services::Services;
+use super::{super::services::Services, access::has_tunnel_access};
 
 use tokio::io::Result;
 
@@ -67,7 +67,7 @@ pub async fn process(
         return;
     }
 
-    if let Err(e) = validate_server_access(&config, &request, &mut response_stream).await {
+    if let Err(e) = validate_server_access(&services, &request, &mut response_stream).await {
         debug!("Error validating server access: {:?}", e);
         return;
     }
@@ -81,28 +81,24 @@ pub async fn process(
 }
 
 async fn validate_server_access(
-    config: &ServerConfiguration,
+    services: &Arc<Services>,
     request: &InitTunelRequest,
     response_stream: &mut Connection,
 ) -> Result<()> {
-    if let Some(endpoint_key) = config.tunnel_key.as_ref() {
-        if let Some(request_endpoint_key) = request.tunnel_key.as_ref() {
-            if endpoint_key != request_endpoint_key {
-                response_stream
-                    .respond_message(&InitTunnelResponse::Rejected {
-                        reason: "Endpoint key is wrong or not valid".to_string(),
-                    })
-                    .await;
+    if !has_tunnel_access(services, request.tunnel_key.as_ref()) {
+        response_stream
+            .respond_message(&InitTunnelResponse::Rejected {
+                reason: "Tunnel key is wrong or not valid".to_string(),
+            })
+            .await;
 
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "Endpoint key is wrong or not valid",
-                ));
-            }
-        }
+        return Err(Error::new(
+            ErrorKind::Other,
+            "Tunnel key is wrong or not valid",
+        ));
     }
 
-    Ok(())
+    return Ok(());
 }
 
 async fn validate_requested_proxies(
