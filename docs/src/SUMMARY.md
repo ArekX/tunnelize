@@ -13,4 +13,4 @@
   - [Setting up endpoint encryption](./endpoints/setting-up-endpoint-tls.md)
 - [Setting up a tunnel](./setting-up-tunnel.md)
 - [Monitoring](./monitoring.md)
-- [Command Reference](./commands.md)
+- [Reference](./reference.md)

@@ -26,7 +26,6 @@ pub struct TunnelizeConfiguration {
 
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub tunnel: Option<TunnelConfiguration>,
-    // TODO: Add logging configuration to enable/disable loggino and set log level and colors
 }
 
 impl Validatable for TunnelizeConfiguration {
