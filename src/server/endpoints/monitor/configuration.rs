@@ -12,15 +12,15 @@ use crate::{
 pub struct MonitorEndpointConfig {
     pub port: u16,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub encryption: Option<EndpointServerEncryption>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub address: Option<String>,
 
     pub authentication: MonitorAuthentication,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub allow_cors_origins: Option<MonitorOrigin>,
 }
 

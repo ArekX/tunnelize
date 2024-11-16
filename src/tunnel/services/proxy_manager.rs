@@ -15,6 +15,7 @@ use crate::{common::connection::Connection, tunnel::configuration::TunnelProxy};
 pub struct Proxy {
     pub address: String,
     pub port: u16,
+    pub endpoint_name: String,
     pub protocol: ProxyProtocol,
 }
 
@@ -93,12 +94,17 @@ impl ProxyManager {
             .map(|session| (session.address.clone(), session.port))
     }
 
+    pub fn get_proxy(&self, id: &Uuid) -> Option<&Proxy> {
+        self.proxy_map.get(id)
+    }
+
     pub fn add_proxy(&mut self, proxy: &TunnelProxy) -> Uuid {
         let id = Uuid::new_v4();
 
         let proxy = Proxy {
             address: proxy.address.clone(),
             port: proxy.port,
+            endpoint_name: proxy.endpoint_name.clone(),
             protocol: ProxyProtocol::from(&proxy.endpoint_config),
         };
 

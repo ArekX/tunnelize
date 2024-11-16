@@ -16,24 +16,24 @@ use crate::{
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TunnelConfiguration {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub name: Option<String>,
 
     pub server_address: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub server_port: Option<u16>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub forward_connection_timeout_seconds: Option<u64>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub encryption: Option<TunnelEncryption>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub tunnel_key: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub monitor_key: Option<String>,
 
     pub proxies: Vec<TunnelProxy>,
@@ -134,17 +134,17 @@ pub struct TunnelProxy {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProxyConfiguration {
     Http {
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(skip_serializing_if = "Option::is_none", default)]
         desired_name: Option<String>,
     },
     Tcp {
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(skip_serializing_if = "Option::is_none", default)]
         desired_port: Option<u16>,
     },
     Udp {
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(skip_serializing_if = "Option::is_none", default)]
         desired_port: Option<u16>,
-        #[serde(skip_serializing_if = "Option::is_none")]
+        #[serde(skip_serializing_if = "Option::is_none", default)]
         bind_address: Option<String>,
     },
 }

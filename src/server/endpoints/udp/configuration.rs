@@ -10,19 +10,19 @@ use crate::common::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UdpEndpointConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub address: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub allow_desired_port: Option<bool>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub inactivity_timeout: Option<u64>,
 
     pub reserve_ports_from: u16,
     pub reserve_ports_to: u16,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub full_hostname_template: Option<String>,
 }
 

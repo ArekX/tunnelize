@@ -103,9 +103,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                             address: http.address.unwrap_or_else(|| address.clone()),
                             endpoint_name: name,
                             port: http.port,
-                            endpoint_config: ProxyConfiguration::Http {
-                                desired_name: Some("desired-name".to_owned()),
-                            },
+                            endpoint_config: ProxyConfiguration::Http { desired_name: None },
                         });
                     }
                     PublicServerEndpointConfig::Tcp(tcp) => {
@@ -164,10 +162,25 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
         endpoint_config: ProxyConfiguration::Http { desired_name: None },
     });
 
+    configuration.proxies.push(TunnelProxy {
+        address: "localhost".to_owned(),
+        endpoint_name: "tcp".to_owned(),
+        port: 4000,
+        endpoint_config: ProxyConfiguration::Tcp { desired_port: None },
+    });
+
+    configuration.proxies.push(TunnelProxy {
+        address: "localhost".to_owned(),
+        endpoint_name: "udp".to_owned(),
+        port: 5000,
+        endpoint_config: ProxyConfiguration::Udp {
+            desired_port: None,
+            bind_address: None,
+        },
+    });
+
     configuration
 }
-
-// TODO: Add configuration for all endpoints
 
 fn get_default_server_configuration() -> ServerConfiguration {
     let mut configuration = ServerConfiguration {

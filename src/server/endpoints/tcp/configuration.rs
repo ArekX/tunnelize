@@ -12,19 +12,19 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TcpEndpointConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub address: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub allow_desired_port: Option<bool>,
 
     pub reserve_ports_from: u16,
     pub reserve_ports_to: u16,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub encryption: Option<EndpointServerEncryption>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub full_hostname_template: Option<String>,
 }
 
