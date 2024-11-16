@@ -112,7 +112,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 match config {
                     PublicServerEndpointConfig::Http(http) => {
                         tunnel_config.proxies.push(TunnelProxy {
-                            address: http.address.unwrap_or_else(|| address.clone()),
+                            address: "localhost".to_owned(),
                             endpoint_name: name,
                             port: http.port,
                             endpoint_config: ProxyConfiguration::Http { desired_name: None },
@@ -120,7 +120,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                     }
                     PublicServerEndpointConfig::Tcp(tcp) => {
                         tunnel_config.proxies.push(TunnelProxy {
-                            address: tcp.address.unwrap_or_else(|| address.clone()),
+                            address: "localhost".to_owned(),
                             endpoint_name: name,
                             port: tcp.reserve_ports_from,
                             endpoint_config: ProxyConfiguration::Tcp {
@@ -132,7 +132,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                     }
                     PublicServerEndpointConfig::Udp(udp) => {
                         tunnel_config.proxies.push(TunnelProxy {
-                            address: udp.address.unwrap_or_else(|| address.clone()),
+                            address: "localhost".to_owned(),
                             endpoint_name: name,
                             port: udp.reserve_ports_from,
                             endpoint_config: ProxyConfiguration::Udp {
