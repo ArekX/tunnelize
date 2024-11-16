@@ -73,6 +73,8 @@ impl TunnelSession {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TunnelProxyInfo {
     pub endpoint: String,
+    pub forward_address: String,
+    pub forward_port: u16,
     pub details: ResolvedEndpointInfo,
 }
 

@@ -23,15 +23,7 @@ Default HTTP endpoint configuration looks like this:
             "http-endpoint": {
                 "type": "http",
                 "port": 3457,
-                "encryption": {
-                    "type": "none"
-                },
-                "address": null,
-                "max_client_input_wait_secs": 10,
-                "hostname_template": "tunnel-{name}.localhost",
-                "full_url_template": null,
-                "allow_custom_hostnames": true,
-                "require_authorization": null
+                "hostname_template": "tunnel-{name}.localhost"
             }
         }
     }

@@ -86,18 +86,22 @@ impl TryFrom<TunnelizeConfiguration> for TunnelConfiguration {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum TunnelEncryption {
     None,
-    Tls { cert: String },
-    NativeTls,
+    Tls {
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        ca_path: Option<String>,
+    },
 }
 
 impl TunnelEncryption {
     pub fn to_encryption_type(&self) -> Option<ClientEncryptionType> {
         match &self {
             TunnelEncryption::None => None,
-            TunnelEncryption::Tls { cert } => Some(ClientEncryptionType::CustomTls {
-                ca_cert_path: cert.clone(),
-            }),
-            TunnelEncryption::NativeTls => Some(ClientEncryptionType::NativeTls),
+            TunnelEncryption::Tls { ca_path } => match ca_path {
+                Some(path) => Some(ClientEncryptionType::CustomTls {
+                    ca_cert_path: path.clone(),
+                }),
+                None => Some(ClientEncryptionType::NativeTls),
+            },
         }
     }
 }
@@ -105,10 +109,10 @@ impl TunnelEncryption {
 impl From<Option<ClientEncryptionType>> for TunnelEncryption {
     fn from(value: Option<ClientEncryptionType>) -> Self {
         match value {
-            Some(ClientEncryptionType::CustomTls { ca_cert_path }) => {
-                Self::Tls { cert: ca_cert_path }
-            }
-            Some(ClientEncryptionType::NativeTls) => Self::NativeTls,
+            Some(ClientEncryptionType::CustomTls { ca_cert_path }) => Self::Tls {
+                ca_path: Some(ca_cert_path),
+            },
+            Some(ClientEncryptionType::NativeTls) => Self::Tls { ca_path: None },
             None => Self::None,
         }
     }
@@ -116,8 +120,10 @@ impl From<Option<ClientEncryptionType>> for TunnelEncryption {
 
 impl Validatable for TunnelEncryption {
     fn validate(&self, result: &mut Validation) {
-        if let Self::Tls { cert } = self {
-            result.validate_rule::<FileMustExist>("cert", &cert);
+        if let Self::Tls { ca_path } = self {
+            if let Some(cert) = ca_path {
+                result.validate_rule::<FileMustExist>("ca_path", &cert);
+            }
         }
     }
 }
@@ -283,14 +289,14 @@ mod tests {
 
         let config = TunnelConfiguration {
             encryption: Some(TunnelEncryption::Tls {
-                cert: "path/to/cert".to_string(),
+                ca_path: Some("path/to/cert".to_string()),
             }),
             ..create_test_tunnel_configuration()
         };
         assert_eq!(
             config.get_encryption(),
             TunnelEncryption::Tls {
-                cert: "path/to/cert".to_string()
+                ca_path: Some("path/to/cert".to_string()),
             }
         );
     }
@@ -301,7 +307,7 @@ mod tests {
         assert_eq!(encryption.to_encryption_type(), None);
 
         let encryption = TunnelEncryption::Tls {
-            cert: "path/to/cert".to_string(),
+            ca_path: Some("path/to/cert".to_string()),
         };
         assert_eq!(
             encryption.to_encryption_type(),
@@ -310,7 +316,7 @@ mod tests {
             })
         );
 
-        let encryption = TunnelEncryption::NativeTls;
+        let encryption = TunnelEncryption::Tls { ca_path: None };
         assert_eq!(
             encryption.to_encryption_type(),
             Some(ClientEncryptionType::NativeTls)
@@ -325,14 +331,14 @@ mod tests {
         assert_eq!(
             TunnelEncryption::from(encryption),
             TunnelEncryption::Tls {
-                cert: "path/to/cert".to_string()
+                ca_path: Some("path/to/cert".to_string()),
             }
         );
 
         let encryption = Some(ClientEncryptionType::NativeTls);
         assert_eq!(
             TunnelEncryption::from(encryption),
-            TunnelEncryption::NativeTls
+            TunnelEncryption::Tls { ca_path: None }
         );
 
         let encryption = None;

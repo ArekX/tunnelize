@@ -74,6 +74,8 @@ async fn process_input_proxies(
             proxy_id,
             endpoint_name: proxy.endpoint_name.clone(),
             proxy: proxy.endpoint_config.clone(),
+            forward_address: proxy.address.clone(),
+            forward_port: proxy.port,
         });
     }
 

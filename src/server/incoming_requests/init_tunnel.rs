@@ -37,6 +37,8 @@ pub struct InitTunelRequest {
 pub struct InputProxy {
     pub proxy_id: Uuid,
     pub endpoint_name: String,
+    pub forward_address: String,
+    pub forward_port: u16,
     pub proxy: ProxyConfiguration,
 }
 
@@ -224,9 +226,19 @@ async fn resolve_endpoint_info(
         };
 
         for (proxy_id, endpoint_info) in proxy_info {
+            let Some(input_proxy) = request.proxies.iter().find(|p| p.proxy_id == proxy_id) else {
+                debug!(
+                    "Proxy ID '{}' not found in the list of proxies for endpoint '{}'",
+                    proxy_id, service_name
+                );
+                continue;
+            };
+
             tunnel_proxy_info.push(TunnelProxyInfo {
                 details: endpoint_info.clone(),
                 endpoint: service_name.clone(),
+                forward_address: input_proxy.forward_address.clone(),
+                forward_port: input_proxy.forward_port,
             });
 
             proxy_data.insert(proxy_id, endpoint_info);

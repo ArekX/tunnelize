@@ -52,7 +52,7 @@ Use following options to handle other cases:
     </tr>
     <tr>
       <td>--cert</td>
-      <td>Path to the custom CA (Certificate Authority) certificate file for TLS. If not specified, it is assumed the server is using a non self-signed certificate (<code>native-tls</code>) meaning it will use CA predefined in OS.</td>
+      <td>Path to the custom CA (Certificate Authority) certificate file for TLS. If not specified, it will use CA predefined in OS.</td>
       <td><code>--cert=/path/to/ca.crt</code></td>
     </tr>
   </tbody>
@@ -67,13 +67,6 @@ To configure the tunnel manually, create a `tuhnelize.json` and configure it:
   "tunnel": {
     "name": "my-tunnel",
     "server_address": "localhost",
-    "server_port": 3456,
-    "forward_connection_timeout_seconds": 5,
-    "encryption": {
-      "type": "none"
-    },
-    "tunnel_key": "changethistunnelkey",
-    "monitor_key": "changethismonitorkey",
     "proxies": [
       // ...proxy configuration
     ]
@@ -89,12 +82,39 @@ Fields:
 | server_address                     | Hostname or address to the main tunnelize server.                                                | No default       |
 | server_port                        | Port of the server                                                                               | 3456             |
 | forward_connection_timeout_seconds | How much time to wait in seconds for first response from your local server before disconnecting. | 30               |
-| encryption                         | Type of encryption. See [configuring encryption](#configuring-encryption) below.                 | No encryption    |
+| encryption                         | Type of encryption. **See** [configuring encryption](#configuring-encryption) below.             | No encryption    |
 | tunnel_key                         | Key for the tunnel                                                                               | No key specified |
 | monitor_key                        | Key for monitoring                                                                               | No key specified |
 | proxies                            | Proxy configuration. See [configuring proxies](#configuring-proxies) below.                      | No default       |
 
-# Configuring encryption
+## Configuring Encryption
+
+It can be one of the two types:
+
+**No encryption required**  
+```json
+{
+    "type": "none"
+}
+```
+In this case any tunnelize client can connect and pass data in unencrypted connection. This means
+that all data passed between tunnel and server is visible to a third party.
+
+**TLS encryption**
+```json
+{
+    "type": "tls"
+}
+```
+TLS encryption will be used.
+
+All available fields are:
+| Name    | Value                                                                                                                                                      | Default                   |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
+| type    | Type of encryption. Always `tls` in this case.                                                                                                             | No default                |
+| ca_path | Path to certificate authority (`ca.crt`) certificate for self-signed certificate validation. If not set, OS native certificates will be used for checking. | No certificate authority. |
+
+See [setting up certificates](./setting-up-certificates.md) for information on how to use certificate files.
 
 
 # Configuring proxies

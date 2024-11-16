@@ -1,6 +1,6 @@
 # Setting up a server
 
-To setup a server, first initialize the configuration by running `tunnelize server init`.
+To setup a server, first initialize the configuration by running `tunnelize init server`.
 
 This will create initial default configuration in `tunnelize.json` for a server, see [Configuration](#configuring-the-server) for information about
 specific attributes.
@@ -13,7 +13,7 @@ tunnelize server.
 Server will be run by just running `tunnelize` or `tunnelize server`, after which 
 tunnelize server is ready to accept connections.
 
-For information on how to setup a server as a service so that it keeps running even after OS restarts [see here](./setup-a-service.md).
+For information on how to setup a server as a service so that it keeps running even after OS restarts [see here](./setting-up-service.md).
 
 
 # Configuring the server
@@ -23,23 +23,15 @@ Following is a typical default settings for a server:
 ```json
 {
   "server": {
-    "server_port": 3456,
-    "server_address": null,
-    "max_tunnel_input_wait": 30,
-    "tunnel_key": null,
-    "monitor_key": "changethismonitorkey",
     "endpoints": { /* ...endpoints... */ },
-    "encryption": {
-      "type": "none"
-    },
-    "max_tunnels": 50,
-    "max_clients": 100,
-    "max_proxies_per_tunnel": 10
   }
 }
 ```
 
-Fields:
+As it can be seen, only `endpoints` parameter is required to define which endpoints you will allow server to tunnel
+for you.
+
+Below are all available parameters:
 
 
 | Field                    | Description                                                                                       | Default Value   |
@@ -105,12 +97,13 @@ Endpoints are configured as follows:
 }
 ```
 
-You can create any number of endpoints to where clients can connect to your local servers. Each endpoint name
-has to be unique as this is the name that your tunnel will send to identify to which endpoint it wants to proxy data
-to.
+Keys `endpoint-name-1` and `endpoint-name-2` are endpoint names and they are arbitrary so you can set them to anything 
+you wish as long as they are lowercase and alphanumeric. You can create any number of endpoints to where clients can 
+connect to your local servers. Each endpoint name has to be unique since this is the name that you will need to use
+[tunnel configuration](./setting-up-tunnel.md#configuring-proxies) for the proxies.
 
 There are multiple types of endpoints:
-* [HTTP](./endpoints/http.md)
+* [HTTP](./endpoints/http/http.md)
 * [TCP](./endpoints/tcp.md)
 * [UDP](./endpoints/udp.md)
 * [Monitoring](./endpoints/monitoring.md)
