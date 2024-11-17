@@ -30,20 +30,26 @@ pub async fn handle(
 
     match request.data {
         TunnelChannelRequest::ClientLinkRequest(ref request_data) => {
-            let Some(info) = services
-                .get_client_manager()
-                .await
-                .get_info(&request_data.client_id)
-            else {
-                info!("Client {} not found", request_data.client_id);
-                return;
+            let info = {
+                let Some(info) = services
+                    .get_client_manager()
+                    .await
+                    .get_info(&request_data.client_id)
+                else {
+                    info!("Client {} not found", request_data.client_id);
+                    return;
+                };
+
+                info
             };
 
-            let link_session_id = services.get_link_manager().await.create_link_session(
-                tunnel_session.get_id(),
-                info,
-                tunnel_session.get_child_cancel_token(),
-            );
+            let link_session_id = {
+                services.get_link_manager().await.create_link_session(
+                    tunnel_session.get_id(),
+                    info,
+                    tunnel_session.get_child_cancel_token(),
+                )
+            };
 
             let response: InitLinkResponse = match stream
                 .request_message(InitLinkRequest {

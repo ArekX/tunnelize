@@ -72,6 +72,9 @@ pub async fn start_link_session(
         {
             error!("Relay session failed: {}", e);
         }
+
+        forward_connection.shutdown().await;
+        server_connection.shutdown().await;
     });
 
     Ok(())

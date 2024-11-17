@@ -24,15 +24,6 @@ pub struct Client {
     link: Option<ClientLink>,
 }
 
-impl Into<ClientInfo> for &Client {
-    fn into(self) -> ClientInfo {
-        ClientInfo {
-            id: self.id,
-            endpoint_name: self.endpoint_name.clone(),
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ClientInfo {
     pub id: Uuid,
@@ -58,16 +49,13 @@ impl Client {
         }
     }
 
+    #[cfg(test)]
     pub fn new_without_link(id: Uuid, endpoint_name: String) -> Self {
         Self {
             id,
             endpoint_name,
             link: None,
         }
-    }
-
-    pub fn get_id(&self) -> Uuid {
-        self.id
     }
 
     pub fn take_link(&mut self) -> Option<ClientLink> {
@@ -128,11 +116,20 @@ impl ClientManager {
     }
 
     pub fn get_info(&self, id: &Uuid) -> Option<ClientInfo> {
-        self.clients.get(id).map(|client| client.into())
+        self.clients.get(id).map(|client| ClientInfo {
+            id: client.id,
+            endpoint_name: client.endpoint_name.clone(),
+        })
     }
 
     pub fn list_all_clients(&self) -> Vec<ClientInfo> {
-        self.clients.values().map(|client| client.into()).collect()
+        self.clients
+            .values()
+            .map(|client| ClientInfo {
+                id: client.id,
+                endpoint_name: client.endpoint_name.clone(),
+            })
+            .collect()
     }
 
     pub fn get_count(&self) -> usize {

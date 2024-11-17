@@ -27,8 +27,6 @@ pub async fn process_init_link(
     request: InitLinkRequest,
     response_stream: &mut Connection,
 ) {
-    println!("process_init_link {}", request.proxy_id);
-
     let Some((address, port)) = services
         .get_proxy_manager()
         .await
