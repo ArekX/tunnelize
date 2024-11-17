@@ -52,7 +52,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tunnelize-${{ matrix.asset_suffix }}
+          name: tunnelize-${{ matrix.os }}
           path: |
             target/release/tunnelize-${{ matrix.asset_suffix }}*
           retention-days: 1
