@@ -110,7 +110,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ${{ matrix.asset_name }}
+          name: tunnelize-${{ matrix.asset_suffix }}
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
