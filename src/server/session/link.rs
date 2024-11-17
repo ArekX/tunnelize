@@ -15,21 +15,17 @@ pub async fn start(
     mut response_stream: Connection,
     cancel_token: CancellationToken,
 ) {
-    let mut client_link = {
-        let Some(client_link) = services
-            .get_client_manager()
-            .await
-            .take_client_link(&client_id)
-        else {
-            response_stream
-                .respond_message(&InitLinkResponse::Rejected {
-                    reason: "Client not found".to_string(),
-                })
-                .await;
-            return;
-        };
-
-        client_link
+    let Some(mut client_link) = services
+        .get_client_manager()
+        .await
+        .take_client_link(&client_id)
+    else {
+        response_stream
+            .respond_message(&InitLinkResponse::Rejected {
+                reason: "Client not found".to_string(),
+            })
+            .await;
+        return;
     };
 
     response_stream

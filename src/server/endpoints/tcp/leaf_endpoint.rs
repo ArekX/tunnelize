@@ -121,16 +121,11 @@ pub async fn start_client(port: u16, mut connection: Connection, services: &Arc<
 }
 
 async fn discard_client(client_id: Uuid, services: &Arc<MainServices>) {
-    if let Some(mut link) = services
-        .get_client_manager()
-        .await
-        .take_client_link(&client_id)
-    {
+    let mut client_manager = services.get_client_manager().await;
+
+    if let Some(mut link) = client_manager.take_client_link(&client_id) {
         link.stream.shutdown().await;
     }
 
-    services
-        .get_client_manager()
-        .await
-        .remove_client(&client_id);
+    client_manager.remove_client(&client_id);
 }
