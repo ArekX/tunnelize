@@ -12,7 +12,7 @@ use crate::{
         channel::{InvalidResponse, OkResponse, RequestReceiver},
         configuration::ServerEncryption,
     },
-    server::{configuration::EndpointServerEncryption, services::Services},
+    server::services::Services,
 };
 
 use super::messages::EndpointChannelRequest;
@@ -141,29 +141,16 @@ async fn start_server(
     name: String,
     services: Arc<Services>,
 ) -> Result<()> {
-    match config.get_encryption() {
-        EndpointServerEncryption::None => start_http_server(address, app).await,
-        EndpointServerEncryption::CustomTls {
+    let main_config = services.get_config();
+    match config.get_encryption().to_encryption(&main_config) {
+        Ok(ServerEncryption::None) => start_http_server(address, app).await,
+        Ok(ServerEncryption::Tls {
             ref cert_path,
             ref key_path,
-        } => start_https_server(address, cert_path, key_path, app).await,
-        EndpointServerEncryption::Tls => {
-            let main_config = services.get_config();
-
-            let (cert_path, key_path) = match main_config.encryption {
-                Some(ServerEncryption::Tls {
-                    ref cert_path,
-                    ref key_path,
-                }) => (cert_path, key_path),
-                _ => {
-                    return Err(tokio::io::Error::new(
-                        tokio::io::ErrorKind::InvalidInput,
-                        format!("Tunnel server TLS encryption is not set, but required by monitor '{}' endpoint", name),
-                    ));
-                }
-            };
-
-            start_https_server(address, cert_path, key_path, app).await
+        }) => start_https_server(address, cert_path, key_path, app).await,
+        Err(e) => {
+            error!("Failed to start '{}' server: {}", name, e);
+            Err(e)
         }
     }
 }

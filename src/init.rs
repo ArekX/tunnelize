@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use log::error;
 
 use crate::{
-    common::{cli::InitCommands, encryption::ClientEncryptionType, tcp_client::create_tcp_client},
+    common::{
+        cli::InitCommands,
+        tcp_client::{create_tcp_client, ClientEncryption},
+    },
     configuration::{write_configuration, TunnelizeConfiguration},
     server::{
         configuration::{EndpointConfiguration, ServerConfiguration},
@@ -34,7 +37,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
         }
         InitCommands::Tunnel {
             server,
-            cert,
+            ca: ca_path,
             tls,
             key,
         } => {
@@ -61,24 +64,20 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 None => (server_address, 3456),
             };
 
-            let encryption: Option<ClientEncryptionType> = match tls {
-                true => cert
-                    .clone()
-                    .map(|ca_cert_path| ClientEncryptionType::CustomTls { ca_cert_path })
-                    .or_else(|| Some(ClientEncryptionType::NativeTls)),
-                false => None,
-            };
+            let encryption: Option<ClientEncryption> =
+                tls.then(|| ClientEncryption::Tls { ca_path });
 
-            let mut connection = match create_tcp_client(&address, port, encryption.clone()).await {
-                Ok(connection) => connection,
-                Err(e) => {
-                    error!("Could not retrieve configuration: {}", e);
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        "Failed to connect to server",
-                    ));
-                }
-            };
+            let mut connection =
+                match create_tcp_client(&address, port, encryption.clone().into()).await {
+                    Ok(connection) => connection,
+                    Err(e) => {
+                        error!("Could not retrieve configuration: {}", e);
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "Failed to connect to server",
+                        ));
+                    }
+                };
 
             let endpoint_config = match connection
                 .request_message(ProcessConfigRequest {

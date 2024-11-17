@@ -43,7 +43,7 @@ impl MonitorEndpointConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum MonitorOrigin {
     Any,
     List(Vec<String>),
@@ -51,7 +51,7 @@ pub enum MonitorOrigin {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum MonitorAuthentication {
     Basic { username: String, password: String },
     Bearer { token: String },

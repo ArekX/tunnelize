@@ -5,8 +5,8 @@ use super::{
     validate_rules::FileMustExist,
 };
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum ServerEncryption {
     None,
     Tls { cert_path: String, key_path: String },

@@ -202,7 +202,10 @@ mod tests {
         config.encryption = Some(EndpointServerEncryption::None);
         assert!(!config.get_is_secure());
 
-        config.encryption = Some(EndpointServerEncryption::Tls);
+        config.encryption = Some(EndpointServerEncryption::Tls {
+            cert_path: None,
+            key_path: None,
+        });
         assert!(config.get_is_secure());
     }
 

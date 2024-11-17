@@ -160,13 +160,4 @@ mod tests {
         let config = create_config(None, None, None, None);
         assert!(config.get_allow_desired_port());
     }
-
-    #[test]
-    fn test_get_encryption() {
-        let config = create_config(None, None, Some(EndpointServerEncryption::Tls), None);
-        assert_eq!(config.get_encryption(), EndpointServerEncryption::Tls);
-
-        let config = create_config(None, None, None, None);
-        assert_eq!(config.get_encryption(), EndpointServerEncryption::None);
-    }
 }

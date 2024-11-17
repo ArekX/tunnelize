@@ -94,7 +94,7 @@ pub enum InitCommands {
             help = "Path to the custom CA certificate file for TLS",
             long_help = "Specify a custom Certificate Authority certificate file for TLS verification"
         )]
-        cert: Option<String>,
+        ca: Option<String>,
         #[arg(
             short = 'k',
             long,

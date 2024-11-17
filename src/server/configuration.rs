@@ -25,11 +25,13 @@ use super::endpoints::{
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum EndpointServerEncryption {
     None,
-    CustomTls { cert_path: String, key_path: String },
-    Tls,
+    Tls {
+        cert_path: Option<String>,
+        key_path: Option<String>,
+    },
 }
 
 impl EndpointServerEncryption {
@@ -39,14 +41,17 @@ impl EndpointServerEncryption {
     ) -> tokio::io::Result<ServerEncryption> {
         match self {
             EndpointServerEncryption::None => Ok(ServerEncryption::None),
-            EndpointServerEncryption::CustomTls {
-                cert_path,
-                key_path,
+            EndpointServerEncryption::Tls {
+                cert_path: Some(cert_path),
+                key_path: Some(key_path),
             } => Ok(ServerEncryption::Tls {
                 cert_path: cert_path.clone(),
                 key_path: key_path.clone(),
             }),
-            EndpointServerEncryption::Tls => {
+            EndpointServerEncryption::Tls {
+                cert_path: None,
+                key_path: None,
+            } => {
                 let (cert_path, key_path) = match server_config.encryption {
                     Some(ServerEncryption::Tls {
                         ref cert_path,
@@ -55,7 +60,7 @@ impl EndpointServerEncryption {
                     _ => {
                         return Err(Error::new(
                             ErrorKind::InvalidInput,
-                            format!("Tunnel server TLS encryption is not set, but is required"),
+                            format!("Main server TLS encryption is not set, but is required"),
                         ));
                     }
                 };
@@ -65,6 +70,10 @@ impl EndpointServerEncryption {
                     key_path: key_path.clone(),
                 })
             }
+            _ => Err(Error::new(
+                ErrorKind::InvalidInput,
+                "Both cert_path and key_path must be set for custom TLS certificate",
+            )),
         }
     }
 }
@@ -155,7 +164,7 @@ impl ServerConfiguration {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum EndpointConfiguration {
     Http(HttpEndpointConfig),
     Tcp(TcpEndpointConfig),
@@ -235,13 +244,167 @@ impl Validatable for EndpointConfiguration {
 
 impl Validatable for EndpointServerEncryption {
     fn validate(&self, result: &mut Validation) {
-        if let EndpointServerEncryption::CustomTls {
-            cert_path,
-            key_path,
-        } = self
-        {
-            result.validate_rule::<FileMustExist>("cert_path", cert_path);
-            result.validate_rule::<FileMustExist>("key_path", key_path);
+        match self {
+            EndpointServerEncryption::Tls {
+                cert_path: Some(cert_path),
+                key_path: Some(key_path),
+            } => {
+                result.validate_rule::<FileMustExist>("cert_path", cert_path);
+                result.validate_rule::<FileMustExist>("key_path", key_path);
+            }
+            Self::None => {}
+            _ => {
+                result.add_error(
+                    "Both cert_path and key_path must be set for custom TLS certificate",
+                );
+            }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    fn default_server_config() -> ServerConfiguration {
+        ServerConfiguration {
+            server_port: Some(8080),
+            server_address: Some("127.0.0.1".to_string()),
+            max_tunnel_input_wait: Some(60),
+            tunnel_key: Some("tunnel_key".to_string()),
+            monitor_key: Some("monitor_key".to_string()),
+            endpoints: HashMap::new(),
+            encryption: Some(ServerEncryption::None),
+            max_tunnels: Some(200),
+            max_clients: Some(200),
+            max_proxies_per_tunnel: Some(20),
+        }
+    }
+
+    #[test]
+    fn test_get_server_address() {
+        let config = default_server_config();
+        assert_eq!(config.get_server_address(), "127.0.0.1");
+
+        let config = ServerConfiguration {
+            server_address: None,
+            ..default_server_config()
+        };
+        assert_eq!(config.get_server_address(), "0.0.0.0");
+    }
+
+    #[test]
+    fn test_get_server_port() {
+        let config = default_server_config();
+        assert_eq!(config.get_server_port(), 8080);
+
+        let config = ServerConfiguration {
+            server_port: None,
+            ..default_server_config()
+        };
+        assert_eq!(config.get_server_port(), 3456);
+    }
+
+    #[test]
+    fn test_get_max_tunnel_input_wait() {
+        let config = default_server_config();
+        assert_eq!(config.get_max_tunnel_input_wait(), 60);
+
+        let config = ServerConfiguration {
+            max_tunnel_input_wait: None,
+            ..default_server_config()
+        };
+        assert_eq!(config.get_max_tunnel_input_wait(), 30);
+    }
+
+    #[test]
+    fn test_get_max_tunnels() {
+        let config = default_server_config();
+        assert_eq!(config.get_max_tunnnels(), 200);
+
+        let config = ServerConfiguration {
+            max_tunnels: None,
+            ..default_server_config()
+        };
+        assert_eq!(config.get_max_tunnnels(), 100);
+    }
+
+    #[test]
+    fn test_get_max_clients() {
+        let config = default_server_config();
+        assert_eq!(config.get_max_clients(), 200);
+
+        let config = ServerConfiguration {
+            max_clients: None,
+            ..default_server_config()
+        };
+        assert_eq!(config.get_max_clients(), 100);
+    }
+
+    #[test]
+    fn test_get_max_proxies_per_tunnel() {
+        let config = default_server_config();
+        assert_eq!(config.get_max_proxies_per_tunnel(), 20);
+
+        let config = ServerConfiguration {
+            max_proxies_per_tunnel: None,
+            ..default_server_config()
+        };
+        assert_eq!(config.get_max_proxies_per_tunnel(), 10);
+    }
+
+    #[test]
+    fn test_get_encryption() {
+        let config = default_server_config();
+        assert_eq!(config.get_encryption(), ServerEncryption::None);
+
+        let config = ServerConfiguration {
+            encryption: None,
+            ..default_server_config()
+        };
+        assert_eq!(config.get_encryption(), ServerEncryption::None);
+    }
+
+    #[test]
+    fn test_endpoint_server_encryption_to_encryption() {
+        let server_config = Arc::new(default_server_config());
+
+        let encryption = EndpointServerEncryption::None;
+        assert_eq!(
+            encryption.to_encryption(&server_config).unwrap(),
+            ServerEncryption::None
+        );
+
+        let encryption = EndpointServerEncryption::Tls {
+            cert_path: Some("cert.pem".to_string()),
+            key_path: Some("key.pem".to_string()),
+        };
+        assert_eq!(
+            encryption.to_encryption(&server_config).unwrap(),
+            ServerEncryption::Tls {
+                cert_path: "cert.pem".to_string(),
+                key_path: "key.pem".to_string(),
+            }
+        );
+
+        let encryption = EndpointServerEncryption::Tls {
+            cert_path: None,
+            key_path: None,
+        };
+        let server_config_with_tls = Arc::new(ServerConfiguration {
+            encryption: Some(ServerEncryption::Tls {
+                cert_path: "default_cert.pem".to_string(),
+                key_path: "default_key.pem".to_string(),
+            }),
+            ..default_server_config()
+        });
+        assert_eq!(
+            encryption.to_encryption(&server_config_with_tls).unwrap(),
+            ServerEncryption::Tls {
+                cert_path: "default_cert.pem".to_string(),
+                key_path: "default_key.pem".to_string(),
+            }
+        );
     }
 }

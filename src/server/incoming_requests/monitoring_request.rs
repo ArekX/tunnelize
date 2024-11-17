@@ -20,7 +20,7 @@ pub struct ProcessMonitoringRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum ProcessMonitoringResponse {
     SystemInfo(SystemInfo),
     ListEndpoints(Records<EndpointInfo>),

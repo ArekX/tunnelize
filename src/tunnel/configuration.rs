@@ -3,12 +3,11 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::{
         connection::Connection,
-        encryption::ClientEncryptionType,
-        tcp_client::create_tcp_client,
+        tcp_client::{create_tcp_client, ClientEncryption},
         validate::{Validatable, Validation},
         validate_rules::{
-            AlphaNumericOnly, FileMustExist, HostAddressMustBeValid, IpAddressMustBeValid,
-            MustNotBeEmptyString, PortMustBeValid,
+            AlphaNumericOnly, HostAddressMustBeValid, IpAddressMustBeValid, MustNotBeEmptyString,
+            PortMustBeValid,
         },
     },
     configuration::TunnelizeConfiguration,
@@ -28,7 +27,7 @@ pub struct TunnelConfiguration {
     pub forward_connection_timeout_seconds: Option<u64>,
 
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub encryption: Option<TunnelEncryption>,
+    pub encryption: Option<ClientEncryption>,
 
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub tunnel_key: Option<String>,
@@ -44,7 +43,7 @@ impl TunnelConfiguration {
         create_tcp_client(
             &self.server_address,
             self.get_server_port(),
-            self.get_encryption().to_encryption_type(),
+            self.get_encryption(),
         )
         .await
     }
@@ -57,8 +56,8 @@ impl TunnelConfiguration {
         self.forward_connection_timeout_seconds.unwrap_or(30)
     }
 
-    pub fn get_encryption(&self) -> TunnelEncryption {
-        self.encryption.clone().unwrap_or(TunnelEncryption::None)
+    pub fn get_encryption(&self) -> ClientEncryption {
+        self.encryption.clone().unwrap_or(ClientEncryption::None)
     }
 }
 
@@ -82,52 +81,6 @@ impl TryFrom<TunnelizeConfiguration> for TunnelConfiguration {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum TunnelEncryption {
-    None,
-    Tls {
-        #[serde(skip_serializing_if = "Option::is_none", default)]
-        ca_path: Option<String>,
-    },
-}
-
-impl TunnelEncryption {
-    pub fn to_encryption_type(&self) -> Option<ClientEncryptionType> {
-        match &self {
-            TunnelEncryption::None => None,
-            TunnelEncryption::Tls { ca_path } => match ca_path {
-                Some(path) => Some(ClientEncryptionType::CustomTls {
-                    ca_cert_path: path.clone(),
-                }),
-                None => Some(ClientEncryptionType::NativeTls),
-            },
-        }
-    }
-}
-
-impl From<Option<ClientEncryptionType>> for TunnelEncryption {
-    fn from(value: Option<ClientEncryptionType>) -> Self {
-        match value {
-            Some(ClientEncryptionType::CustomTls { ca_cert_path }) => Self::Tls {
-                ca_path: Some(ca_cert_path),
-            },
-            Some(ClientEncryptionType::NativeTls) => Self::Tls { ca_path: None },
-            None => Self::None,
-        }
-    }
-}
-
-impl Validatable for TunnelEncryption {
-    fn validate(&self, result: &mut Validation) {
-        if let Self::Tls { ca_path } = self {
-            if let Some(cert) = ca_path {
-                result.validate_rule::<FileMustExist>("ca_path", &cert);
-            }
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct TunnelProxy {
     pub endpoint_name: String,
@@ -137,7 +90,7 @@ pub struct TunnelProxy {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum ProxyConfiguration {
     Http {
         #[serde(skip_serializing_if = "Option::is_none", default)]
@@ -236,7 +189,6 @@ impl Validatable for TunnelConfiguration {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::common::encryption::ClientEncryptionType;
 
     fn create_test_tunnel_configuration() -> TunnelConfiguration {
         TunnelConfiguration {
@@ -244,7 +196,7 @@ mod tests {
             server_address: "127.0.0.1".to_string(),
             server_port: Some(8080),
             forward_connection_timeout_seconds: Some(60),
-            encryption: Some(TunnelEncryption::None),
+            encryption: Some(ClientEncryption::None),
             tunnel_key: Some("test_key".to_string()),
             monitor_key: Some("monitor_key".to_string()),
             proxies: vec![TunnelProxy {
@@ -285,63 +237,19 @@ mod tests {
     #[test]
     fn test_get_encryption() {
         let config = create_test_tunnel_configuration();
-        assert_eq!(config.get_encryption(), TunnelEncryption::None);
+        assert_eq!(config.get_encryption(), ClientEncryption::None);
 
         let config = TunnelConfiguration {
-            encryption: Some(TunnelEncryption::Tls {
+            encryption: Some(ClientEncryption::Tls {
                 ca_path: Some("path/to/cert".to_string()),
             }),
             ..create_test_tunnel_configuration()
         };
         assert_eq!(
             config.get_encryption(),
-            TunnelEncryption::Tls {
+            ClientEncryption::Tls {
                 ca_path: Some("path/to/cert".to_string()),
             }
         );
-    }
-
-    #[test]
-    fn test_tunnel_encryption_to_encryption_type() {
-        let encryption = TunnelEncryption::None;
-        assert_eq!(encryption.to_encryption_type(), None);
-
-        let encryption = TunnelEncryption::Tls {
-            ca_path: Some("path/to/cert".to_string()),
-        };
-        assert_eq!(
-            encryption.to_encryption_type(),
-            Some(ClientEncryptionType::CustomTls {
-                ca_cert_path: "path/to/cert".to_string()
-            })
-        );
-
-        let encryption = TunnelEncryption::Tls { ca_path: None };
-        assert_eq!(
-            encryption.to_encryption_type(),
-            Some(ClientEncryptionType::NativeTls)
-        );
-    }
-
-    #[test]
-    fn test_tunnel_encryption_from_client_encryption_type() {
-        let encryption = Some(ClientEncryptionType::CustomTls {
-            ca_cert_path: "path/to/cert".to_string(),
-        });
-        assert_eq!(
-            TunnelEncryption::from(encryption),
-            TunnelEncryption::Tls {
-                ca_path: Some("path/to/cert".to_string()),
-            }
-        );
-
-        let encryption = Some(ClientEncryptionType::NativeTls);
-        assert_eq!(
-            TunnelEncryption::from(encryption),
-            TunnelEncryption::Tls { ca_path: None }
-        );
-
-        let encryption = None;
-        assert_eq!(TunnelEncryption::from(encryption), TunnelEncryption::None);
     }
 }

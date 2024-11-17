@@ -51,8 +51,8 @@ Use following options to handle other cases:
       <td><code>--tls</code></td>
     </tr>
     <tr>
-      <td>--cert</td>
-      <td>Path to the custom CA (Certificate Authority) certificate file for TLS. If not specified, it will use CA predefined in OS.</td>
+      <td>--ca</td>
+      <td>Path to the custom CA (Certificate Authority) certificate file for TLS. If not specified, it will use CA certificates in current OS.</td>
       <td><code>--cert=/path/to/ca.crt</code></td>
     </tr>
   </tbody>
