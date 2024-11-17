@@ -14,7 +14,7 @@ jobs:
         include:
           - os: windows-latest
             exe: .exe
-            asset_suffix: windows.exe
+            asset_suffix: windows
           - os: ubuntu-latest
             exe: ""
             asset_suffix: linux
@@ -42,16 +42,11 @@ jobs:
         shell: bash
         run: |
           cd target/release
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            mv tunnelize.exe tunnelize-${{ matrix.asset_suffix }}
-          else
-            mv tunnelize tunnelize-${{ matrix.asset_suffix }}
-          fi
           # Create tar.gz for Unix systems or zip for Windows
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            7z a tunnelize-${{ matrix.asset_suffix }}.zip tunnelize-${{ matrix.asset_suffix }}
+            7z a tunnelize-${{ matrix.asset_suffix }}.zip tunnelize.exe
           else
-            tar czf tunnelize-${{ matrix.asset_suffix }}.tar.gz tunnelize-${{ matrix.asset_suffix }}
+            tar czf tunnelize-${{ matrix.asset_suffix }}.tar.gz tunnelize
           fi
 
       - name: Upload artifact
@@ -87,13 +82,9 @@ jobs:
             Tunnelize ${{ github.ref_name }}
 
             ## Binary Downloads
-            - Windows: tunnelize-windows.exe.zip
+            - Windows: tunnelize-windows.zip
             - Linux: tunnelize-linux.tar.gz
             - macOS: tunnelize-macos.tar.gz
-
-            ## Changes
-
-            Please see the commit history for detailed changes.
 
   upload_assets:
     needs: [build, create_release]
@@ -104,8 +95,8 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            asset_path: tunnelize-windows.exe.zip
-            asset_name: tunnelize-windows.exe.zip
+            asset_path: tunnelize-windows.zip
+            asset_name: tunnelize-windows.zip
             content_type: application/zip
           - os: ubuntu-latest
             asset_path: tunnelize-linux.tar.gz
@@ -119,7 +110,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          path: artifacts
+          name: ${{ matrix.asset_name }}
 
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
@@ -127,6 +118,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: artifacts/tunnelize-${{ matrix.os }}/${{ matrix.asset_path }}
+          asset_path: ${{ matrix.asset_name }}
           asset_name: ${{ matrix.asset_name }}
           asset_content_type: ${{ matrix.content_type }}
