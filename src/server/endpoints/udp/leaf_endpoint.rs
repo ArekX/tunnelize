@@ -101,7 +101,7 @@ async fn wait_for_client(
     match connection.read_with_address(buffer).await {
         Ok((size, address)) => Ok((buffer[..size].to_vec(), address)),
         Err(e) => {
-            error!("Failed to read data from client: {:?}", e);
+            error!("Failed to read data from client: {}", e);
             Err(e)
         }
     }

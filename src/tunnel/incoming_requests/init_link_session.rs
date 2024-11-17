@@ -50,7 +50,7 @@ pub async fn process_init_link(
         )
         .await
         {
-            error!("Failed to start link session: {:?}", e);
+            error!("Failed to start link session: {}", e);
 
             let message = if let ErrorKind::ConnectionRefused = e.kind() {
                 format!(

@@ -136,7 +136,7 @@ impl HandleServiceEvent for EndpointManager {
                         .await
                     {
                         error!(
-                            "Error while sending RemoveTunnelRequest to endpoint '{}': {:?}",
+                            "Error while sending RemoveTunnelRequest to endpoint '{}': {}",
                             endpoint_name, e
                         );
                     }
