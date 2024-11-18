@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -96,13 +98,23 @@ pub struct AuthorizeUser {
     pub password: String,
 }
 
+impl Display for AuthorizeUser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "\tUsername: {}", self.username)?;
+        writeln!(f, "\tPassword: {}", self.password)?;
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpPublicEndpointConfig {
     pub port: u16,
     pub is_secure: bool,
-    pub address: Option<String>,
+    pub address: String,
     pub allow_custom_hostnames: bool,
     pub hostname_template: String,
+    pub require_authorization: Option<AuthorizeUser>,
 }
 
 impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
@@ -110,10 +122,44 @@ impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
         Self {
             port: config.port,
             is_secure: config.get_is_secure(),
-            address: config.address.clone(),
+            address: config.get_address(),
             allow_custom_hostnames: config.get_allow_custom_hostnames(),
             hostname_template: config.hostname_template.clone(),
+            require_authorization: config.require_authorization.clone(),
         }
+    }
+}
+
+impl Display for HttpPublicEndpointConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Port: {}", self.port)?;
+        writeln!(
+            f,
+            "HTTPS: {}",
+            if self.is_secure {
+                "Enabled"
+            } else {
+                "Disabled"
+            }
+        )?;
+        writeln!(f, "Address: {}", self.address)?;
+        writeln!(
+            f,
+            "User can set {{name}} in template: {}",
+            if self.allow_custom_hostnames {
+                "Allowed"
+            } else {
+                "Not Allowed"
+            }
+        )?;
+        writeln!(f, "Template: {}", self.hostname_template)?;
+
+        if let Some(authorization) = &self.require_authorization {
+            writeln!(f, "Requires clients to authorize:")?;
+            write!(f, "{}", authorization)?;
+        }
+
+        Ok(())
     }
 }
 

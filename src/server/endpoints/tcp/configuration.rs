@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -60,7 +62,7 @@ impl TcpEndpointConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TcpPublicEndpointConfig {
-    pub address: Option<String>,
+    pub address: String,
     pub allow_desired_port: bool,
     pub reserve_ports_from: u16,
     pub reserve_ports_to: u16,
@@ -69,11 +71,29 @@ pub struct TcpPublicEndpointConfig {
 impl From<&TcpEndpointConfig> for TcpPublicEndpointConfig {
     fn from(config: &TcpEndpointConfig) -> Self {
         Self {
-            address: config.address.clone(),
+            address: config.get_address(),
             allow_desired_port: config.get_allow_desired_port(),
             reserve_ports_from: config.reserve_ports_from.clone(),
             reserve_ports_to: config.reserve_ports_to.clone(),
         }
+    }
+}
+
+impl Display for TcpPublicEndpointConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Address: {}", self.address)?;
+        writeln!(
+            f,
+            "User can request port: {}",
+            if self.allow_desired_port { "Yes" } else { "No" }
+        )?;
+        writeln!(
+            f,
+            "Port range: {} - {}",
+            self.reserve_ports_from, self.reserve_ports_to
+        )?;
+
+        Ok(())
     }
 }
 

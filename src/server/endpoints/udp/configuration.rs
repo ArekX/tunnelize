@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::common::{
@@ -27,10 +29,12 @@ pub struct UdpEndpointConfig {
 }
 
 impl UdpEndpointConfig {
-    pub fn get_bind_address(&self, port: u16) -> String {
-        let address = self.address.clone().unwrap_or_else(|| format!("0.0.0.0"));
+    pub fn get_address(&self) -> String {
+        self.address.clone().unwrap_or_else(|| format!("0.0.0.0"))
+    }
 
-        format!("{}:{}", address, port)
+    pub fn get_bind_address(&self, port: u16) -> String {
+        format!("{}:{}", self.get_address(), port)
     }
 
     pub fn get_assigned_hostname(&self, port: u16) -> String {
@@ -52,7 +56,7 @@ impl UdpEndpointConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UdpPublicEndpointConfig {
-    pub address: Option<String>,
+    pub address: String,
     pub allow_desired_port: bool,
     pub reserve_ports_from: u16,
     pub reserve_ports_to: u16,
@@ -61,11 +65,29 @@ pub struct UdpPublicEndpointConfig {
 impl From<&UdpEndpointConfig> for UdpPublicEndpointConfig {
     fn from(config: &UdpEndpointConfig) -> Self {
         Self {
-            address: config.address.clone(),
+            address: config.get_address(),
             allow_desired_port: config.get_allow_desired_port(),
             reserve_ports_from: config.reserve_ports_from.clone(),
             reserve_ports_to: config.reserve_ports_to.clone(),
         }
+    }
+}
+
+impl Display for UdpPublicEndpointConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Address: {}", self.address)?;
+        writeln!(
+            f,
+            "User can request port: {}",
+            if self.allow_desired_port { "Yes" } else { "No" }
+        )?;
+        writeln!(
+            f,
+            "Port range: {} - {}",
+            self.reserve_ports_from, self.reserve_ports_to
+        )?;
+
+        Ok(())
     }
 }
 
@@ -160,10 +182,23 @@ mod tests {
     }
 
     #[test]
+    fn test_get_address() {
+        let config = get_config();
+        assert_eq!(config.get_address(), "127.0.0.1");
+    }
+
+    #[test]
+    fn test_get_address_default() {
+        let mut config = get_config();
+        config.address = None;
+        assert_eq!(config.get_address(), "0.0.0.0");
+    }
+
+    #[test]
     fn test_udp_public_endpoint_config_from() {
         let config = get_config();
         let public_config: UdpPublicEndpointConfig = (&config).into();
-        assert_eq!(public_config.address, Some("127.0.0.1".to_string()));
+        assert_eq!(public_config.address, "127.0.0.1".to_string());
         assert!(public_config.allow_desired_port);
         assert_eq!(public_config.reserve_ports_from, 1000);
         assert_eq!(public_config.reserve_ports_to, 2000);

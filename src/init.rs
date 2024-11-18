@@ -107,21 +107,33 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 proxies: Vec::new(),
             };
 
+            let mut port: u16 = 8079;
+
             for PublicEndpointConfig { name, config } in endpoint_config {
                 match config {
                     PublicServerEndpointConfig::Http(http) => {
+                        println!("Discovered HTTP endpoint: {}", name);
+                        println!("{}", http);
+
                         tunnel_config.proxies.push(TunnelProxy {
                             address: "localhost".to_owned(),
                             endpoint_name: name,
-                            port: http.port,
-                            endpoint_config: ProxyConfiguration::Http { desired_name: None },
+                            port,
+                            endpoint_config: ProxyConfiguration::Http {
+                                desired_name: http
+                                    .allow_custom_hostnames
+                                    .then(|| "custom-name".to_owned()),
+                            },
                         });
                     }
                     PublicServerEndpointConfig::Tcp(tcp) => {
+                        println!("Discovered TCP endpoint: {}", name);
+                        println!("{}", tcp);
+
                         tunnel_config.proxies.push(TunnelProxy {
                             address: "localhost".to_owned(),
                             endpoint_name: name,
-                            port: tcp.reserve_ports_from,
+                            port,
                             endpoint_config: ProxyConfiguration::Tcp {
                                 desired_port: tcp
                                     .allow_desired_port
@@ -130,10 +142,13 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                         });
                     }
                     PublicServerEndpointConfig::Udp(udp) => {
+                        println!("Discovered UDP endpoint: {}", name);
+                        println!("{}", udp);
+
                         tunnel_config.proxies.push(TunnelProxy {
                             address: "localhost".to_owned(),
                             endpoint_name: name,
-                            port: udp.reserve_ports_from,
+                            port,
                             endpoint_config: ProxyConfiguration::Udp {
                                 desired_port: udp
                                     .allow_desired_port
@@ -143,6 +158,8 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                         });
                     }
                 }
+
+                port = port.wrapping_add(1);
             }
 
             write_configuration(tunnel_config.into())?;
@@ -176,14 +193,14 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
     configuration.proxies.push(TunnelProxy {
         address: "localhost".to_owned(),
         endpoint_name: "tcp".to_owned(),
-        port: 4000,
+        port: 8081,
         endpoint_config: ProxyConfiguration::Tcp { desired_port: None },
     });
 
     configuration.proxies.push(TunnelProxy {
         address: "localhost".to_owned(),
         endpoint_name: "udp".to_owned(),
-        port: 5000,
+        port: 8082,
         endpoint_config: ProxyConfiguration::Udp {
             desired_port: None,
             bind_address: None,
