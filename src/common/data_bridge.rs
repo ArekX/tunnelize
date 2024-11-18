@@ -227,7 +227,8 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
                         break;
                     },
                     Ok(n) => {
-                        if let Err(e) = udp_socket.send_to(&writable_buffer[..n], context.address).await {
+                        debug!("Sending to address: {:?}", context.address);
+                        if let Err(e) = udp_socket.send_to(&writable_buffer[..n], "127.0.0.1:8081").await {
                             error!("Failed to send data to UDP socket: {}", e);
                         }
                     }

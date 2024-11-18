@@ -40,7 +40,7 @@ impl ProtocolSocket for UdpSocket {
                 .unwrap_or("0.0.0.0:0".to_string()),
         )
         .await?;
-        socket.connect(address).await?;
+        // socket.connect(address).await?;
         Ok(socket)
     }
 }
