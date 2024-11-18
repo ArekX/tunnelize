@@ -88,3 +88,79 @@ impl TunnelHost {
         self.host_tunnel_map.get(hostname)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    fn setup() -> (TunnelHost, HttpEndpointConfig) {
+        let config = HttpEndpointConfig {
+            hostname_template: "{name}".to_string(),
+            allow_custom_hostnames: None,
+            port: 8080,
+            encryption: None,
+            address: None,
+            max_client_input_wait_secs: None,
+            full_url_template: None,
+            require_authorization: None,
+        };
+        let tunnel_host = TunnelHost::new(&config);
+        (tunnel_host, config)
+    }
+
+    #[test]
+    fn test_new() {
+        let (tunnel_host, config) = setup();
+        assert!(tunnel_host.host_tunnel_map.is_empty());
+        assert_eq!(
+            tunnel_host.allow_custom_hostnames,
+            config.get_allow_custom_hostnames()
+        );
+        assert_eq!(tunnel_host.hostname_template, config.hostname_template);
+    }
+
+    #[test]
+    fn test_register_host() {
+        let (mut tunnel_host, _) = setup();
+        let tunnel_id = Uuid::new_v4();
+        let proxy_id = Uuid::new_v4();
+        let desired_hostname = Some("customhost".to_string());
+
+        let hostname = tunnel_host.register_host(&desired_hostname, &tunnel_id, &proxy_id);
+        assert!(tunnel_host.host_tunnel_map.contains_key(&hostname));
+        let session = tunnel_host.get_session(&hostname).unwrap();
+        assert_eq!(session.tunnel_id, tunnel_id);
+        assert_eq!(session.proxy_id, proxy_id);
+    }
+
+    #[test]
+    fn test_remove_tunnel_by_id() {
+        let (mut tunnel_host, _) = setup();
+        let tunnel_id = Uuid::new_v4();
+        let proxy_id = Uuid::new_v4();
+        let desired_hostname = Some("customhost".to_string());
+
+        let hostname = tunnel_host.register_host(&desired_hostname, &tunnel_id, &proxy_id);
+        assert!(tunnel_host.host_tunnel_map.contains_key(&hostname));
+
+        tunnel_host.remove_tunnel_by_id(&tunnel_id);
+        assert!(!tunnel_host.host_tunnel_map.contains_key(&hostname));
+    }
+
+    #[test]
+    fn test_get_session() {
+        let (mut tunnel_host, _) = setup();
+        let tunnel_id = Uuid::new_v4();
+        let proxy_id = Uuid::new_v4();
+        let desired_hostname = Some("customhost".to_string());
+
+        let hostname = tunnel_host.register_host(&desired_hostname, &tunnel_id, &proxy_id);
+        let session = tunnel_host.get_session(&hostname).unwrap();
+        assert_eq!(session.tunnel_id, tunnel_id);
+        assert_eq!(session.proxy_id, proxy_id);
+
+        let non_existent_session = tunnel_host.get_session("nonexistent");
+        assert!(non_existent_session.is_none());
+    }
+}

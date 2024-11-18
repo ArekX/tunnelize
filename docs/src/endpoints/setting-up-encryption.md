@@ -7,9 +7,9 @@ server and tunnel.
 
 There are two ways of setting the encryption, using a custom certificate or a servers own certificate.
 
-**Using a server's own certificate**
+**Using main server's certificate**
 
-This is the simpler approach as it will use the Tunnelize server's already predefined certificate defined in
+This is the simpler approach as it will use the Main tunnelize server's already predefined certificate defined in
 server's configuration. This allows you to use it directly for this endpoint without the need to specify it
 multiple times.
 
@@ -35,6 +35,9 @@ Configuration will look like:
 Using a custom certificate allows you to set a custom TLS certificate for an endpoint which may be different from 
 tunnelize server's own certificate. This allows you to create multiple endpoints, each with its own 
 certificate.
+
+This is useful if you are serving something like HTTP endpoints which have a different wildcard certificate from
+the main server which is not using a wildcard.
 
 Configuration will look like:
 

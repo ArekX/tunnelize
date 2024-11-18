@@ -136,7 +136,7 @@ impl HandleServiceEvent for EndpointManager {
                         .await
                     {
                         error!(
-                            "Error while sending RemoveTunnelRequest to endpoint '{}': {:?}",
+                            "Error while sending RemoveTunnelRequest to endpoint '{}': {}",
                             endpoint_name, e
                         );
                     }
@@ -144,5 +144,65 @@ impl HandleServiceEvent for EndpointManager {
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::configuration::EndpointConfiguration;
+    use crate::server::endpoints::http::configuration::HttpEndpointConfig;
+
+    fn create_test_endpoint_manager() -> EndpointManager {
+        EndpointManager::new()
+    }
+
+    fn create_test_endpoint_config() -> EndpointConfiguration {
+        EndpointConfiguration::Http(HttpEndpointConfig {
+            port: 8080,
+            encryption: None,
+            address: None,
+            max_client_input_wait_secs: None,
+            hostname_template: "host-{name}.example.com".to_string(),
+            full_url_template: None,
+            allow_custom_hostnames: None,
+            require_authorization: None,
+        })
+    }
+
+    #[test]
+    fn test_add_endpoint() {
+        let mut manager = create_test_endpoint_manager();
+        let config = create_test_endpoint_config();
+        let _ = manager.add_endpoint("test_service", &config);
+        assert!(manager.get_endpoint_info("test_service").is_some());
+    }
+
+    #[test]
+    fn test_get_count() {
+        let mut manager = create_test_endpoint_manager();
+        let config = create_test_endpoint_config();
+        manager.add_endpoint("test_service", &config);
+        assert_eq!(manager.get_count(), 1);
+    }
+
+    #[test]
+    fn test_list_endpoints() {
+        let mut manager = create_test_endpoint_manager();
+        let config = create_test_endpoint_config();
+        manager.add_endpoint("test_service", &config);
+        let endpoints = manager.list_endpoints();
+        assert_eq!(endpoints.len(), 1);
+        assert_eq!(endpoints[0].name, "test_service");
+    }
+
+    #[test]
+    fn test_get_endpoint_info() {
+        let mut manager = create_test_endpoint_manager();
+        let config = create_test_endpoint_config();
+        manager.add_endpoint("test_service", &config);
+        let endpoint_info = manager.get_endpoint_info("test_service");
+        assert!(endpoint_info.is_some());
+        assert_eq!(endpoint_info.unwrap().name, "test_service");
     }
 }

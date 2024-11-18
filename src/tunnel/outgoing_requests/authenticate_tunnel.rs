@@ -36,26 +36,20 @@ pub async fn authenticate_tunnel(
             let proxy_manager = services.get_proxy_manager().await;
 
             for (proxy_id, endpoint_info) in endpoint_info.iter() {
-                let Some((address, port)) = proxy_manager.get_forward_address(proxy_id) else {
+                let Some(proxy) = proxy_manager.get_proxy(proxy_id) else {
                     error!("Failed to get proxy for proxy_id: {}", proxy_id);
                     return Err(io::Error::new(io::ErrorKind::Other, "Failed to get proxy"));
                 };
 
+                let endpoint_url = match endpoint_info {
+                    ResolvedEndpointInfo::Http(info) => info.assigned_url.clone(),
+                    ResolvedEndpointInfo::Tcp(info) => info.assigned_hostname.clone(),
+                    ResolvedEndpointInfo::Udp(info) => info.assigned_hostname.clone(),
+                };
+
                 println!(
-                    "Proxy: {}:{} -> {}",
-                    address,
-                    port,
-                    match endpoint_info {
-                        ResolvedEndpointInfo::Http(info) => {
-                            info.assigned_url.clone()
-                        }
-                        ResolvedEndpointInfo::Tcp(info) => {
-                            info.assigned_hostname.clone()
-                        }
-                        ResolvedEndpointInfo::Udp(info) => {
-                            info.assigned_hostname.clone()
-                        }
-                    }
+                    "[Forward|{}] {}:{} -> {}",
+                    proxy.endpoint_name, proxy.address, proxy.port, endpoint_url
                 );
             }
         }
@@ -80,6 +74,8 @@ async fn process_input_proxies(
             proxy_id,
             endpoint_name: proxy.endpoint_name.clone(),
             proxy: proxy.endpoint_config.clone(),
+            forward_address: proxy.address.clone(),
+            forward_port: proxy.port,
         });
     }
 

@@ -105,3 +105,89 @@ impl HandleServiceEvent for TunnelManager {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::server::session::tunnel::{create, TunnelSession};
+    use uuid::Uuid;
+
+    fn create_tunnel_session(id: Uuid) -> TunnelSession {
+        let (session, _) = create(id, None, vec![]);
+        session
+    }
+
+    #[test]
+    fn test_new() {
+        let manager = TunnelManager::new();
+        assert_eq!(manager.get_count(), 0);
+    }
+
+    #[test]
+    fn test_register_tunnel_session() {
+        let mut manager = TunnelManager::new();
+        let id = Uuid::new_v4();
+        let session = create_tunnel_session(id);
+
+        manager.register_tunnel_session(&session);
+        assert_eq!(manager.get_count(), 1);
+        assert!(manager.get_tunnel_info(&id).is_some());
+    }
+
+    #[test]
+    fn test_remove_tunnel_session() {
+        let mut manager = TunnelManager::new();
+        let id = Uuid::new_v4();
+        let session = create_tunnel_session(id);
+
+        manager.register_tunnel_session(&session);
+        manager.remove_tunnel_session(&id);
+        assert_eq!(manager.get_count(), 0);
+        assert!(manager.get_tunnel_info(&id).is_none());
+    }
+
+    #[test]
+    fn test_get_session_tx() {
+        let mut manager = TunnelManager::new();
+        let id = Uuid::new_v4();
+        let session = create_tunnel_session(id);
+
+        manager.register_tunnel_session(&session);
+        assert!(manager.get_session_tx(&id).is_some());
+    }
+
+    #[test]
+    fn test_cancel_session() {
+        let mut manager = TunnelManager::new();
+        let id = Uuid::new_v4();
+        let session = create_tunnel_session(id);
+
+        manager.register_tunnel_session(&session);
+        assert!(manager.cancel_session(&id).is_ok());
+    }
+
+    #[test]
+    fn test_list_all_tunnels() {
+        let mut manager = TunnelManager::new();
+        let id1 = Uuid::new_v4();
+        let id2 = Uuid::new_v4();
+        let session1 = create_tunnel_session(id1);
+        let session2 = create_tunnel_session(id2);
+
+        manager.register_tunnel_session(&session1);
+        manager.register_tunnel_session(&session2);
+        let tunnels = manager.list_all_tunnels();
+        assert_eq!(tunnels.len(), 2);
+    }
+
+    #[test]
+    fn test_get_tunnel_info() {
+        let mut manager = TunnelManager::new();
+        let id = Uuid::new_v4();
+        let session = create_tunnel_session(id);
+
+        manager.register_tunnel_session(&session);
+        let info = manager.get_tunnel_info(&id);
+        assert!(info.is_some());
+    }
+}

@@ -1,7 +1,11 @@
 flowchart LR
-    Client -->|1. Request| TunnelServer
-    TunnelServer[Tunnelize Server] -->|2. Forward Request| TunnelClient[Tunnelize Client]
-    TunnelClient -->|3. Forward Request| LocalServer[Your local server]
-    LocalServer -->|4. Forward Response| TunnelClient
-    TunnelClient -->|5. Forward Response| TunnelServer
-    TunnelServer -->|6. Response| Client
+    ClientA[Client A] <--> Endpoint1[Endpoint 1]
+    ClientB[Client B] <--> Endpoint2[Endpoint 2]
+    ClientC[Client C] <--> EndpointN[Endpoint N]
+    Endpoint1 <-->TunnelServer
+    Endpoint2 <-->TunnelServer
+    EndpointN <-->TunnelServer
+    TunnelServer[Tunnelize Server] -->|1. Forward Request| TunnelClient[Tunnelize Client]
+    TunnelClient -->|2. Forward Request| LocalServer[Your local server]
+    LocalServer -->|3. Forward Response| TunnelClient 
+    TunnelClient -->|4. Forward Response| TunnelServer

@@ -15,6 +15,7 @@ use crate::{common::connection::Connection, tunnel::configuration::TunnelProxy};
 pub struct Proxy {
     pub address: String,
     pub port: u16,
+    pub endpoint_name: String,
     pub protocol: ProxyProtocol,
 }
 
@@ -93,12 +94,17 @@ impl ProxyManager {
             .map(|session| (session.address.clone(), session.port))
     }
 
+    pub fn get_proxy(&self, id: &Uuid) -> Option<&Proxy> {
+        self.proxy_map.get(id)
+    }
+
     pub fn add_proxy(&mut self, proxy: &TunnelProxy) -> Uuid {
         let id = Uuid::new_v4();
 
         let proxy = Proxy {
             address: proxy.address.clone(),
             port: proxy.port,
+            endpoint_name: proxy.endpoint_name.clone(),
             protocol: ProxyProtocol::from(&proxy.endpoint_config),
         };
 
@@ -121,5 +127,51 @@ impl ProxyManager {
             std::io::ErrorKind::NotFound,
             "Failed to find proxy session",
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tunnel::configuration::{ProxyConfiguration, TunnelProxy};
+
+    fn create_test_proxy_configuration() -> TunnelProxy {
+        TunnelProxy {
+            address: "127.0.0.1".to_string(),
+            port: 8080,
+            endpoint_name: "test".to_string(),
+            endpoint_config: ProxyConfiguration::Tcp { desired_port: None },
+        }
+    }
+
+    #[test]
+    fn test_add_proxy() {
+        let mut manager = ProxyManager::new();
+        let proxy_config = create_test_proxy_configuration();
+        let id = manager.add_proxy(&proxy_config);
+
+        assert!(manager.get_proxy(&id).is_some());
+    }
+
+    #[test]
+    fn test_get_forward_address() {
+        let mut manager = ProxyManager::new();
+        let proxy_config = create_test_proxy_configuration();
+        let id = manager.add_proxy(&proxy_config);
+
+        let address = manager.get_forward_address(&id);
+        assert!(address.is_some());
+        assert_eq!(address.unwrap(), ("127.0.0.1".to_string(), 8080));
+    }
+
+    #[test]
+    fn test_get_proxy() {
+        let mut manager = ProxyManager::new();
+        let proxy_config = create_test_proxy_configuration();
+        let id = manager.add_proxy(&proxy_config);
+
+        let proxy = manager.get_proxy(&id);
+        assert!(proxy.is_some());
+        assert_eq!(proxy.unwrap().address, "127.0.0.1");
     }
 }

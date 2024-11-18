@@ -1,11 +1,12 @@
-use std::fs::exists;
-
 use serde::{Deserialize, Serialize};
 
-use super::validate::{Validatable, Validation};
+use super::{
+    validate::{Validatable, Validation},
+    validate_rules::FileMustExist,
+};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum ServerEncryption {
     None,
     Tls { cert_path: String, key_path: String },
@@ -18,19 +19,8 @@ impl Validatable for ServerEncryption {
             key_path,
         } = &self
         {
-            if !exists(cert_path).is_ok() {
-                result.add_error(&format!(
-                    "TLS cert path '{}' does not exist or is invalid.",
-                    cert_path
-                ));
-            }
-
-            if !exists(key_path).is_ok() {
-                result.add_error(&format!(
-                    "TLS key path '{}' does not exist or is invalid.",
-                    key_path
-                ));
-            }
+            result.validate_rule::<FileMustExist>("cert_path", cert_path);
+            result.validate_rule::<FileMustExist>("key_path", key_path);
         }
     }
 }

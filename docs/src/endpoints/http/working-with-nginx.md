@@ -7,7 +7,7 @@ case tunnelize server will use a HTTP endpoint and it will be proxied through th
 
 > **Important**
 > 
-> Make sure your DNS support [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record).
+> Make sure your DNS zone support [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record).
 
 Configure your HTTP endpoint similar to this:
 
@@ -76,7 +76,7 @@ map $http_upgrade $connection_upgrade {
 
 > **Important**
 > 
-> Make sure your DNS support [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record). Also make sure
+> Make sure your DNS zone support [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record). Also make sure
 > that you have a [wildcard certificate setup](../../setting-up-certificates.md#setting-up-certificates-using-lets-encrypt).
 
 Use the same configuration for nginx as above, but with following changes:

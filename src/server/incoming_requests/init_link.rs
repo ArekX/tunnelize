@@ -42,14 +42,10 @@ pub async fn process(
 
     session::link::start(&services, client_id.clone(), response_stream, cancel_token).await;
 
-    println!("Link session Disconnecting");
-
     services
         .push_event(ServiceEvent::LinkDisconnected {
             client_id,
             session_id: request.session_id,
         })
         .await;
-
-    println!("Sent LinkDisconnected event");
 }

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -15,24 +17,24 @@ use crate::{
 pub struct HttpEndpointConfig {
     pub port: u16,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub encryption: Option<EndpointServerEncryption>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub address: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub max_client_input_wait_secs: Option<u64>,
 
     pub hostname_template: String,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub full_url_template: Option<String>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub allow_custom_hostnames: Option<bool>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub require_authorization: Option<AuthorizeUser>,
 }
 
@@ -67,6 +69,7 @@ impl HttpEndpointConfig {
     pub fn get_is_secure(&self) -> bool {
         match &self.encryption {
             Some(EndpointServerEncryption::None) => false,
+            None => false,
             _ => true,
         }
     }
@@ -95,13 +98,23 @@ pub struct AuthorizeUser {
     pub password: String,
 }
 
+impl Display for AuthorizeUser {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "\tUsername: {}", self.username)?;
+        writeln!(f, "\tPassword: {}", self.password)?;
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HttpPublicEndpointConfig {
     pub port: u16,
     pub is_secure: bool,
-    pub address: Option<String>,
+    pub address: String,
     pub allow_custom_hostnames: bool,
     pub hostname_template: String,
+    pub require_authorization: Option<AuthorizeUser>,
 }
 
 impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
@@ -109,10 +122,44 @@ impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
         Self {
             port: config.port,
             is_secure: config.get_is_secure(),
-            address: config.address.clone(),
+            address: config.get_address(),
             allow_custom_hostnames: config.get_allow_custom_hostnames(),
             hostname_template: config.hostname_template.clone(),
+            require_authorization: config.require_authorization.clone(),
         }
+    }
+}
+
+impl Display for HttpPublicEndpointConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Port: {}", self.port)?;
+        writeln!(
+            f,
+            "HTTPS: {}",
+            if self.is_secure {
+                "Enabled"
+            } else {
+                "Disabled"
+            }
+        )?;
+        writeln!(f, "Address: {}", self.address)?;
+        writeln!(
+            f,
+            "User can set {{name}} in template: {}",
+            if self.allow_custom_hostnames {
+                "Allowed"
+            } else {
+                "Not Allowed"
+            }
+        )?;
+        writeln!(f, "Template: {}", self.hostname_template)?;
+
+        if let Some(authorization) = &self.require_authorization {
+            writeln!(f, "Requires clients to authorize:")?;
+            write!(f, "{}", authorization)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -149,5 +196,82 @@ impl Validatable for HttpEndpointConfig {
         if let Some(authorization) = &self.require_authorization {
             result.validate_child("authorization", authorization);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn get_config() -> HttpEndpointConfig {
+        HttpEndpointConfig {
+            port: 8080,
+            encryption: None,
+            address: None,
+            max_client_input_wait_secs: None,
+            hostname_template: "example.com".to_string(),
+            full_url_template: None,
+            allow_custom_hostnames: None,
+            require_authorization: None,
+        }
+    }
+
+    #[test]
+    fn test_get_address() {
+        let mut config = get_config();
+        config.address = Some("127.0.0.1".to_string());
+        assert_eq!(config.get_address(), "127.0.0.1");
+
+        config.address = None;
+        assert_eq!(config.get_address(), "0.0.0.0");
+    }
+
+    #[test]
+    fn test_get_full_url() {
+        let mut config = get_config();
+        config.full_url_template = Some("http://{hostname}:{port}".to_string());
+        assert_eq!(
+            config.get_full_url("example.com"),
+            "http://example.com:8080"
+        );
+
+        config.full_url_template = None;
+        assert_eq!(
+            config.get_full_url("example.com"),
+            "http://example.com:8080"
+        );
+    }
+
+    #[test]
+    fn test_get_is_secure() {
+        let mut config = get_config();
+        config.encryption = Some(EndpointServerEncryption::None);
+        assert!(!config.get_is_secure());
+
+        config.encryption = Some(EndpointServerEncryption::Tls {
+            cert_path: None,
+            key_path: None,
+        });
+        assert!(config.get_is_secure());
+    }
+
+    #[test]
+    fn test_get_max_client_input_wait_secs() {
+        let mut config = get_config();
+        config.max_client_input_wait_secs = Some(100);
+        assert_eq!(config.get_max_client_input_wait_secs(), 100);
+
+        config.max_client_input_wait_secs = None;
+        assert_eq!(config.get_max_client_input_wait_secs(), 300);
+    }
+
+    #[test]
+    fn test_get_allow_custom_hostnames() {
+        let mut config = get_config();
+        config.allow_custom_hostnames = Some(false);
+        assert!(!config.get_allow_custom_hostnames());
+
+        config.allow_custom_hostnames = None;
+        assert!(config.get_allow_custom_hostnames());
     }
 }

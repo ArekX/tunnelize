@@ -1,7 +1,12 @@
 use std::collections::HashMap;
 
+use log::error;
+
 use crate::{
-    common::{cli::InitCommands, encryption::ClientEncryptionType, tcp_client::create_tcp_client},
+    common::{
+        cli::InitCommands,
+        tcp_client::{create_tcp_client, ClientEncryption},
+    },
     configuration::{write_configuration, TunnelizeConfiguration},
     server::{
         configuration::{EndpointConfiguration, ServerConfiguration},
@@ -32,7 +37,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
         }
         InitCommands::Tunnel {
             server,
-            cert,
+            ca: ca_path,
             tls,
             key,
         } => {
@@ -42,7 +47,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 return Ok(());
             };
 
-            println!("Connecting to server at {}", server_address);
+            println!("Connecting to: {}", server_address);
 
             if server_address.starts_with("http://") || server_address.starts_with("https://") {
                 server_address = server_address
@@ -59,31 +64,37 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 None => (server_address, 3456),
             };
 
-            let encryption: Option<ClientEncryptionType> = match tls {
-                true => cert
-                    .clone()
-                    .map(|ca_cert_path| ClientEncryptionType::CustomTls { ca_cert_path })
-                    .or_else(|| Some(ClientEncryptionType::NativeTls)),
-                false => None,
-            };
+            let encryption: Option<ClientEncryption> =
+                tls.then(|| ClientEncryption::Tls { ca_path });
 
-            let mut connection = match create_tcp_client(&address, port, encryption.clone()).await {
-                Ok(connection) => connection,
-                Err(e) => {
-                    eprintln!("Failed to connect to server: {}", e);
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        "Failed to connect to server",
-                    ));
-                }
-            };
+            let mut connection =
+                match create_tcp_client(&address, port, encryption.clone().into()).await {
+                    Ok(connection) => connection,
+                    Err(e) => {
+                        error!("Could not retrieve configuration: {}", e);
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            "Failed to connect to server",
+                        ));
+                    }
+                };
 
-            let ProcessConfigResponse::GetPublicEndpointConfig(endpoint_config) = connection
+            let endpoint_config = match connection
                 .request_message(ProcessConfigRequest {
                     tunnel_key: key.clone(),
                     request: ConfigRequest::GetPublicEndpointConfig,
                 })
-                .await?;
+                .await?
+            {
+                ProcessConfigResponse::GetPublicEndpointConfig(config) => config,
+                ProcessConfigResponse::AccessDenied => {
+                    error!("Could not retrieve configuration: Access denied, please check your tunnel key.");
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::PermissionDenied,
+                        "Access denied. Please check your tunnel key.",
+                    ));
+                }
+            };
 
             let mut tunnel_config = TunnelConfiguration {
                 name: Some("my-tunnel".to_owned()),
@@ -96,23 +107,33 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 proxies: Vec::new(),
             };
 
+            let mut port: u16 = 8080;
+
             for PublicEndpointConfig { name, config } in endpoint_config {
                 match config {
                     PublicServerEndpointConfig::Http(http) => {
+                        println!("Discovered HTTP endpoint: {}", name);
+                        println!("{}", http);
+
                         tunnel_config.proxies.push(TunnelProxy {
-                            address: http.address.unwrap_or_else(|| address.clone()),
+                            address: "localhost".to_owned(),
                             endpoint_name: name,
-                            port: http.port,
+                            port,
                             endpoint_config: ProxyConfiguration::Http {
-                                desired_name: Some("desired-name".to_owned()),
+                                desired_name: http
+                                    .allow_custom_hostnames
+                                    .then(|| "custom-name".to_owned()),
                             },
                         });
                     }
                     PublicServerEndpointConfig::Tcp(tcp) => {
+                        println!("Discovered TCP endpoint: {}", name);
+                        println!("{}", tcp);
+
                         tunnel_config.proxies.push(TunnelProxy {
-                            address: tcp.address.unwrap_or_else(|| address.clone()),
+                            address: "localhost".to_owned(),
                             endpoint_name: name,
-                            port: tcp.reserve_ports_from,
+                            port,
                             endpoint_config: ProxyConfiguration::Tcp {
                                 desired_port: tcp
                                     .allow_desired_port
@@ -121,10 +142,13 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                         });
                     }
                     PublicServerEndpointConfig::Udp(udp) => {
+                        println!("Discovered UDP endpoint: {}", name);
+                        println!("{}", udp);
+
                         tunnel_config.proxies.push(TunnelProxy {
-                            address: udp.address.unwrap_or_else(|| address.clone()),
+                            address: "localhost".to_owned(),
                             endpoint_name: name,
-                            port: udp.reserve_ports_from,
+                            port,
                             endpoint_config: ProxyConfiguration::Udp {
                                 desired_port: udp
                                     .allow_desired_port
@@ -134,6 +158,8 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                         });
                     }
                 }
+
+                port = port.wrapping_add(1);
             }
 
             write_configuration(tunnel_config.into())?;
@@ -161,13 +187,30 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
         address: "localhost".to_owned(),
         endpoint_name: "http".to_owned(),
         port: 8080,
-        endpoint_config: ProxyConfiguration::Http { desired_name: None },
+        endpoint_config: ProxyConfiguration::Http {
+            desired_name: Some("myname".to_owned()),
+        },
+    });
+
+    configuration.proxies.push(TunnelProxy {
+        address: "localhost".to_owned(),
+        endpoint_name: "tcp".to_owned(),
+        port: 8081,
+        endpoint_config: ProxyConfiguration::Tcp { desired_port: None },
+    });
+
+    configuration.proxies.push(TunnelProxy {
+        address: "localhost".to_owned(),
+        endpoint_name: "udp".to_owned(),
+        port: 8082,
+        endpoint_config: ProxyConfiguration::Udp {
+            desired_port: None,
+            bind_address: None,
+        },
     });
 
     configuration
 }
-
-// TODO: Add configuration for all endpoints
 
 fn get_default_server_configuration() -> ServerConfiguration {
     let mut configuration = ServerConfiguration {

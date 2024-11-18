@@ -20,6 +20,7 @@ pub async fn start_link_session(
     let config = services.get_config();
 
     info!("Starting link session.");
+
     let (mut forward_connection, context) = match timeout(
         Duration::from_secs(config.get_forward_connection_timeout_seconds()),
         services
@@ -31,7 +32,7 @@ pub async fn start_link_session(
     {
         Ok(Ok(connection)) => connection,
         Ok(Err(e)) => {
-            error!("Failed to create forward connection: {:?}", e);
+            error!("Failed to create forward connection: {}", e);
             return Err(e);
         }
         Err(_) => {
@@ -66,13 +67,15 @@ pub async fn start_link_session(
     }
 
     tokio::spawn(async move {
-        info!("Starting relay session.");
         if let Err(e) = forward_connection
             .bridge_to(&mut server_connection, context)
             .await
         {
-            error!("Relay session failed: {:?}", e);
+            error!("Relay session failed: {}", e);
         }
+
+        forward_connection.shutdown().await;
+        server_connection.shutdown().await;
     });
 
     Ok(())

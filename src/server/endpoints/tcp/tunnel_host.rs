@@ -90,3 +90,84 @@ impl TunnelHost {
         self.host_tunnel_map.get(&port)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    fn setup_tunnel_host(min_port: u16, max_port: u16, allow_desired_port: bool) -> TunnelHost {
+        let config = TcpEndpointConfig {
+            reserve_ports_from: min_port,
+            reserve_ports_to: max_port,
+            address: None,
+            allow_desired_port: Some(allow_desired_port),
+            encryption: None,
+            full_hostname_template: None,
+        };
+        TunnelHost::new(&config)
+    }
+
+    #[test]
+    fn test_has_available_ports() {
+        let tunnel_host = setup_tunnel_host(1000, 1005, true);
+        assert!(tunnel_host.has_available_ports());
+    }
+
+    #[test]
+    fn test_get_first_available_port() {
+        let mut tunnel_host = setup_tunnel_host(1000, 1005, true);
+        assert_eq!(tunnel_host.get_first_available_port(), Some(1000));
+        tunnel_host
+            .add_tunnel(Some(1000), Uuid::new_v4(), Uuid::new_v4())
+            .unwrap();
+        assert_eq!(tunnel_host.get_first_available_port(), Some(1001));
+    }
+
+    #[test]
+    fn test_resolve_port() {
+        let mut tunnel_host = setup_tunnel_host(1000, 1005, true);
+        assert_eq!(tunnel_host.resolve_port(Some(1000)), Some(1000));
+        tunnel_host
+            .add_tunnel(Some(1000), Uuid::new_v4(), Uuid::new_v4())
+            .unwrap();
+        assert_eq!(tunnel_host.resolve_port(Some(1000)), Some(1001));
+    }
+
+    #[test]
+    fn test_add_tunnel() {
+        let mut tunnel_host = setup_tunnel_host(1000, 1005, true);
+        let tunnel_id = Uuid::new_v4();
+        let proxy_id = Uuid::new_v4();
+        let port = tunnel_host
+            .add_tunnel(Some(1000), tunnel_id, proxy_id)
+            .unwrap();
+        assert_eq!(port, 1000);
+        assert!(tunnel_host.get_tunnel(1000).is_some());
+    }
+
+    #[test]
+    fn test_remove_tunnel() {
+        let mut tunnel_host = setup_tunnel_host(1000, 1005, true);
+        let tunnel_id = Uuid::new_v4();
+        let proxy_id = Uuid::new_v4();
+        tunnel_host
+            .add_tunnel(Some(1000), tunnel_id, proxy_id)
+            .unwrap();
+        tunnel_host.remove_tunnel(&tunnel_id);
+        assert!(tunnel_host.get_tunnel(1000).is_none());
+    }
+
+    #[test]
+    fn test_get_tunnel() {
+        let mut tunnel_host = setup_tunnel_host(1000, 1005, true);
+        let tunnel_id = Uuid::new_v4();
+        let proxy_id = Uuid::new_v4();
+        tunnel_host
+            .add_tunnel(Some(1000), tunnel_id, proxy_id)
+            .unwrap();
+        let tunnel = tunnel_host.get_tunnel(1000).unwrap();
+        assert_eq!(tunnel.tunnel_id, tunnel_id);
+        assert_eq!(tunnel.proxy_id, proxy_id);
+    }
+}

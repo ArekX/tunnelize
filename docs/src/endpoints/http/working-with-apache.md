@@ -7,7 +7,7 @@ In this case, tunnelize server will use a HTTP endpoint and it will be proxied t
 
 > **Important**  
 > 
-> Make sure your DNS supports [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record).
+> Make sure your DNS zone supports [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record).
 
 Configure your HTTP endpoint similar to this:
 
@@ -68,7 +68,7 @@ LoadModule rewrite_module modules/mod_rewrite.so
 ## Configuration with SSL
 
 > **Important**  
-> Make sure your DNS supports [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record). Also make sure that you have a wildcard certificate setup.
+> Make sure your DNS zone supports [wildcard domains](https://en.wikipedia.org/wiki/Wildcard_DNS_record). Also make sure that you have a wildcard certificate setup.
 
 Use the same configuration as above, but modify the VirtualHost configuration to include SSL:
 

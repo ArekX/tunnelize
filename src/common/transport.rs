@@ -144,3 +144,75 @@ where
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use super::*;
+    use bytes::BytesMut;
+    use serde::{Deserialize, Serialize};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[derive(Serialize, Deserialize, PartialEq, Debug)]
+    struct TestMessage {
+        content: String,
+    }
+
+    #[tokio::test]
+    async fn test_serialize_message() {
+        let message = TestMessage {
+            content: "Hello, world!".to_string(),
+        };
+        let serialized = serialize_message(&message).unwrap();
+        assert!(!serialized.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_deserialize_message() {
+        let message = TestMessage {
+            content: "Hello, world!".to_string(),
+        };
+        let serialized = serialize_message(&message).unwrap();
+        let deserialized: TestMessage = deserialize_message(serialized).unwrap();
+        assert_eq!(message, deserialized);
+    }
+
+    #[tokio::test]
+    async fn test_read_message() {
+        let message = TestMessage {
+            content: "Hello, world!".to_string(),
+        };
+        let serialized = serialize_message(&message).unwrap();
+        let length = serialized.len() as u32;
+
+        let mut stream = Cursor::new(Vec::new());
+        stream.write_u32(length).await.unwrap();
+        stream.write_all(&serialized).await.unwrap();
+        stream.set_position(0);
+
+        let deserialized: TestMessage = read_message(&mut stream).await.unwrap();
+        assert_eq!(message, deserialized);
+    }
+
+    #[tokio::test]
+    async fn test_write_message() {
+        let message = TestMessage {
+            content: "Hello, world!".to_string(),
+        };
+
+        let mut stream = Cursor::new(Vec::new());
+        write_message(&mut stream, &message).await.unwrap();
+        stream.set_position(0);
+
+        let length = stream.read_u32().await.unwrap();
+        assert_eq!(length, serialize_message(&message).unwrap().len() as u32);
+
+        let mut buffer = BytesMut::with_capacity(length as usize);
+        buffer.resize(length as usize, 0);
+        stream.read_exact(&mut buffer).await.unwrap();
+
+        let deserialized: TestMessage = deserialize_message(buffer.freeze()).unwrap();
+        assert_eq!(message, deserialized);
+    }
+}

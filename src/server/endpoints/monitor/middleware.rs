@@ -161,3 +161,48 @@ fn check_authentication(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{body::Body, http::StatusCode, response::Response};
+
+    #[tokio::test]
+    async fn test_get_response_string() {
+        let response = Response::new(Body::from("Test response"));
+        let response_string = get_response_string(response).await;
+        assert_eq!(response_string, "Test response");
+    }
+
+    #[tokio::test]
+    async fn test_to_auth_error_response() {
+        let auth = MonitorAuthentication::Basic {
+            username: "user".to_string(),
+            password: "pass".to_string(),
+        };
+        let response = to_auth_error_response(&auth, "TestRealm", "Unauthorized");
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            response.headers().get("WWW-Authenticate").unwrap(),
+            "Basic realm=\"TestRealm\""
+        );
+    }
+
+    #[tokio::test]
+    async fn test_check_authentication_basic() {
+        let auth = MonitorAuthentication::Basic {
+            username: "user".to_string(),
+            password: "pass".to_string(),
+        };
+        let auth_value = general_purpose::STANDARD.encode("user:pass");
+        assert!(check_authentication(&auth_value, &auth).is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_check_authentication_bearer() {
+        let auth = MonitorAuthentication::Bearer {
+            token: "token".to_string(),
+        };
+        assert!(check_authentication("token", &auth).is_ok());
+    }
+}

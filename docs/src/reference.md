@@ -25,3 +25,13 @@
 | `monitor` | `disconnect-link`   | `-c, --config <CONFIG>` | Disconnect link by UUID.                                                                                                   |
 
 On commands using `-c, --config`, if it is passed, it will load in that config json file, otherwise it will load `tunnelize.json` from current working directory.
+
+# Environment
+
+Tunnelize supports setting environment variables to modify the log output. Following environment variables can be set:
+
+
+| Name         | Description                                | Possible Values                  | Default Value |
+| ------------ | ------------------------------------------ | -------------------------------- | ------------- |
+| `LOG_LEVEL`  | Sets the logging level for the application | `error`, `warn`, `info`, `debug` | `info`        |
+| `LOG_COLORS` | Enables or disables colored log output     | `true`, `false`                  | `true`        |

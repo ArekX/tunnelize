@@ -1,0 +1,126 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: windows-latest
+            exe: .exe
+            asset_suffix: windows
+          - os: ubuntu-latest
+            exe: ""
+            asset_suffix: linux
+          - os: macos-latest
+            exe: ""
+            asset_suffix: macos
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: clippy
+
+      - name: Run tests
+        run: cargo test --all
+
+      - name: Build project
+        run: cargo build --release
+
+      - name: Package Binary
+        shell: bash
+        run: |
+          cd target/release
+          # Create tar.gz for Unix systems or zip for Windows
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a tunnelize-${{ matrix.asset_suffix }}.zip tunnelize.exe
+          else
+            tar czf tunnelize-${{ matrix.asset_suffix }}.tar.gz tunnelize
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnelize-${{ matrix.os }}
+          path: |
+            target/release/tunnelize-${{ matrix.asset_suffix }}*
+          retention-days: 1
+
+  create_release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Tunnelize ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            Tunnelize ${{ github.ref_name }}
+
+            ## Binary Downloads
+            - Windows: tunnelize-windows.zip
+            - Linux: tunnelize-linux.tar.gz
+            - macOS: tunnelize-macos.tar.gz
+
+            ## Changes
+
+            Please see the commit history for detailed changes.
+  upload_assets:
+    needs: [build, create_release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            asset_path: tunnelize-windows.zip
+            asset_name: tunnelize-windows.zip
+            content_type: application/zip
+          - os: ubuntu-latest
+            asset_path: tunnelize-linux.tar.gz
+            asset_name: tunnelize-linux.tar.gz
+            content_type: application/gzip
+          - os: macos-latest
+            asset_path: tunnelize-macos.tar.gz
+            asset_name: tunnelize-macos.tar.gz
+            content_type: application/gzip
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: tunnelize-${{ matrix.os }}
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ matrix.asset_path }}
+          asset_name: ${{ matrix.asset_name }}
+          asset_content_type: ${{ matrix.content_type }}

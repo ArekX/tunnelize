@@ -39,7 +39,7 @@ Fields:
 | ------------------ | -------------------------------------------------------------------------------------------- | ------------- |
 | type               | Type of service. Always `monitoring` for monitoring endpoint.                                | No default    |
 | port               | Port number                                                                                  | No default    |
-| encryption         | Encryption for HTTPS access. See [configuring encryption](./setting-up-endpoint-tls.md).     | No encryption |
+| encryption         | Encryption for HTTPS access. See [configuring encryption](./setting-up-encryption.md).       | No encryption |
 | address            | Service address.                                                                             | 0.0.0.0       |
 | authentication     | Type of authentication. See [configuring authentication](#configuring-authentication) below. | No default    |
 | allow_cors_origins | CORS origins allowed.  See [configuring CORS](#configuring-cors) below.                      | any           |

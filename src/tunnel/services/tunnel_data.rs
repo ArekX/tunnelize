@@ -21,3 +21,48 @@ impl TunnelData {
         self.tunnel_id.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    fn create_tunnel_data_with_id() -> TunnelData {
+        let mut tunnel_data = TunnelData::new();
+        tunnel_data.set_tunnel_id(Uuid::new_v4());
+        tunnel_data
+    }
+
+    #[test]
+    fn test_new() {
+        let tunnel_data = TunnelData::new();
+        assert!(tunnel_data.tunnel_id.is_none());
+    }
+
+    #[test]
+    fn test_set_tunnel_id() {
+        let mut tunnel_data = TunnelData::new();
+        let tunnel_id = Uuid::new_v4();
+        tunnel_data.set_tunnel_id(tunnel_id);
+        assert_eq!(tunnel_data.tunnel_id, Some(tunnel_id));
+    }
+
+    #[test]
+    #[should_panic(expected = "Tunnel ID already set")]
+    fn test_set_tunnel_id_twice() {
+        let mut tunnel_data = create_tunnel_data_with_id();
+        tunnel_data.set_tunnel_id(Uuid::new_v4());
+    }
+
+    #[test]
+    fn test_get_tunnel_id() {
+        let tunnel_data = create_tunnel_data_with_id();
+        assert!(tunnel_data.get_tunnel_id().is_some());
+    }
+
+    #[test]
+    fn test_get_tunnel_id_none() {
+        let tunnel_data = TunnelData::new();
+        assert!(tunnel_data.get_tunnel_id().is_none());
+    }
+}

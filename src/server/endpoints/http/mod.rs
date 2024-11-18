@@ -94,8 +94,8 @@ pub async fn start(
                             continue;
                         }
                     },
-                    Err(e) => {
-                        error!("Failed to accept client connection: {:?}", e);
+                    Err((e, _)) => {
+                        error!("Failed to accept client connection: {}", e);
                         continue;
                     }
                 };

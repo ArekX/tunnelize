@@ -12,15 +12,15 @@ use crate::{
 pub struct MonitorEndpointConfig {
     pub port: u16,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub encryption: Option<EndpointServerEncryption>,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub address: Option<String>,
 
     pub authentication: MonitorAuthentication,
 
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", default)]
     pub allow_cors_origins: Option<MonitorOrigin>,
 }
 
@@ -43,7 +43,7 @@ impl MonitorEndpointConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum MonitorOrigin {
     Any,
     List(Vec<String>),
@@ -51,9 +51,9 @@ pub enum MonitorOrigin {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type", rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "kebab-case")]
 pub enum MonitorAuthentication {
-    Basic { username: String, password: String }, // TODO: Realm?
+    Basic { username: String, password: String },
     Bearer { token: String },
 }
 

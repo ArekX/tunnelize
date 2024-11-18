@@ -15,6 +15,8 @@ use crate::{
     },
 };
 
+use super::access::has_tunnel_access;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProcessConfigRequest {
     pub tunnel_key: Option<String>,
@@ -29,6 +31,7 @@ pub enum ConfigRequest {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ProcessConfigResponse {
     GetPublicEndpointConfig(Vec<PublicEndpointConfig>),
+    AccessDenied,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -68,7 +71,13 @@ pub async fn process(
 ) {
     match &request.request {
         ConfigRequest::GetPublicEndpointConfig => {
-            // TODO: Add configuratiom check for tunnel_key and whether the config allows this kind of request
+            if !has_tunnel_access(&services, request.tunnel_key.as_ref()) {
+                response_stream
+                    .respond_message(&ProcessConfigResponse::AccessDenied)
+                    .await;
+                return;
+            }
+
             let endpoints = services.get_endpoint_manager().await.list_endpoints();
 
             let mut results: Vec<PublicEndpointConfig> = vec![];

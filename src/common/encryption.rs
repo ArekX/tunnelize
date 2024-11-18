@@ -48,20 +48,14 @@ impl ServerTlsEncryption {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum ClientEncryptionType {
-    CustomTls { ca_cert_path: String },
-    NativeTls,
-}
-
 pub struct ClientTlsEncryption {
     connector: TlsConnector,
 }
 
 impl ClientTlsEncryption {
-    pub async fn new(encryption_type: ClientEncryptionType) -> Self {
+    pub async fn new(ca_path: Option<String>) -> Self {
         let client_config = ClientConfig::builder()
-            .with_root_certificates(Self::resolve_client_root_cert_store(encryption_type))
+            .with_root_certificates(Self::resolve_client_root_cert_store(ca_path))
             .with_no_client_auth();
 
         let connector = TlsConnector::from(Arc::new(client_config));
@@ -81,13 +75,13 @@ impl ClientTlsEncryption {
         Ok(Connection::from(stream))
     }
 
-    fn resolve_client_root_cert_store(encryption_type: ClientEncryptionType) -> RootCertStore {
+    fn resolve_client_root_cert_store(ca_path: Option<String>) -> RootCertStore {
         let mut root_store = RootCertStore::empty();
 
-        match encryption_type {
-            ClientEncryptionType::CustomTls { ca_cert_path } => {
+        match ca_path {
+            Some(ca_path) => {
                 let cert_reader =
-                    CertificateDer::pem_file_iter(ca_cert_path).expect("Failed to read CA cert");
+                    CertificateDer::pem_file_iter(ca_path).expect("Failed to read CA certificate");
                 let certs: Vec<CertificateDer> = cert_reader
                     .filter(|i| i.is_ok())
                     .map(|i| i.unwrap())
@@ -96,16 +90,17 @@ impl ClientTlsEncryption {
                 for cert in certs {
                     root_store
                         .add(cert)
-                        .expect("Failed to add certificate to root store");
+                        .expect("Failed to add CA certificate to root store");
                 }
             }
-            ClientEncryptionType::NativeTls => {
-                let native_certs = load_native_certs().expect("Failed to load native certs");
+            None => {
+                let native_certs =
+                    load_native_certs().expect("Failed to load native OS certificates");
 
                 for cert in native_certs {
                     root_store
                         .add(cert)
-                        .expect("Failed to add certificate to root store");
+                        .expect("Failed to add Native certificate to root store");
                 }
             }
         }
