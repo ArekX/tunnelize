@@ -7,12 +7,12 @@ use bytes::BytesMut;
 use log::{debug, error};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, Result},
-    net::{TcpStream, UdpSocket},
+    net::TcpStream,
 };
 use tokio_rustls::{client::TlsStream as ClientTlsStream, server::TlsStream as ServerTlsStream};
 use tokio_util::sync::CancellationToken;
 
-use super::channel_socket::ChannelSocket;
+use super::{channel_socket::ChannelSocket, udp_client::UdpClient};
 
 pub trait DataBridge<To> {
     type Context;
@@ -116,22 +116,22 @@ impl DataBridge<TcpStream> for ServerTlsStream<TcpStream> {
     }
 }
 
-impl DataBridge<UdpSocket> for TcpStream {
+impl DataBridge<UdpClient> for TcpStream {
     type Context = UdpSession;
     async fn bridge_to(
         &mut self,
-        to: &mut UdpSocket,
+        to: &mut UdpClient,
         context: Option<Self::Context>,
     ) -> Result<()> {
         bridge_udp_with_writable(to, self, context).await
     }
 }
 
-impl DataBridge<UdpSocket> for ServerTlsStream<TcpStream> {
+impl DataBridge<UdpClient> for ServerTlsStream<TcpStream> {
     type Context = UdpSession;
     async fn bridge_to(
         &mut self,
-        to: &mut UdpSocket,
+        to: &mut UdpClient,
         context: Option<Self::Context>,
     ) -> Result<()> {
         bridge_udp_with_writable(to, self, context).await
@@ -144,7 +144,7 @@ pub struct UdpSession {
     pub cancel_token: CancellationToken,
 }
 
-impl DataBridge<TcpStream> for UdpSocket {
+impl DataBridge<TcpStream> for UdpClient {
     type Context = UdpSession;
     async fn bridge_to(
         &mut self,
@@ -155,7 +155,7 @@ impl DataBridge<TcpStream> for UdpSocket {
     }
 }
 
-impl DataBridge<ServerTlsStream<TcpStream>> for UdpSocket {
+impl DataBridge<ServerTlsStream<TcpStream>> for UdpClient {
     type Context = UdpSession;
     async fn bridge_to(
         &mut self,
@@ -166,7 +166,7 @@ impl DataBridge<ServerTlsStream<TcpStream>> for UdpSocket {
     }
 }
 
-impl DataBridge<ClientTlsStream<TcpStream>> for UdpSocket {
+impl DataBridge<ClientTlsStream<TcpStream>> for UdpClient {
     type Context = UdpSession;
     async fn bridge_to(
         &mut self,
@@ -178,7 +178,7 @@ impl DataBridge<ClientTlsStream<TcpStream>> for UdpSocket {
 }
 
 async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
-    udp_socket: &mut UdpSocket,
+    udp_client: &mut UdpClient,
     writable: &mut T,
     context: Option<UdpSession>,
 ) -> Result<()> {
@@ -197,10 +197,9 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
             _ = context.cancel_token.cancelled() => {
                 break;
             }
-            result = udp_socket.recv_from(&mut udp_buffer) => {
+            result = udp_client.read(&mut udp_buffer) => {
                 match result {
-                    Ok((n, _address)) => {
-
+                    Ok(n) => {
                         if let Err(e) = writable.write_all(&udp_buffer[..n]).await {
                             error!("Failed to send data to Writable stream: {}", e);
                         }
@@ -227,8 +226,7 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
                         break;
                     },
                     Ok(n) => {
-                        debug!("Sending to address: {:?}", context.address);
-                        if let Err(e) = udp_socket.send_to(&writable_buffer[..n], "127.0.0.1:8081").await {
+                        if let Err(e) = udp_client.write(&writable_buffer[..n]).await {
                             error!("Failed to send data to UDP socket: {}", e);
                         }
                     }

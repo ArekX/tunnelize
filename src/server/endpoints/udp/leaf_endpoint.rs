@@ -1,19 +1,16 @@
-use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::mpsc::Sender;
 
-use bytes::BytesMut;
 use log::{debug, error, info, warn};
-use tokio::io::{Error, ErrorKind, Result};
-use tokio::net::UdpSocket;
+use tokio::io::Result;
 use tokio::sync::mpsc::channel;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::common::channel_socket::{ChannelPacket, ChannelSocket};
-use crate::common::connection::{Connection, ConnectionStreamContext};
+use crate::common::channel_socket::ChannelPacket;
+use crate::common::connection::ConnectionStreamContext;
 use crate::common::data_bridge::UdpSession;
-use crate::server::endpoints::udp::client_host::Client;
+use crate::common::udp_server::{Client, UdpServer};
+use crate::server::endpoints::udp::client_host::Host;
 
 use crate::server::services::Client as MainClient;
 use crate::server::session::messages::{ClientLinkRequest, ClientLinkResponse};
@@ -24,21 +21,15 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
     let config = services.get_config();
     let cancel_token = services.get_cancel_token();
 
-    let mut connection = match UdpSocket::bind(config.get_bind_address(port)).await {
-        Ok(socket) => Connection::from(socket),
-        Err(e) => {
-            error!("Failed to bind client listener: {}", e);
-            return Err(Error::new(
-                ErrorKind::Other,
-                "Failed to bind client listener",
-            ));
-        }
-    };
-
     let (leaf_data_tx, mut leaf_data_rx) = channel::<ChannelPacket>(100);
 
-    let mut receive_buffer = BytesMut::with_capacity(2048);
-    receive_buffer.resize(2048, 0);
+    let mut server = UdpServer::new(
+        port,
+        config.address.clone(),
+        leaf_data_tx.clone(),
+        cancel_token.clone(),
+    )
+    .await?;
 
     loop {
         tokio::select! {
@@ -46,23 +37,23 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
                 debug!("Leaf endpoint for UDP port '{}' cancelled.", port);
                 break;
             }
-            result = wait_for_client(&mut connection, &mut receive_buffer) => {
-                let Ok((data, address)) = result else {
+            result = server.listen_for_connections() => {
+                let Ok(client) = result else {
                     error!("Failed to accept connection.");
                     continue;
                 };
 
-                println!("Received data from client: {}", address);
+                println!("Received data from client: {}", client.address);
 
                 {
                     let mut client_host = services.get_client_host().await;
-                    if client_host.client_exists(&address) {
-                        client_host.send(&address, data).await;
+                    if client_host.client_exists(&client.address) {
+                        client_host.send(&client.address, client.data).await;
                         continue;
                     }
                 }
 
-                start_new_client(&services, data, address, port, cancel_token.child_token(), leaf_data_tx.clone()).await
+                start_new_client(&services, client, port, cancel_token.child_token()).await
             },
             data = leaf_data_rx.recv() => {
                 match data {
@@ -72,7 +63,7 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
                         let mut client_host = services.get_client_host().await;
 
                         if let Some(client_address) = client_host.get_client_address(&client_id) {
-                            if let Err(e) = connection.write_all_to(&data, &client_address).await {
+                            if let Err(e) = server.write(&data, &client_address).await {
                                 debug!("Failed to send data to client. Reason: {}", e);
                                 continue;
                             };
@@ -94,26 +85,11 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
     Ok(())
 }
 
-async fn wait_for_client(
-    connection: &mut Connection,
-    buffer: &mut BytesMut,
-) -> Result<(Vec<u8>, SocketAddr)> {
-    match connection.read_with_address(buffer).await {
-        Ok((size, address)) => Ok((buffer[..size].to_vec(), address)),
-        Err(e) => {
-            error!("Failed to read data from client: {}", e);
-            Err(e)
-        }
-    }
-}
-
 async fn start_new_client(
     services: &Arc<UdpServices>,
-    initial_data: Vec<u8>,
-    address: SocketAddr,
+    udp_client: Client,
     port: u16,
     cancel_child_token: CancellationToken,
-    leaf_data_tx: Sender<ChannelPacket>,
 ) {
     let Some(tunnel) = services.get_tunnel_host().await.get_tunnel(port) else {
         error!(
@@ -123,27 +99,23 @@ async fn start_new_client(
         return;
     };
 
-    let channel_socket = ChannelSocket::new(leaf_data_tx.clone(), cancel_child_token.clone());
-
-    let client_id = channel_socket.get_id();
-
-    services.get_client_host().await.add(Client::new(
-        client_id,
-        address,
+    services.get_client_host().await.add(Host::new(
+        udp_client.id,
+        udp_client.address,
         tunnel.tunnel_id,
-        channel_socket.get_socket_tx(),
+        udp_client.socket_tx,
         cancel_child_token.clone(),
     ));
 
     let client = MainClient::new(
-        client_id,
+        udp_client.id,
         services.get_endpoint_name(),
-        channel_socket.into(),
+        udp_client.connection,
         Some(ConnectionStreamContext::Udp(UdpSession {
-            address,
+            address: udp_client.address,
             cancel_token: cancel_child_token,
         })),
-        Some(initial_data),
+        Some(udp_client.data),
     );
 
     let main_services = services.get_main_services();
@@ -157,7 +129,7 @@ async fn start_new_client(
             link.stream.shutdown().await;
         }
 
-        discard_client(client_id, &services).await;
+        discard_client(udp_client.id, &services).await;
         warn!("Failed to subscribe client: {}", error);
         return;
     }
@@ -168,14 +140,14 @@ async fn start_new_client(
         .send_session_request(
             &tunnel.tunnel_id,
             ClientLinkRequest {
-                client_id,
+                client_id: udp_client.id,
                 proxy_id: tunnel.proxy_id,
             },
         )
         .await
     else {
         error!("Error sending client link request");
-        discard_client(client_id, &services).await;
+        discard_client(udp_client.id, &services).await;
         return;
     };
 
@@ -188,7 +160,7 @@ async fn start_new_client(
         }
         ClientLinkResponse::Rejected { reason } => {
             error!("Client rejected by tunnel: {}", reason);
-            discard_client(client_id, &services).await;
+            discard_client(udp_client.id, &services).await;
         }
     }
 }

@@ -3,10 +3,7 @@ use std::{
     net::{SocketAddr, ToSocketAddrs},
 };
 
-use tokio::{
-    io::Result,
-    net::{TcpStream, UdpSocket},
-};
+use tokio::{io::Result, net::TcpStream};
 
 pub trait ProtocolSocket
 where
@@ -22,26 +19,6 @@ impl ProtocolSocket for TcpStream {
     type Context = ();
     async fn connect(address: &SocketAddr, _context: &Self::Context) -> Result<Self::Socket> {
         TcpStream::connect(address).await
-    }
-}
-
-pub struct UdpSocketConnectionContext {
-    pub bind_address: Option<String>,
-}
-
-impl ProtocolSocket for UdpSocket {
-    type Socket = UdpSocket;
-    type Context = UdpSocketConnectionContext;
-    async fn connect(address: &SocketAddr, context: &Self::Context) -> Result<Self::Socket> {
-        let socket = UdpSocket::bind(
-            context
-                .bind_address
-                .clone()
-                .unwrap_or("0.0.0.0:0".to_string()),
-        )
-        .await?;
-        // socket.connect(address).await?;
-        Ok(socket)
     }
 }
 

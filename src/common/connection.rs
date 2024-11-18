@@ -1,6 +1,5 @@
 use std::{
     io::{Error, ErrorKind},
-    net::SocketAddr,
     time::Duration,
 };
 
@@ -9,7 +8,7 @@ use log::debug;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, Result},
-    net::{TcpStream, UdpSocket},
+    net::TcpStream,
     time::timeout,
 };
 
@@ -18,6 +17,7 @@ use super::{
     data_bridge::{DataBridge, UdpSession},
     data_request::DataRequest,
     transport::{read_message, write_message, MessageError},
+    udp_client::UdpClient,
 };
 
 use tokio_rustls::client::TlsStream as ClientTlsStream;
@@ -26,7 +26,7 @@ use tokio_rustls::server::TlsStream as ServerTlsStream;
 #[derive(Debug)]
 pub enum Connection {
     TcpStream(TcpStream),
-    UdpSocket(UdpSocket),
+    UdpClient(UdpClient),
     TlsStreamServer(ServerTlsStream<TcpStream>),
     TlsStreamClient(ClientTlsStream<TcpStream>),
     ChannelSocket(ChannelSocket),
@@ -38,9 +38,9 @@ impl From<TcpStream> for Connection {
     }
 }
 
-impl From<UdpSocket> for Connection {
-    fn from(socket: UdpSocket) -> Self {
-        Self::UdpSocket(socket)
+impl From<UdpClient> for Connection {
+    fn from(client: UdpClient) -> Self {
+        Self::UdpClient(client)
     }
 }
 
@@ -68,7 +68,7 @@ impl Connection {
             Self::TcpStream(stream) => stream.read(buf).await,
             Self::TlsStreamServer(stream) => stream.read(buf).await,
             Self::TlsStreamClient(stream) => stream.read(buf).await,
-            Self::UdpSocket(socket) => socket.recv(buf).await,
+            Self::UdpClient(client) => client.read(buf).await,
             Self::ChannelSocket(socket) => {
                 let data = socket.receive().await?;
                 let data_len = data.len();
@@ -118,7 +118,12 @@ impl Connection {
 
                 Ok((read_count, peer_addr))
             }
-            Self::UdpSocket(socket) => socket.recv_from(buf).await,
+            Self::UdpClient(_) => {
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    "UDP clients cannot read with address.", // TODO: Do this differently
+                ));
+            }
             Self::ChannelSocket(_) => {
                 return Err(Error::new(
                     ErrorKind::Other,
@@ -133,18 +138,11 @@ impl Connection {
             Self::TcpStream(stream) => stream.write_all(buf).await,
             Self::TlsStreamServer(stream) => stream.write_all(buf).await,
             Self::TlsStreamClient(stream) => stream.write_all(buf).await,
-            Self::UdpSocket(socket) => socket.send(buf).await.map(|_| ()),
+            Self::UdpClient(client) => client.write(buf).await.map(|_| ()),
             Self::ChannelSocket(socket) => {
                 socket.send(buf.to_vec()).await?;
                 Ok(())
             }
-        }
-    }
-
-    pub async fn write_all_to(&mut self, buf: &[u8], address: &SocketAddr) -> Result<()> {
-        match self {
-            Self::UdpSocket(socket) => socket.send_to(buf, address).await.map(|_| ()),
-            _ => return self.write_all(buf).await,
         }
     }
 
@@ -156,7 +154,7 @@ impl Connection {
             Self::TcpStream(stream) => read_message(stream).await,
             Self::TlsStreamServer(stream) => read_message(stream).await,
             Self::TlsStreamClient(stream) => read_message(stream).await,
-            Self::UdpSocket(_) => Err(MessageError::IoError(Error::new(
+            Self::UdpClient(_) => Err(MessageError::IoError(Error::new(
                 ErrorKind::Other,
                 "Reading messages from UDP connection is not supported.",
             ))),
@@ -212,7 +210,7 @@ impl Connection {
             Self::TcpStream(stream) => write_message(stream, &message).await,
             Self::TlsStreamServer(stream) => write_message(stream, &message).await,
             Self::TlsStreamClient(stream) => write_message(stream, &message).await,
-            Self::UdpSocket(_) => Err(MessageError::IoError(Error::new(
+            Self::UdpClient(_) => Err(MessageError::IoError(Error::new(
                 ErrorKind::Other,
                 "Writing messages to UDP connection is not supported.",
             ))),
@@ -293,8 +291,8 @@ impl Connection {
                     debug!("Error while closing stream: {:?}", e);
                 }
             }
-            Self::UdpSocket(_) => {
-                // No close for UdpSocket
+            Self::UdpClient(client) => {
+                client.shutdown();
             }
             Self::ChannelSocket(socket) => {
                 socket.shutdown();
@@ -317,7 +315,7 @@ impl Connection {
             Self::TcpStream(_) => "tcp",
             Self::TlsStreamServer(_) => "tcp (tls-server)",
             Self::TlsStreamClient(_) => "tcp (tls-client)",
-            Self::UdpSocket(_) => "udp",
+            Self::UdpClient(_) => "udp",
             Self::ChannelSocket(_) => "channel socket",
         }
     }
@@ -373,11 +371,11 @@ impl DataBridge<Connection> for Connection {
             TlsStreamServer -> TcpStream,
             TlsStreamServer -> TlsStreamServer,
             TcpStream -> TlsStreamClient,
-            UdpSocket -> TcpStream,
-            TcpStream -> UdpSocket,
-            UdpSocket -> TlsStreamServer,
-            TlsStreamServer -> UdpSocket,
-            UdpSocket -> TlsStreamClient,
+            UdpClient -> TcpStream,
+            TcpStream -> UdpClient,
+            UdpClient -> TlsStreamServer,
+            TlsStreamServer -> UdpClient,
+            UdpClient -> TlsStreamClient,
             TcpStream -> ChannelSocket,
             TlsStreamServer -> ChannelSocket
         })

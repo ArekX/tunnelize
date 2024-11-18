@@ -5,7 +5,7 @@ use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-pub struct Client {
+pub struct Host {
     id: Uuid,
     address: SocketAddr,
     socket_tx: Sender<Vec<u8>>,
@@ -14,7 +14,7 @@ pub struct Client {
     tunnel_id: Uuid,
 }
 
-impl Client {
+impl Host {
     pub fn new(
         id: Uuid,
         address: SocketAddr,
@@ -58,7 +58,7 @@ impl Client {
 
 pub struct ClientHost {
     address_client_map: HashMap<SocketAddr, Uuid>,
-    client_map: HashMap<Uuid, Client>,
+    client_map: HashMap<Uuid, Host>,
 }
 
 impl ClientHost {
@@ -69,7 +69,7 @@ impl ClientHost {
         }
     }
 
-    pub fn add(&mut self, client: Client) {
+    pub fn add(&mut self, client: Host) {
         self.client_map.insert(client.id, client);
     }
 

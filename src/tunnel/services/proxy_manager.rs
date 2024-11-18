@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
 use log::error;
+use tokio::io::Result;
 use tokio::net::TcpStream;
-use tokio::{io::Result, net::UdpSocket};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::common::connection::ConnectionStreamContext;
-use crate::common::data_bridge::UdpSession;
-use crate::common::protocol_socket::{connect_to_address, UdpSocketConnectionContext};
+use crate::common::protocol_socket::connect_to_address;
+use crate::common::udp_client::UdpClient;
 use crate::tunnel::configuration::ProxyConfiguration;
 use crate::{common::connection::Connection, tunnel::configuration::TunnelProxy};
 
@@ -34,22 +34,15 @@ impl Proxy {
                 }
             }
             ProxyProtocol::Udp { ref bind_address } => {
-                match connect_to_address::<UdpSocket>(
-                    &self.address,
+                match UdpClient::new(
+                    self.address.clone(),
                     self.port,
-                    UdpSocketConnectionContext {
-                        bind_address: bind_address.clone(),
-                    },
+                    CancellationToken::new(),
+                    bind_address.clone(),
                 )
                 .await
                 {
-                    Ok((socket, address)) => (
-                        Connection::from(socket),
-                        Some(ConnectionStreamContext::Udp(UdpSession {
-                            address,
-                            cancel_token: CancellationToken::new(),
-                        })),
-                    ),
+                    Ok(client) => (Connection::from(client), None),
                     Err(e) => {
                         error!("Failed to connect to forward address: {}", e);
                         return Err(e);
