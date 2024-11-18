@@ -89,6 +89,10 @@ impl UdpClient {
         ))
     }
 
+    pub fn get_cancel_token(&self) -> CancellationToken {
+        self.cancel_token.clone()
+    }
+
     pub fn shutdown(&self) {
         self.cancel_token.cancel();
     }

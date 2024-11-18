@@ -14,7 +14,7 @@ use tokio::{
 
 use super::{
     channel_socket::ChannelSocket,
-    data_bridge::{DataBridge, UdpSession},
+    data_bridge::DataBridge,
     data_request::DataRequest,
     transport::{read_message, write_message, MessageError},
     udp_client::UdpClient,
@@ -327,7 +327,7 @@ macro_rules! allow_bridges {
     }) => {
         match ($self_item, $destination) {
             $(
-                (Self::$from(src), Self::$to(dst)) => src.bridge_to(dst, $context.map(|c| c.into())).await,
+                (Self::$from(src), Self::$to(dst)) => src.bridge_to(dst).await,
             )*
             (a, b) => Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -341,30 +341,8 @@ macro_rules! allow_bridges {
     };
 }
 
-#[derive(Debug)]
-pub enum ConnectionStreamContext {
-    Udp(UdpSession),
-}
-
-impl From<ConnectionStreamContext> for UdpSession {
-    fn from(context: ConnectionStreamContext) -> Self {
-        match context {
-            ConnectionStreamContext::Udp(session) => session,
-        }
-    }
-}
-
-impl From<ConnectionStreamContext> for () {
-    fn from(_: ConnectionStreamContext) -> Self {}
-}
-
 impl DataBridge<Connection> for Connection {
-    type Context = ConnectionStreamContext;
-    async fn bridge_to(
-        &mut self,
-        to: &mut Connection,
-        context: Option<Self::Context>,
-    ) -> Result<()> {
+    async fn bridge_to(&mut self, to: &mut Connection) -> Result<()> {
         allow_bridges!(self, to, context, {
             TcpStream -> TcpStream,
             TcpStream -> TlsStreamServer,

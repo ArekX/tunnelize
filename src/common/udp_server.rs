@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, time::Instant};
+use std::net::SocketAddr;
 
 use super::{
     channel_socket::{ChannelPacket, ChannelSocket},
@@ -16,7 +16,6 @@ pub struct Client {
     pub address: SocketAddr,
     pub socket_tx: Sender<Vec<u8>>,
     pub data: Vec<u8>,
-    // last_activity: Instant,
 }
 
 pub struct UdpServer {
@@ -51,7 +50,7 @@ impl UdpServer {
     }
 
     pub async fn listen_for_connections(&mut self) -> Result<Client> {
-        let (initial_data, address) = match self.socket.recv_buf_from(&mut self.data_buffer).await {
+        let (initial_data, address) = match self.socket.recv_from(&mut self.data_buffer).await {
             Ok((size, address)) => (self.data_buffer[..size].to_vec(), address),
             Err(e) => {
                 error!("Failed to read data from client: {}", e);
@@ -73,7 +72,6 @@ impl UdpServer {
             address,
             data: initial_data,
             socket_tx,
-            // last_activity: Instant::now(),
         })
     }
 

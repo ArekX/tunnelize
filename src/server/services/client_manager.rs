@@ -3,7 +3,7 @@ use std::{
     io::{Error, ErrorKind},
 };
 
-use crate::common::connection::{Connection, ConnectionStreamContext};
+use crate::common::connection::Connection;
 use log::info;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -13,7 +13,6 @@ use super::{events::ServiceEvent, HandleServiceEvent};
 #[derive(Debug)]
 pub struct ClientLink {
     pub stream: Connection,
-    pub context: Option<ConnectionStreamContext>,
     pub initial_tunnel_data: Option<Vec<u8>>,
 }
 
@@ -44,7 +43,6 @@ impl Client {
         id: Uuid,
         endpoint_name: String,
         stream: Connection,
-        context: Option<ConnectionStreamContext>,
         initial_tunnel_data: Option<Vec<u8>>,
     ) -> Self {
         Self {
@@ -52,7 +50,6 @@ impl Client {
             endpoint_name,
             link: Some(ClientLink {
                 stream,
-                context,
                 initial_tunnel_data,
             }),
         }

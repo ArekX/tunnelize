@@ -1,7 +1,4 @@
-use std::{
-    io::{Error, ErrorKind},
-    net::SocketAddr,
-};
+use std::io::ErrorKind;
 
 use bytes::BytesMut;
 use log::{debug, error};
@@ -10,22 +7,15 @@ use tokio::{
     net::TcpStream,
 };
 use tokio_rustls::{client::TlsStream as ClientTlsStream, server::TlsStream as ServerTlsStream};
-use tokio_util::sync::CancellationToken;
 
 use super::{channel_socket::ChannelSocket, udp_client::UdpClient};
 
 pub trait DataBridge<To> {
-    type Context;
-    async fn bridge_to(&mut self, to: &mut To, context: Option<Self::Context>) -> Result<()>;
+    async fn bridge_to(&mut self, to: &mut To) -> Result<()>;
 }
 
 impl DataBridge<TcpStream> for TcpStream {
-    type Context = ();
-    async fn bridge_to(
-        &mut self,
-        to: &mut TcpStream,
-        _context: Option<Self::Context>,
-    ) -> Result<()> {
+    async fn bridge_to(&mut self, to: &mut TcpStream) -> Result<()> {
         match tokio::io::copy_bidirectional(self, to).await {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -37,12 +27,7 @@ impl DataBridge<TcpStream> for TcpStream {
 }
 
 impl DataBridge<ServerTlsStream<TcpStream>> for TcpStream {
-    type Context = ();
-    async fn bridge_to(
-        &mut self,
-        to: &mut ServerTlsStream<TcpStream>,
-        _context: Option<Self::Context>,
-    ) -> Result<()> {
+    async fn bridge_to(&mut self, to: &mut ServerTlsStream<TcpStream>) -> Result<()> {
         match tokio::io::copy_bidirectional(self, to).await {
             Ok(_) => Ok(()),
             Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
@@ -58,12 +43,7 @@ impl DataBridge<ServerTlsStream<TcpStream>> for TcpStream {
 }
 
 impl DataBridge<ServerTlsStream<TcpStream>> for ServerTlsStream<TcpStream> {
-    type Context = ();
-    async fn bridge_to(
-        &mut self,
-        to: &mut ServerTlsStream<TcpStream>,
-        _context: Option<Self::Context>,
-    ) -> Result<()> {
+    async fn bridge_to(&mut self, to: &mut ServerTlsStream<TcpStream>) -> Result<()> {
         match tokio::io::copy_bidirectional(self, to).await {
             Ok(_) => Ok(()),
             Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
@@ -79,12 +59,7 @@ impl DataBridge<ServerTlsStream<TcpStream>> for ServerTlsStream<TcpStream> {
 }
 
 impl DataBridge<ClientTlsStream<TcpStream>> for TcpStream {
-    type Context = ();
-    async fn bridge_to(
-        &mut self,
-        to: &mut ClientTlsStream<TcpStream>,
-        _context: Option<Self::Context>,
-    ) -> Result<()> {
+    async fn bridge_to(&mut self, to: &mut ClientTlsStream<TcpStream>) -> Result<()> {
         match tokio::io::copy_bidirectional(self, to).await {
             Ok(_) => Ok(()),
             Err(e) if e.kind() == ErrorKind::UnexpectedEof => {
@@ -100,12 +75,7 @@ impl DataBridge<ClientTlsStream<TcpStream>> for TcpStream {
 }
 
 impl DataBridge<TcpStream> for ServerTlsStream<TcpStream> {
-    type Context = ();
-    async fn bridge_to(
-        &mut self,
-        to: &mut TcpStream,
-        _context: Option<Self::Context>,
-    ) -> Result<()> {
+    async fn bridge_to(&mut self, to: &mut TcpStream) -> Result<()> {
         match tokio::io::copy_bidirectional(self, to).await {
             Ok(_) => Ok(()),
             Err(e) => {
@@ -117,84 +87,50 @@ impl DataBridge<TcpStream> for ServerTlsStream<TcpStream> {
 }
 
 impl DataBridge<UdpClient> for TcpStream {
-    type Context = UdpSession;
-    async fn bridge_to(
-        &mut self,
-        to: &mut UdpClient,
-        context: Option<Self::Context>,
-    ) -> Result<()> {
-        bridge_udp_with_writable(to, self, context).await
+    async fn bridge_to(&mut self, to: &mut UdpClient) -> Result<()> {
+        bridge_udp_with_writable(to, self).await
     }
 }
 
 impl DataBridge<UdpClient> for ServerTlsStream<TcpStream> {
-    type Context = UdpSession;
-    async fn bridge_to(
-        &mut self,
-        to: &mut UdpClient,
-        context: Option<Self::Context>,
-    ) -> Result<()> {
-        bridge_udp_with_writable(to, self, context).await
+    async fn bridge_to(&mut self, to: &mut UdpClient) -> Result<()> {
+        bridge_udp_with_writable(to, self).await
     }
 }
 
-#[derive(Debug)]
-pub struct UdpSession {
-    pub address: SocketAddr,
-    pub cancel_token: CancellationToken,
-}
-
 impl DataBridge<TcpStream> for UdpClient {
-    type Context = UdpSession;
-    async fn bridge_to(
-        &mut self,
-        to: &mut TcpStream,
-        context: Option<Self::Context>,
-    ) -> Result<()> {
-        bridge_udp_with_writable(self, to, context).await
+    async fn bridge_to(&mut self, to: &mut TcpStream) -> Result<()> {
+        bridge_udp_with_writable(self, to).await
     }
 }
 
 impl DataBridge<ServerTlsStream<TcpStream>> for UdpClient {
-    type Context = UdpSession;
-    async fn bridge_to(
-        &mut self,
-        to: &mut ServerTlsStream<TcpStream>,
-        context: Option<Self::Context>,
-    ) -> Result<()> {
-        bridge_udp_with_writable(self, to, context).await
+    async fn bridge_to(&mut self, to: &mut ServerTlsStream<TcpStream>) -> Result<()> {
+        bridge_udp_with_writable(self, to).await
     }
 }
 
 impl DataBridge<ClientTlsStream<TcpStream>> for UdpClient {
-    type Context = UdpSession;
-    async fn bridge_to(
-        &mut self,
-        to: &mut ClientTlsStream<TcpStream>,
-        context: Option<Self::Context>,
-    ) -> Result<()> {
-        bridge_udp_with_writable(self, to, context).await
+    async fn bridge_to(&mut self, to: &mut ClientTlsStream<TcpStream>) -> Result<()> {
+        bridge_udp_with_writable(self, to).await
     }
 }
 
 async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
     udp_client: &mut UdpClient,
     writable: &mut T,
-    context: Option<UdpSession>,
 ) -> Result<()> {
-    let Some(context) = context else {
-        return Err(Error::new(ErrorKind::Other, "Context not provided"));
-    };
-
     let mut udp_buffer = BytesMut::with_capacity(2048);
     udp_buffer.resize(2048, 0);
 
     let mut writable_buffer = BytesMut::with_capacity(2048);
     writable_buffer.resize(2048, 0);
 
+    let cancel_token = udp_client.get_cancel_token();
+
     loop {
         tokio::select! {
-            _ = context.cancel_token.cancelled() => {
+            _ = cancel_token.cancelled() => {
                 break;
             }
             result = udp_client.read(&mut udp_buffer) => {
@@ -211,7 +147,7 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
                             || e.kind() == std::io::ErrorKind::BrokenPipe =>
                     {
                         debug!("Writable <-> UDP connection ended: {:?}", e);
-                        context.cancel_token.cancel();
+                        cancel_token.cancel();
                         break;
                     }
                     Err(e) => {
@@ -222,7 +158,7 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
             result = writable.read(&mut writable_buffer) => {
                 match result {
                     Ok(0) => {
-                        context.cancel_token.cancel();
+                        cancel_token.cancel();
                         break;
                     },
                     Ok(n) => {
@@ -237,7 +173,7 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
                             || e.kind() == std::io::ErrorKind::BrokenPipe =>
                     {
                         debug!("Writable <-> UDP connection ended: {:?}", e);
-                        context.cancel_token.cancel();
+                        cancel_token.cancel();
                         break;
                     }
                     Err(e) => {
@@ -252,25 +188,13 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
 }
 
 impl DataBridge<ChannelSocket> for TcpStream {
-    type Context = ();
-
-    async fn bridge_to(
-        &mut self,
-        to: &mut ChannelSocket,
-        _context: Option<Self::Context>,
-    ) -> Result<()> {
+    async fn bridge_to(&mut self, to: &mut ChannelSocket) -> Result<()> {
         bridge_channel_socket_with_writable(to, self).await
     }
 }
 
 impl DataBridge<ChannelSocket> for ServerTlsStream<TcpStream> {
-    type Context = ();
-
-    async fn bridge_to(
-        &mut self,
-        to: &mut ChannelSocket,
-        _context: Option<Self::Context>,
-    ) -> Result<()> {
+    async fn bridge_to(&mut self, to: &mut ChannelSocket) -> Result<()> {
         bridge_channel_socket_with_writable(to, self).await
     }
 }

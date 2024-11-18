@@ -6,7 +6,6 @@ use tokio::net::TcpStream;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use crate::common::connection::ConnectionStreamContext;
 use crate::common::protocol_socket::connect_to_address;
 use crate::common::udp_client::UdpClient;
 use crate::tunnel::configuration::ProxyConfiguration;
@@ -20,13 +19,11 @@ pub struct Proxy {
 }
 
 impl Proxy {
-    pub async fn create_forward_connection(
-        &self,
-    ) -> Result<(Connection, Option<ConnectionStreamContext>)> {
+    pub async fn create_forward_connection(&self) -> Result<Connection> {
         Ok(match self.protocol {
             ProxyProtocol::Tcp => {
                 match connect_to_address::<TcpStream>(&self.address, self.port, ()).await {
-                    Ok((stream, _)) => (Connection::from(stream), None),
+                    Ok((stream, _)) => Connection::from(stream),
                     Err(e) => {
                         error!("Failed to connect to forward address: {}", e);
                         return Err(e);
@@ -42,7 +39,7 @@ impl Proxy {
                 )
                 .await
                 {
-                    Ok(client) => (Connection::from(client), None),
+                    Ok(client) => Connection::from(client),
                     Err(e) => {
                         error!("Failed to connect to forward address: {}", e);
                         return Err(e);
@@ -106,10 +103,7 @@ impl ProxyManager {
         id
     }
 
-    pub async fn create_forward_connection(
-        &self,
-        id: &Uuid,
-    ) -> Result<(Connection, Option<ConnectionStreamContext>)> {
+    pub async fn create_forward_connection(&self, id: &Uuid) -> Result<Connection> {
         if let Some(session) = self.proxy_map.get(id) {
             return session.create_forward_connection().await;
         }

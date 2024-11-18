@@ -21,7 +21,7 @@ pub async fn start_link_session(
 
     info!("Starting link session.");
 
-    let (mut forward_connection, context) = match timeout(
+    let mut forward_connection = match timeout(
         Duration::from_secs(config.get_forward_connection_timeout_seconds()),
         services
             .get_proxy_manager()
@@ -67,10 +67,7 @@ pub async fn start_link_session(
     }
 
     tokio::spawn(async move {
-        if let Err(e) = forward_connection
-            .bridge_to(&mut server_connection, context)
-            .await
-        {
+        if let Err(e) = forward_connection.bridge_to(&mut server_connection).await {
             error!("Relay session failed: {}", e);
         }
 

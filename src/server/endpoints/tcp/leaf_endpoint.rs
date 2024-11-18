@@ -66,13 +66,7 @@ pub async fn start_client(port: u16, mut connection: Connection, services: &Arc<
     debug!("Found tunnel for port {}: {}", port, tunnel.tunnel_id);
 
     let client_id = Uuid::new_v4();
-    let client = Client::new(
-        client_id,
-        services.get_endpoint_name(),
-        connection,
-        None,
-        None,
-    );
+    let client = Client::new(client_id, services.get_endpoint_name(), connection, None);
 
     let main_services = services.get_main_services();
     if let Err((error, link)) = main_services

@@ -7,8 +7,6 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::common::channel_socket::ChannelPacket;
-use crate::common::connection::ConnectionStreamContext;
-use crate::common::data_bridge::UdpSession;
 use crate::common::udp_server::{Client, UdpServer};
 use crate::server::endpoints::udp::client_host::Host;
 
@@ -111,10 +109,6 @@ async fn start_new_client(
         udp_client.id,
         services.get_endpoint_name(),
         udp_client.connection,
-        Some(ConnectionStreamContext::Udp(UdpSession {
-            address: udp_client.address,
-            cancel_token: cancel_child_token,
-        })),
         Some(udp_client.data),
     );
 
