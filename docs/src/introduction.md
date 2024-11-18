@@ -26,7 +26,9 @@ connection.
 
 # Quickstart
 
-First initalize configuration by running `tunnelize init`. This will create a `tunnelize.json` with default tunnel
+Download tunnelize for your system from [releases page](https://github.com/ArekX/tunnelize/releases/latest).
+
+Then initalize configuration by running `tunnelize init`. This will create a `tunnelize.json` with default tunnel
 and server configuration.
 
 Run a local HTTP server on port 8080. This will be the server we forward traffic from.
@@ -34,9 +36,14 @@ Run a local HTTP server on port 8080. This will be the server we forward traffic
 Run `tunnelize server`. This will run the server at port 3456 (by default) for the main server, creating listeners for all default 
 endpoints (the default HTTP endpoint at 3457).
 
-Run `tunnelize tunnel`. This will connect to the server at port 3456 and tunnel traffic from your local server.
+Run `tunnelize tunnel`. This will connect to the server at port 3456 and tunnel traffic from your local server. In the response you will see the URL assigned for you
+to tunnel from, assuming default config, it will be something like:
 
-Open a browser and connect to [http://localhost:3457](http://localhost:3457) and you be able see the results from your local server at 8080.
+```
+[Forward|http] localhost:8080 -> http://tunnel-myname.localhost:3457
+```
+
+Open a browser and connect to [http://tunnel-myname.localhost:3457](http://tunnel-myname.localhost:3457) (this should work as expected in modern browsers like Chrome and Firefox) and you be able see the results from your local server at 8080.
 
 See other topics for setup information:
 * [Setting up a server](./setting-up-server.md)

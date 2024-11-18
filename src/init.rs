@@ -107,7 +107,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 proxies: Vec::new(),
             };
 
-            let mut port: u16 = 8079;
+            let mut port: u16 = 8080;
 
             for PublicEndpointConfig { name, config } in endpoint_config {
                 match config {
@@ -187,7 +187,9 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
         address: "localhost".to_owned(),
         endpoint_name: "http".to_owned(),
         port: 8080,
-        endpoint_config: ProxyConfiguration::Http { desired_name: None },
+        endpoint_config: ProxyConfiguration::Http {
+            desired_name: Some("myname".to_owned()),
+        },
     });
 
     configuration.proxies.push(TunnelProxy {
