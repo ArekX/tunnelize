@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use log::{debug, error, info, warn};
 use tokio::io::Result;
@@ -7,6 +8,7 @@ use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use crate::common::channel_socket::ChannelPacket;
+use crate::common::periodic_trigger::PeriodicTrigger;
 use crate::common::udp_server::{Client, UdpServer};
 use crate::server::endpoints::udp::client_host::Host;
 
@@ -25,13 +27,20 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
         port,
         config.address.clone(),
         leaf_data_tx.clone(),
+        config.get_inactivity_timeout(),
         cancel_token.clone(),
     )
     .await?;
 
+    let (trigger_handler, mut periodic_trigger) =
+        PeriodicTrigger::new(Duration::from_secs(config.get_inactivity_timeout()));
+
+    trigger_handler.start();
+
     loop {
         tokio::select! {
             _ = cancel_token.cancelled() => {
+                trigger_handler.cancel();
                 debug!("Leaf endpoint for UDP port '{}' cancelled.", port);
                 break;
             }
@@ -41,16 +50,6 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
                     continue;
                 };
 
-                println!("Received data from client: {}", client.address);
-
-                {
-                    let mut client_host = services.get_client_host().await;
-                    if client_host.client_exists(&client.address) {
-                        client_host.send(&client.address, client.data).await;
-                        continue;
-                    }
-                }
-
                 start_new_client(&services, client, port, cancel_token.child_token()).await
             },
             data = leaf_data_rx.recv() => {
@@ -58,15 +57,13 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
                     Some(ChannelPacket(client_id, data)) => {
                         println!("Sending data to client: {}", client_id);
 
-                        let mut client_host = services.get_client_host().await;
+                        let client_host = services.get_client_host().await;
 
                         if let Some(client_address) = client_host.get_client_address(&client_id) {
                             if let Err(e) = server.write(&data, &client_address).await {
                                 debug!("Failed to send data to client. Reason: {}", e);
                                 continue;
                             };
-                            client_host.update_activity(&client_id);
-                            println!("Sent data to client: {}", client_address);
                         } else {
                             error!("No target address set, cannot send UDP datagram at port '{}'.", port);
                         }
@@ -77,6 +74,9 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
                     }
                 }
             },
+            _ = periodic_trigger.recv() => {
+                server.cleanup_inactive_clients();
+            }
         }
     }
 
@@ -101,7 +101,6 @@ async fn start_new_client(
         udp_client.id,
         udp_client.address,
         tunnel.tunnel_id,
-        udp_client.socket_tx,
         cancel_child_token.clone(),
     ));
 

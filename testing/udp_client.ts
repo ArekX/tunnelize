@@ -5,14 +5,21 @@ const client = Deno.listenDatagram({
 });
 
 const serverAddr = {
-  hostname: "arekxv.name",
-  port: 4051,
+  hostname: "127.0.0.1",
+  port: 5000,
   transport: "udp",
 };
 
+while(true) {
 await client.send(new TextEncoder().encode("Hello from client"), serverAddr);
 
 console.log("waiting for response...");
 const [response] = await client.receive();
 console.log(`Received: ${new TextDecoder().decode(response)}`);
+}
+
+
+
+
+
 client.close();

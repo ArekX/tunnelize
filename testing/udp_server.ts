@@ -6,8 +6,11 @@ const server = Deno.listenDatagram({
 
 console.log("UDP server listening on 127.0.0.1:8081");
 
+while (true) {
 const [msg, remoteAddr] = await server.receive();
 console.log(`Received: ${new TextDecoder().decode(msg)} from ${remoteAddr.hostname}:${remoteAddr.port}`);
 
 await server.send(new TextEncoder().encode("Hello from server"), remoteAddr);
+}
+
 server.close();
