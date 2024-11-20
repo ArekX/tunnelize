@@ -81,11 +81,6 @@ pub async fn handle(
                 .get_tunnel_host()
                 .await
                 .remove_tunnel(&remove_request.tunnel_id);
-            services
-                .get_client_host()
-                .await
-                .cleanup_by_tunnel(&remove_request.tunnel_id)
-                .await;
             request.respond(OkResponse);
         }
     }

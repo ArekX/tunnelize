@@ -1,9 +1,9 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use configuration::UdpEndpointConfig;
 use log::{debug, error, info};
 use serde::{Deserialize, Serialize};
-use tokio::{io::Result, time::interval};
+use tokio::io::Result;
 use udp_services::UdpServices;
 
 use crate::{common::channel::RequestReceiver, server::services::Services};
@@ -11,7 +11,6 @@ use crate::{common::channel::RequestReceiver, server::services::Services};
 use super::messages::EndpointChannelRequest;
 
 mod channel_handler;
-mod client_host;
 pub mod configuration;
 mod leaf_endpoint;
 mod tunnel_host;
@@ -43,14 +42,11 @@ pub async fn start(
         });
     }
 
-    tokio::spawn(start_cleanup_handler(udp_services.clone()));
-
     let cancel_token = services.get_cancel_token();
 
     loop {
         tokio::select! {
             _ = cancel_token.cancelled() => {
-                udp_services.get_client_host().await.cancel_all();
                 info!("Endpoint '{}' has been shutdown", name);
                 return Ok(());
             }
@@ -68,33 +64,6 @@ pub async fn start(
                     }
                 }
             }
-        }
-    }
-}
-
-async fn start_cleanup_handler(services: Arc<UdpServices>) {
-    let inactivity_timeout = services.get_config().get_inactivity_timeout();
-    let mut interval = interval(Duration::from_secs(inactivity_timeout));
-
-    loop {
-        interval.tick().await;
-
-        let inactive_clients = services
-            .get_client_host()
-            .await
-            .cleanup_inactive_clients(inactivity_timeout)
-            .await;
-
-        if inactive_clients.is_empty() {
-            continue;
-        }
-
-        let main_services = services.get_main_services();
-        let mut client_manager = main_services.get_client_manager().await;
-
-        for client_id in inactive_clients {
-            client_manager.cancel_client(&client_id, &None).await;
-            info!("Client '{}' has been removed due to inactivity", client_id);
         }
     }
 }

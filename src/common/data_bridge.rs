@@ -228,7 +228,7 @@ async fn bridge_channel_socket_with_writable<T: AsyncWriteExt + Unpin + AsyncRea
             result = writable.read(&mut writable_buffer) => {
                 match result {
                     Ok(0) => {
-                        channel_socket.shutdown();
+                        channel_socket.shutdown().await;
                         break;
                     },
                     Ok(_) => {
@@ -243,7 +243,7 @@ async fn bridge_channel_socket_with_writable<T: AsyncWriteExt + Unpin + AsyncRea
                             || e.kind() == std::io::ErrorKind::BrokenPipe =>
                     {
                         debug!("Writable <-> Channel Socket connection ended: {:?}", e);
-                        channel_socket.shutdown();
+                        channel_socket.shutdown().await;
                         break;
                     }
                     Err(e) => {

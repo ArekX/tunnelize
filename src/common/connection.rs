@@ -295,7 +295,7 @@ impl Connection {
                 client.shutdown();
             }
             Self::ChannelSocket(socket) => {
-                socket.shutdown();
+                socket.shutdown().await;
             }
         }
     }

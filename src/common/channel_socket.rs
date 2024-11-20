@@ -1,15 +1,19 @@
 use std::io::{Error, ErrorKind};
+use std::net::SocketAddr;
 
+use log::error;
 use tokio::io::Result;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio_util::sync::CancellationToken;
-use uuid::Uuid;
 
-pub struct ChannelPacket(pub Uuid, pub Vec<u8>);
+pub enum ChannelPacket {
+    Data(SocketAddr, Vec<u8>),
+    Shutdown(SocketAddr),
+}
 
 #[derive(Debug)]
 pub struct ChannelSocket {
-    id: Uuid,
+    address: SocketAddr,
     pub link_to_tx: Sender<ChannelPacket>,
     pub socket_rx: Receiver<Vec<u8>>,
     pub socket_tx: Sender<Vec<u8>>,
@@ -17,11 +21,15 @@ pub struct ChannelSocket {
 }
 
 impl ChannelSocket {
-    pub fn new(link_to_tx: Sender<ChannelPacket>, cancel_token: CancellationToken) -> Self {
+    pub fn new(
+        address: SocketAddr,
+        link_to_tx: Sender<ChannelPacket>,
+        cancel_token: CancellationToken,
+    ) -> Self {
         let (socket_tx, socket_rx) = mpsc::channel(1);
 
         Self {
-            id: Uuid::new_v4(),
+            address,
             link_to_tx,
             socket_rx,
             socket_tx,
@@ -29,8 +37,8 @@ impl ChannelSocket {
         }
     }
 
-    pub fn get_id(&self) -> Uuid {
-        self.id
+    pub fn get_address(&self) -> SocketAddr {
+        self.address
     }
 
     pub fn get_socket_tx(&self) -> Sender<Vec<u8>> {
@@ -38,7 +46,11 @@ impl ChannelSocket {
     }
 
     pub async fn send(&self, data: Vec<u8>) -> Result<()> {
-        match self.link_to_tx.send(ChannelPacket(self.id, data)).await {
+        match self
+            .link_to_tx
+            .send(ChannelPacket::Data(self.address, data))
+            .await
+        {
             Ok(_) => Ok(()),
             Err(_) => Err(tokio::io::Error::new(
                 tokio::io::ErrorKind::Other,
@@ -47,7 +59,7 @@ impl ChannelSocket {
         }
     }
 
-    pub async fn receive(&mut self) -> tokio::io::Result<Vec<u8>> {
+    pub async fn receive(&mut self) -> Result<Vec<u8>> {
         tokio::select! {
             data = self.socket_rx.recv() => {
                 match data {
@@ -59,7 +71,7 @@ impl ChannelSocket {
                 }
             }
             _ = self.cancel_token.cancelled() => {
-                self.shutdown();
+                self.shutdown().await;
                 Err(Error::new(
                     ErrorKind::ConnectionAborted,
                     "Failed to receive data from link",
@@ -68,8 +80,16 @@ impl ChannelSocket {
         }
     }
 
-    pub fn shutdown(&mut self) {
+    pub async fn shutdown(&mut self) {
+        if let Err(e) = self
+            .link_to_tx
+            .send(ChannelPacket::Shutdown(self.address))
+            .await
+        {
+            error!("Failed to send shutdown message: {}", e);
+        }
         self.socket_rx.close();
+        self.cancel_token.cancel();
     }
 }
 
@@ -83,39 +103,48 @@ mod tests {
     async fn test_channel_socket_new() {
         let (tx, _rx) = mpsc::channel(1);
         let cancel_token = CancellationToken::new();
-        let socket = ChannelSocket::new(tx, cancel_token);
+        let address = "127.0.0.1:8080".parse().unwrap();
+        let socket = ChannelSocket::new(address, tx, cancel_token);
 
         assert_eq!(socket.socket_rx.capacity(), 1);
         assert_eq!(socket.socket_tx.capacity(), 1);
     }
 
     #[tokio::test]
-    async fn test_channel_socket_get_id() {
+    async fn test_channel_socket_get_address() {
         let (tx, _rx) = mpsc::channel(1);
         let cancel_token = CancellationToken::new();
-        let socket = ChannelSocket::new(tx, cancel_token);
+        let address = "127.0.0.1:8080".parse().unwrap();
+        let socket = ChannelSocket::new(address, tx, cancel_token);
 
-        assert!(!socket.get_id().is_nil());
+        assert_eq!(socket.get_address(), address);
     }
 
     #[tokio::test]
     async fn test_channel_socket_send() {
         let (tx, mut rx) = mpsc::channel(1);
         let cancel_token = CancellationToken::new();
-        let socket = ChannelSocket::new(tx, cancel_token);
+        let address = "127.0.0.1:8080".parse().unwrap();
+        let socket = ChannelSocket::new(address, tx, cancel_token);
 
         let data = vec![1, 2, 3];
         socket.send(data.clone()).await.unwrap();
 
         let received = rx.recv().await.unwrap();
-        assert_eq!(received.1, data);
+        if let ChannelPacket::Data(addr, received_data) = received {
+            assert_eq!(addr, address);
+            assert_eq!(received_data, data);
+        } else {
+            panic!("Expected ChannelPacket::Data");
+        }
     }
 
     #[tokio::test]
     async fn test_channel_socket_receive() {
         let (tx, _rx) = mpsc::channel(1);
         let cancel_token = CancellationToken::new();
-        let mut socket = ChannelSocket::new(tx, cancel_token);
+        let address = "127.0.0.1:8080".parse().unwrap();
+        let mut socket = ChannelSocket::new(address, tx, cancel_token);
 
         let data = vec![1, 2, 3];
 
@@ -131,7 +160,8 @@ mod tests {
     async fn test_channel_socket_receive_cancelled() {
         let (tx, _rx) = mpsc::channel(1);
         let cancel_token = CancellationToken::new();
-        let mut socket = ChannelSocket::new(tx, cancel_token.clone());
+        let address = "127.0.0.1:8080".parse().unwrap();
+        let mut socket = ChannelSocket::new(address, tx, cancel_token.clone());
 
         cancel_token.cancel();
         let result = socket.receive().await;
@@ -144,23 +174,29 @@ mod tests {
     async fn test_top_channel_receives_written_data() {
         let (tx, mut rx) = mpsc::channel(1);
         let cancel_token = CancellationToken::new();
-        let socket = ChannelSocket::new(tx, cancel_token);
+        let address = "127.0.0.1:8080".parse().unwrap();
+        let socket = ChannelSocket::new(address, tx, cancel_token);
 
         let data = vec![1, 2, 3];
         socket.send(data.clone()).await.unwrap();
 
         let received = rx.recv().await.unwrap();
-        assert_eq!(received.0, socket.get_id());
-        assert_eq!(received.1, data);
+        if let ChannelPacket::Data(addr, received_data) = received {
+            assert_eq!(addr, socket.get_address());
+            assert_eq!(received_data, data);
+        } else {
+            panic!("Expected ChannelPacket::Data");
+        }
     }
 
     #[tokio::test]
     async fn test_channel_socket_shutdown() {
         let (tx, _rx) = mpsc::channel(1);
         let cancel_token = CancellationToken::new();
-        let mut socket = ChannelSocket::new(tx, cancel_token);
+        let address = "127.0.0.1:8080".parse().unwrap();
+        let mut socket = ChannelSocket::new(address, tx, cancel_token);
 
-        socket.shutdown();
+        socket.shutdown().await;
         assert!(socket.socket_rx.is_closed());
     }
 }

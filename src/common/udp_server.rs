@@ -6,7 +6,11 @@ use super::{
 };
 use bytes::BytesMut;
 use log::error;
-use tokio::{io::Result, net::UdpSocket, sync::mpsc::Sender};
+use tokio::{
+    io::Result,
+    net::UdpSocket,
+    sync::mpsc::{channel, Receiver, Sender},
+};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -38,52 +42,66 @@ impl ActiveClient {
     }
 }
 
-pub struct Client {
+pub struct ReceivedClient {
     pub id: Uuid,
     pub connection: Connection,
-    pub address: SocketAddr,
     pub data: Vec<u8>,
 }
 
 pub struct UdpServer {
     socket: UdpSocket,
     data_buffer: BytesMut,
-    data_reciver_tx: Sender<ChannelPacket>,
     cancel_token: CancellationToken,
     max_timeout: u64,
-    // TODO: Use Rc<ActiveClient> instead of ActiveClient, to match by ID and address
-    // TODO: Udp server should have its own TX/RX, channel socket
     adress_to_tx_map: HashMap<SocketAddr, ActiveClient>,
+    server_tx: Sender<ChannelPacket>,
 }
 
 impl UdpServer {
     pub async fn new(
         port: u16,
         address: Option<String>,
-        data_reciver_tx: Sender<ChannelPacket>,
         max_timeout: u64,
         cancel_token: CancellationToken,
-    ) -> Result<Self> {
+    ) -> Result<(Self, Receiver<ChannelPacket>)> {
         let address_port = format!(
             "{}:{}",
             address.unwrap_or_else(|| "0.0.0.0".to_string()),
             port
         );
 
+        let (server_tx, server_rx) = channel::<ChannelPacket>(100);
+
         let mut data_buffer = BytesMut::with_capacity(2048);
         data_buffer.resize(2048, 0);
 
-        Ok(Self {
-            socket: UdpSocket::bind(address_port).await?,
-            data_buffer,
-            data_reciver_tx,
-            cancel_token,
-            max_timeout,
-            adress_to_tx_map: HashMap::new(),
-        })
+        Ok((
+            Self {
+                socket: UdpSocket::bind(address_port).await?,
+                data_buffer,
+                cancel_token,
+                max_timeout,
+                adress_to_tx_map: HashMap::new(),
+                server_tx,
+            },
+            server_rx,
+        ))
     }
 
-    pub async fn listen_for_connections(&mut self) -> Result<Client> {
+    pub async fn handle_channel_packet(&mut self, packet: ChannelPacket) {
+        match packet {
+            ChannelPacket::Data(address, data) => {
+                if let Err(e) = self.write(&data, &address).await {
+                    error!("Failed to send data to client: {}", e);
+                }
+            }
+            ChannelPacket::Shutdown(address) => {
+                self.adress_to_tx_map.remove(&address);
+            }
+        }
+    }
+
+    pub async fn listen_for_connections(&mut self) -> Result<ReceivedClient> {
         loop {
             let (data, address) = match self.socket.recv_from(&mut self.data_buffer).await {
                 Ok((size, address)) => (self.data_buffer[..size].to_vec(), address),
@@ -104,29 +122,29 @@ impl UdpServer {
                 }
 
                 client.close();
+
                 self.adress_to_tx_map.remove(&address);
             }
 
             let cancel_token = self.cancel_token.child_token();
 
             let channel_socket =
-                ChannelSocket::new(self.data_reciver_tx.clone(), cancel_token.clone());
+                ChannelSocket::new(address, self.server_tx.clone(), cancel_token.clone());
 
             let socket_tx = channel_socket.get_socket_tx();
 
-            self.adress_to_tx_map.insert(
-                address,
-                ActiveClient {
-                    socket_tx: socket_tx.clone(),
-                    cancel_token,
-                    last_activity: Instant::now(),
-                },
-            );
+            let active_client = ActiveClient {
+                socket_tx,
+                cancel_token,
+                last_activity: Instant::now(),
+            };
 
-            return Ok(Client {
-                id: channel_socket.get_id(),
+            let client_id = Uuid::new_v4();
+            self.adress_to_tx_map.insert(address, active_client);
+
+            return Ok(ReceivedClient {
+                id: client_id,
                 connection: Connection::from(channel_socket),
-                address,
                 data,
             });
         }
@@ -135,9 +153,9 @@ impl UdpServer {
     pub async fn write(&mut self, data: &[u8], address: &SocketAddr) -> Result<usize> {
         match self.socket.send_to(data, address).await {
             Ok(size) => {
-                self.adress_to_tx_map
-                    .get_mut(address)
-                    .map(|client| client.update_activity());
+                if let Some(client) = self.adress_to_tx_map.get_mut(address) {
+                    client.update_activity();
+                }
                 Ok(size)
             }
             Err(e) => Err(e),
@@ -153,5 +171,12 @@ impl UdpServer {
 
             true
         });
+    }
+
+    pub fn shutdown(&mut self) {
+        self.cancel_token.cancel();
+        for (_, mut client) in self.adress_to_tx_map.drain() {
+            client.close();
+        }
     }
 }
