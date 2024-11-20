@@ -50,7 +50,7 @@ pub async fn process(
                 .get_endpoint_manager()
                 .await
                 .list_endpoints()
-                .drain(1..)
+                .drain(0..)
                 .map(|endpoint| PublicEndpointConfig {
                     name: endpoint.name.clone(),
                     config: endpoint.definition,
