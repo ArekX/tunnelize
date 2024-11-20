@@ -4,15 +4,14 @@ use crate::{common::connection::Connection, create_data_enum};
 
 use super::services::Services;
 
+mod access;
 mod config_request;
 mod init_link;
 mod init_tunnel;
 mod monitoring_request;
-mod access;
 
 pub use config_request::{
     ConfigRequest, ProcessConfigRequest, ProcessConfigResponse, PublicEndpointConfig,
-    PublicServerEndpointConfig,
 };
 pub use init_link::{InitLinkRequest, InitLinkResponse};
 pub use init_tunnel::{InitTunelRequest, InitTunnelResponse, InputProxy, ProxySession};

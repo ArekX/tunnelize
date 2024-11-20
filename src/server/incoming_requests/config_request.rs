@@ -1,18 +1,10 @@
-use std::{sync::Arc, vec};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
     common::connection::Connection,
-    server::{
-        configuration::EndpointConfiguration,
-        endpoints::{
-            http::configuration::HttpPublicEndpointConfig,
-            tcp::configuration::TcpPublicEndpointConfig,
-            udp::configuration::UdpPublicEndpointConfig,
-        },
-        services::Services,
-    },
+    server::{configuration::PublicEndpointConfiguration, services::Services},
 };
 
 use super::access::has_tunnel_access;
@@ -37,31 +29,7 @@ pub enum ProcessConfigResponse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PublicEndpointConfig {
     pub name: String,
-    pub config: PublicServerEndpointConfig,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum PublicServerEndpointConfig {
-    Http(HttpPublicEndpointConfig),
-    Tcp(TcpPublicEndpointConfig),
-    Udp(UdpPublicEndpointConfig),
-}
-
-impl From<&EndpointConfiguration> for Option<PublicServerEndpointConfig> {
-    fn from(config: &EndpointConfiguration) -> Self {
-        match config {
-            EndpointConfiguration::Http(config) => {
-                Some(PublicServerEndpointConfig::Http(config.into()))
-            }
-            EndpointConfiguration::Tcp(config) => {
-                Some(PublicServerEndpointConfig::Tcp(config.into()))
-            }
-            EndpointConfiguration::Udp(config) => {
-                Some(PublicServerEndpointConfig::Udp(config.into()))
-            }
-            EndpointConfiguration::Monitoring(_) => None,
-        }
-    }
+    pub config: PublicEndpointConfiguration,
 }
 
 pub async fn process(
@@ -78,22 +46,19 @@ pub async fn process(
                 return;
             }
 
-            let endpoints = services.get_endpoint_manager().await.list_endpoints();
-
-            let mut results: Vec<PublicEndpointConfig> = vec![];
-            for endpoint in endpoints.iter() {
-                if let Some(public_config) =
-                    Option::<PublicServerEndpointConfig>::from(&endpoint.definition)
-                {
-                    results.push(PublicEndpointConfig {
-                        name: endpoint.name.clone(),
-                        config: public_config,
-                    });
-                }
-            }
+            let endpoints = services
+                .get_endpoint_manager()
+                .await
+                .list_endpoints()
+                .drain(1..)
+                .map(|endpoint| PublicEndpointConfig {
+                    name: endpoint.name.clone(),
+                    config: endpoint.definition,
+                })
+                .collect();
 
             response_stream
-                .respond_message(&ProcessConfigResponse::GetPublicEndpointConfig(results))
+                .respond_message(&ProcessConfigResponse::GetPublicEndpointConfig(endpoints))
                 .await;
         }
     }

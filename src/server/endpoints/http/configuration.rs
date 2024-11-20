@@ -114,6 +114,7 @@ pub struct HttpPublicEndpointConfig {
     pub address: String,
     pub allow_custom_hostnames: bool,
     pub hostname_template: String,
+    pub full_url_template: Option<String>,
     pub require_authorization: Option<AuthorizeUser>,
 }
 
@@ -125,6 +126,7 @@ impl From<&HttpEndpointConfig> for HttpPublicEndpointConfig {
             address: config.get_address(),
             allow_custom_hostnames: config.get_allow_custom_hostnames(),
             hostname_template: config.hostname_template.clone(),
+            full_url_template: config.full_url_template.clone(),
             require_authorization: config.require_authorization.clone(),
         }
     }

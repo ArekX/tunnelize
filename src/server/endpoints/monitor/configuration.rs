@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -43,11 +45,67 @@ impl MonitorEndpointConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct PublicMonitorEndpointConfig {
+    pub port: u16,
+    pub address: String,
+    pub encryption: EndpointServerEncryption,
+    pub allow_cors_origins: MonitorOrigin,
+}
+
+impl From<&MonitorEndpointConfig> for PublicMonitorEndpointConfig {
+    fn from(config: &MonitorEndpointConfig) -> Self {
+        PublicMonitorEndpointConfig {
+            port: config.port,
+            address: config.get_address(),
+            encryption: config.get_encryption(),
+            allow_cors_origins: config.get_allow_cors_origins(),
+        }
+    }
+}
+
+impl Display for PublicMonitorEndpointConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Port: {}", self.port)?;
+        writeln!(
+            f,
+            "HTTPS: {}",
+            if let EndpointServerEncryption::Tls { .. } = self.encryption {
+                "Enabled"
+            } else {
+                "Disabled"
+            }
+        )?;
+        writeln!(f, "Address: {}", self.address)?;
+        writeln!(f, "CORS: {}", self.allow_cors_origins)?;
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum MonitorOrigin {
     Any,
     List(Vec<String>),
     None,
+}
+
+impl Display for MonitorOrigin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MonitorOrigin::Any => writeln!(f, "Any origin allowed"),
+            MonitorOrigin::List(origins) => {
+                writeln!(f, "List:")?;
+
+                for origin in origins {
+                    writeln!(f, "\t{}", origin)?;
+                }
+
+                Ok(())
+            }
+            MonitorOrigin::None => writeln!(f, "No origin allowed"),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

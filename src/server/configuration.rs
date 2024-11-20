@@ -20,8 +20,10 @@ use crate::{
 };
 
 use super::endpoints::{
-    http::configuration::HttpEndpointConfig, monitor::configuration::MonitorEndpointConfig,
-    tcp::configuration::TcpEndpointConfig, udp::configuration::UdpEndpointConfig,
+    http::configuration::{HttpEndpointConfig, HttpPublicEndpointConfig},
+    monitor::configuration::{MonitorEndpointConfig, PublicMonitorEndpointConfig},
+    tcp::configuration::{TcpEndpointConfig, TcpPublicEndpointConfig},
+    udp::configuration::{UdpEndpointConfig, UdpPublicEndpointConfig},
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
@@ -170,6 +172,27 @@ pub enum EndpointConfiguration {
     Tcp(TcpEndpointConfig),
     Udp(UdpEndpointConfig),
     Monitoring(MonitorEndpointConfig),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum PublicEndpointConfiguration {
+    Http(HttpPublicEndpointConfig),
+    Tcp(TcpPublicEndpointConfig),
+    Udp(UdpPublicEndpointConfig),
+    Monitoring(PublicMonitorEndpointConfig),
+}
+
+impl From<&EndpointConfiguration> for PublicEndpointConfiguration {
+    fn from(config: &EndpointConfiguration) -> Self {
+        match config {
+            EndpointConfiguration::Http(config) => PublicEndpointConfiguration::Http(config.into()),
+            EndpointConfiguration::Tcp(config) => PublicEndpointConfiguration::Tcp(config.into()),
+            EndpointConfiguration::Udp(config) => PublicEndpointConfiguration::Udp(config.into()),
+            EndpointConfiguration::Monitoring(config) => {
+                PublicEndpointConfiguration::Monitoring(config.into())
+            }
+        }
+    }
 }
 
 impl EndpointConfiguration {

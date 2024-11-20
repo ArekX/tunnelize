@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     common::channel::{create_channel, DataResponse, RequestReceiver, RequestSender},
     server::{
-        configuration::EndpointConfiguration,
+        configuration::{EndpointConfiguration, PublicEndpointConfiguration},
         endpoints::messages::{
             EndpointChannelRequest, EndpointChannelResponse, RemoveTunnelRequest,
         },
@@ -26,7 +26,7 @@ impl Into<EndpointInfo> for &Endpoint {
     fn into(self) -> EndpointInfo {
         EndpointInfo {
             name: self.name.clone(),
-            definition: self.definition.clone(),
+            definition: PublicEndpointConfiguration::from(&self.definition),
         }
     }
 }
@@ -34,7 +34,7 @@ impl Into<EndpointInfo> for &Endpoint {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EndpointInfo {
     pub name: String,
-    pub definition: EndpointConfiguration,
+    pub definition: PublicEndpointConfiguration,
 }
 
 impl Endpoint {

@@ -10,15 +10,17 @@ const VERBOSE_LOG_LEVEL: &str = "debug";
 const VERBOSE_LOG_LEVEL: &str = "info";
 
 fn resolve_log_level(command: &Commands) -> &'static str {
-    let verbose = match command {
-        Commands::Tunnel { verbose, .. } => *verbose,
-        _ => true,
-    };
-
-    if verbose {
-        VERBOSE_LOG_LEVEL
-    } else {
-        "error"
+    match command {
+        Commands::Init { .. } => "error",
+        Commands::Server { .. } => VERBOSE_LOG_LEVEL,
+        Commands::Tunnel { verbose, .. } => {
+            if *verbose {
+                VERBOSE_LOG_LEVEL
+            } else {
+                "error"
+            }
+        }
+        Commands::Monitor { .. } => "error",
     }
 }
 

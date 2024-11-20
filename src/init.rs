@@ -9,7 +9,7 @@ use crate::{
     },
     configuration::{write_configuration, TunnelizeConfiguration},
     server::{
-        configuration::{EndpointConfiguration, ServerConfiguration},
+        configuration::{EndpointConfiguration, PublicEndpointConfiguration, ServerConfiguration},
         endpoints::{
             http::configuration::HttpEndpointConfig,
             monitor::configuration::{MonitorAuthentication, MonitorEndpointConfig},
@@ -18,7 +18,6 @@ use crate::{
         },
         incoming_requests::{
             ConfigRequest, ProcessConfigRequest, ProcessConfigResponse, PublicEndpointConfig,
-            PublicServerEndpointConfig,
         },
     },
     tunnel::configuration::{ProxyConfiguration, TunnelConfiguration, TunnelProxy},
@@ -111,7 +110,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
 
             for PublicEndpointConfig { name, config } in endpoint_config {
                 match config {
-                    PublicServerEndpointConfig::Http(http) => {
+                    PublicEndpointConfiguration::Http(http) => {
                         println!("Discovered HTTP endpoint: {}", name);
                         println!("{}", http);
 
@@ -126,7 +125,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                             },
                         });
                     }
-                    PublicServerEndpointConfig::Tcp(tcp) => {
+                    PublicEndpointConfiguration::Tcp(tcp) => {
                         println!("Discovered TCP endpoint: {}", name);
                         println!("{}", tcp);
 
@@ -141,7 +140,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                             },
                         });
                     }
-                    PublicServerEndpointConfig::Udp(udp) => {
+                    PublicEndpointConfiguration::Udp(udp) => {
                         println!("Discovered UDP endpoint: {}", name);
                         println!("{}", udp);
 
@@ -156,6 +155,11 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                                 bind_address: None,
                             },
                         });
+                    }
+                    PublicEndpointConfiguration::Monitoring(monitor) => {
+                        println!("Discovered monitoring endpoint: {}", name);
+                        println!("{}", monitor);
+                        continue;
                     }
                 }
 
