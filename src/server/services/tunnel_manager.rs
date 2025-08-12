@@ -23,6 +23,7 @@ pub struct TunnelInfo {
     pub id: Uuid,
     pub name: Option<String>,
     pub proxies: Vec<TunnelProxyInfo>,
+    pub last_heartbeat_timestamp: i64,
 }
 
 impl TunnelManager {
@@ -84,6 +85,19 @@ impl TunnelManager {
 
     pub fn get_tunnel_info(&self, id: &Uuid) -> Option<TunnelInfo> {
         self.tunnels.get(id).map(|tunnel| tunnel.into())
+    }
+
+    pub fn update_last_heartbeat(&mut self, id: &Uuid) {
+        if let Some(tunnel) = self.tunnels.get_mut(id) {
+            tunnel.update_heartbeat_timestamp();
+        }
+    }
+
+    pub fn is_tunnel_stale(&self, id: &Uuid) -> bool {
+        if let Some(tunnel) = self.tunnels.get(id) {
+            return tunnel.is_stale();
+        }
+        false
     }
 }
 

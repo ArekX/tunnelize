@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use super::messages::TunnelChannelRequest;
+use chrono::Utc;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
@@ -13,8 +14,10 @@ use crate::{
         transport::MessageError,
     },
     server::{
-        endpoints::messages::ResolvedEndpointInfo, incoming_requests::ServerRequestMessage,
-        services::TunnelInfo, session::channel_handler,
+        endpoints::messages::ResolvedEndpointInfo,
+        incoming_requests::{self, ServerRequestMessage},
+        services::TunnelInfo,
+        session::channel_handler,
     },
 };
 
@@ -27,6 +30,7 @@ pub struct TunnelSession {
     proxies: Vec<TunnelProxyInfo>,
     channel_tx: RequestSender<TunnelChannelRequest>,
     cancel_token: CancellationToken,
+    last_heartbeat_timestamp: i64,
 }
 
 impl TunnelSession {
@@ -42,6 +46,7 @@ impl TunnelSession {
             proxies,
             channel_tx,
             cancel_token: CancellationToken::new(),
+            last_heartbeat_timestamp: Utc::now().timestamp(),
         }
     }
 
@@ -68,6 +73,15 @@ impl TunnelSession {
     pub fn get_id(&self) -> Uuid {
         self.id
     }
+
+    pub fn update_heartbeat_timestamp(&mut self) {
+        self.last_heartbeat_timestamp = Utc::now().timestamp();
+    }
+
+    pub fn is_stale(&self) -> bool {
+        let current_time = Utc::now().timestamp();
+        current_time - self.last_heartbeat_timestamp > 300
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -84,6 +98,7 @@ impl Into<TunnelInfo> for &TunnelSession {
             id: self.id.clone(),
             name: self.name.clone(),
             proxies: self.proxies.clone(),
+            last_heartbeat_timestamp: self.last_heartbeat_timestamp,
         }
     }
 }
@@ -128,7 +143,16 @@ pub async fn start(
             result = stream.read_message::<ServerRequestMessage>() => {
                 match result {
                     Ok(message) => {
-                        debug!("Received unexpected message from client: {:?}", message);
+                        match message {
+                            ServerRequestMessage::HeartbeatRequest(request) => {
+                                incoming_requests::process_heartbeat_request(
+                                    &services,
+                                    request,
+                                    &mut stream
+                                ).await;
+                            },
+                            _ => debug!("Received unexpected message from client: {:?}", message)
+                        }
                     },
                     Err(MessageError::ConnectionClosed) => {
                         debug!("Tunnel Connection closed.");
@@ -139,6 +163,14 @@ pub async fn start(
                         session.cancel();
                         break;
                     }
+                }
+            }
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {
+                let manager = services.get_tunnel_manager().await;
+
+                if manager.is_tunnel_stale(&id) {
+                    info!("Tunnel {} connection is stale (no heartbeat updated received in over 5 minutes), cancelling session.", id);
+                    session.cancel();
                 }
             }
         }

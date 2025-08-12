@@ -2,11 +2,15 @@ use uuid::Uuid;
 
 pub struct TunnelData {
     pub tunnel_id: Option<Uuid>,
+    pub failed_heartbeats: u16,
 }
 
 impl TunnelData {
     pub fn new() -> Self {
-        Self { tunnel_id: None }
+        Self {
+            tunnel_id: None,
+            failed_heartbeats: 0,
+        }
     }
 
     pub fn set_tunnel_id(&mut self, tunnel_id: Uuid) {
@@ -19,6 +23,18 @@ impl TunnelData {
 
     pub fn get_tunnel_id(&self) -> Option<Uuid> {
         self.tunnel_id.clone()
+    }
+
+    pub fn record_success_heartbeat(&mut self) {
+        self.failed_heartbeats = 0;
+    }
+
+    pub fn record_failed_heartbeat(&mut self) {
+        self.failed_heartbeats += 1;
+    }
+
+    pub fn too_many_failed_heartbeats(&self) -> bool {
+        self.failed_heartbeats >= 5
     }
 }
 
