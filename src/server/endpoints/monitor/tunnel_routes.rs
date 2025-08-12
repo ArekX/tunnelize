@@ -45,6 +45,6 @@ async fn disconnect_tunnel(
 pub fn get_router() -> Router<AppState> {
     Router::new()
         .route("/", get(list_tunnels))
-        .route("/:id", get(get_tunnel))
-        .route("/:id", delete(disconnect_tunnel))
+        .route("/{id}", get(get_tunnel))
+        .route("/{id}", delete(disconnect_tunnel))
 }

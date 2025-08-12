@@ -43,6 +43,6 @@ async fn disconnect_link(
 pub fn get_router() -> Router<AppState> {
     Router::new()
         .route("/", get(list_links))
-        .route("/:id", get(get_link))
-        .route("/:id", delete(disconnect_link))
+        .route("/{id}", get(get_link))
+        .route("/{id}", delete(disconnect_link))
 }

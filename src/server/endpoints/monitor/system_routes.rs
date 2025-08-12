@@ -52,8 +52,8 @@ async fn get_client(
 pub fn get_router() -> Router<AppState> {
     Router::new()
         .route("/endpoints", get(list_endpoints))
-        .route("/endpoints/:name", get(get_endpoint))
+        .route("/endpoints/{name}", get(get_endpoint))
         .route("/clients", get(list_clients))
-        .route("/clients/:id", get(get_client))
+        .route("/clients/{id}", get(get_client))
         .route("/info", get(get_system_info))
 }
