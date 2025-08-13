@@ -22,11 +22,11 @@ pub struct Endpoint {
     channel_tx: RequestSender<EndpointChannelRequest>,
 }
 
-impl Into<EndpointInfo> for &Endpoint {
-    fn into(self) -> EndpointInfo {
+impl From<&Endpoint> for EndpointInfo {
+    fn from(val: &Endpoint) -> Self {
         EndpointInfo {
-            name: self.name.clone(),
-            definition: PublicEndpointConfiguration::from(&self.definition),
+            name: val.name.clone(),
+            definition: PublicEndpointConfiguration::from(&val.definition),
         }
     }
 }
@@ -44,9 +44,9 @@ impl Endpoint {
         channel_tx: RequestSender<EndpointChannelRequest>,
     ) -> Self {
         Self {
-            name: name,
-            definition: definition,
-            channel_tx: channel_tx,
+            name,
+            definition,
+            channel_tx,
         }
     }
 
@@ -84,10 +84,7 @@ impl EndpointManager {
         &self,
         service_name: &str,
     ) -> Option<RequestSender<EndpointChannelRequest>> {
-        match self.endpoints.get(service_name) {
-            Some(endpoint) => Some(endpoint.get_channel_tx()),
-            None => None,
-        }
+        self.endpoints.get(service_name).map(|endpoint| endpoint.get_channel_tx())
     }
 
     pub async fn send_request<T: Into<EndpointChannelRequest> + DataResponse>(
@@ -101,7 +98,7 @@ impl EndpointManager {
         let Some(tunnel_tx) = self.get_endpoint_channel_tx(service_name) else {
             return Err(tokio::io::Error::new(
                 tokio::io::ErrorKind::NotFound,
-                format!("Endpoint not found: {:?}", service_name),
+                format!("Endpoint not found: {service_name:?}"),
             ));
         };
 
@@ -123,26 +120,23 @@ impl EndpointManager {
 
 impl HandleServiceEvent for EndpointManager {
     async fn handle_event(&mut self, event: &ServiceEvent) {
-        match event {
-            ServiceEvent::TunnelDisconnected { tunnel_id } => {
-                for endpoint_name in self.endpoints.keys() {
-                    if let Err(e) = self
-                        .send_request(
-                            &endpoint_name,
-                            RemoveTunnelRequest {
-                                tunnel_id: tunnel_id.clone(),
-                            },
-                        )
-                        .await
-                    {
-                        error!(
-                            "Error while sending RemoveTunnelRequest to endpoint '{}': {}",
-                            endpoint_name, e
-                        );
-                    }
+        if let ServiceEvent::TunnelDisconnected { tunnel_id } = event {
+            for endpoint_name in self.endpoints.keys() {
+                if let Err(e) = self
+                    .send_request(
+                        endpoint_name,
+                        RemoveTunnelRequest {
+                            tunnel_id: *tunnel_id,
+                        },
+                    )
+                    .await
+                {
+                    error!(
+                        "Error while sending RemoveTunnelRequest to endpoint '{}': {}",
+                        endpoint_name, e
+                    );
                 }
             }
-            _ => {}
         }
     }
 }

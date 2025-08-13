@@ -40,7 +40,7 @@ pub struct HttpEndpointConfig {
 
 impl HttpEndpointConfig {
     pub fn get_address(&self) -> String {
-        self.address.clone().unwrap_or_else(|| format!("0.0.0.0"))
+        self.address.clone().unwrap_or_else(|| "0.0.0.0".to_string())
     }
 
     pub fn get_full_url(&self, hostname: &str) -> String {
@@ -63,7 +63,7 @@ impl HttpEndpointConfig {
             format!(":{}", self.port)
         };
 
-        format!("{}://{}{}", protocol, hostname, port)
+        format!("{protocol}://{hostname}{port}")
     }
 
     pub fn get_is_secure(&self) -> bool {
@@ -77,17 +77,16 @@ impl HttpEndpointConfig {
     pub fn get_encryption(&self) -> EndpointServerEncryption {
         self.encryption
             .clone()
-            .unwrap_or_else(|| EndpointServerEncryption::None)
+            .unwrap_or(EndpointServerEncryption::None)
     }
 
     pub fn get_max_client_input_wait_secs(&self) -> u64 {
         self.max_client_input_wait_secs
-            .clone()
-            .unwrap_or_else(|| 300)
+            .unwrap_or(300)
     }
 
     pub fn get_allow_custom_hostnames(&self) -> bool {
-        self.allow_custom_hostnames.clone().unwrap_or_else(|| true)
+        self.allow_custom_hostnames.unwrap_or(true)
     }
 }
 
@@ -158,7 +157,7 @@ impl Display for HttpPublicEndpointConfig {
 
         if let Some(authorization) = &self.require_authorization {
             writeln!(f, "Requires clients to authorize:")?;
-            write!(f, "{}", authorization)?;
+            write!(f, "{authorization}")?;
         }
 
         Ok(())

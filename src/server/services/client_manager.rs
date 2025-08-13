@@ -1,14 +1,11 @@
-use std::{
-    collections::HashMap,
-    io::{Error, ErrorKind},
-};
+use std::{collections::HashMap, io::Error};
 
 use crate::common::connection::Connection;
 use log::info;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use super::{events::ServiceEvent, HandleServiceEvent};
+use super::{HandleServiceEvent, events::ServiceEvent};
 
 #[derive(Debug)]
 pub struct ClientLink {
@@ -23,11 +20,11 @@ pub struct Client {
     link: Option<ClientLink>,
 }
 
-impl Into<ClientInfo> for &Client {
-    fn into(self) -> ClientInfo {
+impl From<&Client> for ClientInfo {
+    fn from(val: &Client) -> Self {
         ClientInfo {
-            id: self.id,
-            endpoint_name: self.endpoint_name.clone(),
+            id: val.id,
+            endpoint_name: val.endpoint_name.clone(),
         }
     }
 }
@@ -82,13 +79,14 @@ impl ClientManager {
         }
     }
 
+    #[allow(clippy::result_large_err)]
     pub fn subscribe_client(
         &mut self,
         mut client: Client,
     ) -> Result<(), (Error, Option<ClientLink>)> {
         if self.clients.len() >= self.max_clients {
             return Err((
-                Error::new(ErrorKind::Other, "Maximum number of clients reached"),
+                Error::other("Maximum number of clients reached"),
                 client.take_link(),
             ));
         }

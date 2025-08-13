@@ -19,7 +19,7 @@ pub async fn handle(
 ) -> Result<()> {
     match &mut request.data {
         EndpointChannelRequest::RegisterTunnelRequest(register_request) => {
-            let tunnel_id = register_request.tunnel_id.clone();
+            let tunnel_id = register_request.tunnel_id;
             let mut proxy_info = HashMap::<Uuid, ResolvedEndpointInfo>::new();
             let config = services.get_config();
             let mut tunnel_host = services.get_tunnel_host().await;
@@ -30,7 +30,7 @@ pub async fn handle(
                     reject_tunnel(
                         &mut request,
                         &tunnel_id,
-                        &services,
+                        services,
                         "Invalid configuration for UDP endpoint.",
                     )
                     .await;
@@ -41,7 +41,7 @@ pub async fn handle(
                     reject_tunnel(
                         &mut request,
                         &tunnel_id,
-                        &services,
+                        services,
                         "No available ports to be assigned.",
                     )
                     .await;
@@ -49,12 +49,12 @@ pub async fn handle(
                 }
 
                 let Ok(port) =
-                    tunnel_host.add_tunnel(desired_port.clone(), tunnel_id, session.proxy_id)
+                    tunnel_host.add_tunnel(desired_port, tunnel_id, session.proxy_id)
                 else {
                     reject_tunnel(
                         &mut request,
                         &tunnel_id,
-                        &services,
+                        services,
                         "Failed to assign port.",
                     )
                     .await;

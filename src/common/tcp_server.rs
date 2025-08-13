@@ -26,7 +26,7 @@ impl TcpServer {
                     key_path: key,
                 } => Some(ServerTlsEncryption::new(&cert, &key).await),
             },
-            listener: TcpListener::bind(format!("{}:{}", address, port)).await?,
+            listener: TcpListener::bind(format!("{address}:{port}")).await?,
         })
     }
 
@@ -67,7 +67,7 @@ async fn is_tls_stream(stream: &TcpStream) -> Result<bool> {
             // Check if it matches TLS handshake patterns
             Ok(content_type == 0x16 && // Handshake
                 version_major == 0x03 && // TLS version
-                (version_minor >= 0x01 && version_minor <= 0x04)) // TLS 1.0 through 1.3
+                (0x01..=0x04).contains(&version_minor)) // TLS 1.0 through 1.3
         }
         _ => Ok(false),
     }

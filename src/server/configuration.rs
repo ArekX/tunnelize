@@ -62,7 +62,7 @@ impl EndpointServerEncryption {
                     _ => {
                         return Err(Error::new(
                             ErrorKind::InvalidInput,
-                            format!("Main server TLS encryption is not set, but is required"),
+                            "Main server TLS encryption is not set, but is required".to_string(),
                         ));
                     }
                 };
@@ -112,10 +112,10 @@ pub struct ServerConfiguration {
     pub max_proxies_per_tunnel: Option<usize>,
 }
 
-impl Into<TunnelizeConfiguration> for ServerConfiguration {
-    fn into(self) -> TunnelizeConfiguration {
+impl From<ServerConfiguration> for TunnelizeConfiguration {
+    fn from(val: ServerConfiguration) -> Self {
         TunnelizeConfiguration {
-            server: Some(self),
+            server: Some(val),
             tunnel: None,
         }
     }
@@ -237,7 +237,7 @@ impl Validatable for ServerConfiguration {
         }
 
         for (name, endpoint) in &self.endpoints {
-            result.validate_child(&format!("endpoints.{}", name), endpoint);
+            result.validate_child(&format!("endpoints.{name}"), endpoint);
         }
 
         result.validate_child("encryption", &self.get_encryption());

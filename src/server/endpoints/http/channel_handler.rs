@@ -56,7 +56,7 @@ pub async fn handle(
                 }
 
                 let hostname = tunnel_host.register_host(
-                    &desired_name,
+                    desired_name,
                     &tunnel_request.tunnel_id,
                     &proxy_session.proxy_id,
                 );
@@ -78,7 +78,7 @@ pub async fn handle(
         }
         EndpointChannelRequest::RemoveTunnelRequest(RemoveTunnelRequest { tunnel_id }) => {
             info!("Removing tunnel ID '{}' from http endpoint.", tunnel_id);
-            tunnel_host.remove_tunnel_by_id(&tunnel_id);
+            tunnel_host.remove_tunnel_by_id(tunnel_id);
             request.respond(OkResponse);
         }
     }

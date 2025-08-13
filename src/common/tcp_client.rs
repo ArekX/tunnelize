@@ -30,10 +30,10 @@ impl From<Option<ClientEncryption>> for ClientEncryption {
 
 impl Validatable for ClientEncryption {
     fn validate(&self, result: &mut Validation) {
-        if let Self::Tls { ca_path } = self {
-            if let Some(cert) = ca_path {
-                result.validate_rule::<FileMustExist>("ca_path", &cert);
-            }
+        if let Self::Tls { ca_path } = self
+            && let Some(cert) = ca_path
+        {
+            result.validate_rule::<FileMustExist>("ca_path", cert);
         }
     }
 }
@@ -50,20 +50,20 @@ pub async fn create_tcp_client(
 
                 info!("Connected to (TLS) server at {}", address);
 
-                return Ok(tls.connect(stream, address).await?);
+                return tls.connect(stream, address).await;
             }
             ClientEncryption::None => {
                 info!("Connected to server at {}", address);
-                return Ok(Connection::from(stream));
+                Ok(Connection::from(stream))
             }
         },
         Err(e) if e.kind() == io::ErrorKind::ConnectionRefused => {
             error!("Connection refused by server at {}", address);
-            return Err(e);
+            Err(e)
         }
         Err(e) => {
             debug!("Error connecting to server: {:?}", e);
-            return Err(e);
+            Err(e)
         }
     }
 }

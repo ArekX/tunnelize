@@ -17,9 +17,9 @@ use crate::{
 
 use super::messages::EndpointChannelRequest;
 use axum::{
+    Router,
     http::HeaderValue,
     middleware::{from_fn, from_fn_with_state},
-    Router,
 };
 
 pub mod configuration;
@@ -83,18 +83,13 @@ fn start_channel_handler(
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
-        loop {
-            match channel_rx.wait_for_requests().await {
-                Some(ref mut request) => match &request.data {
-                    EndpointChannelRequest::RemoveTunnelRequest(_) => {
-                        request.respond(OkResponse);
-                    }
-                    _ => {
-                        request.respond(InvalidResponse);
-                    }
-                },
-                None => {
-                    break;
+        while let Some(ref mut request) = channel_rx.wait_for_requests().await {
+            match &request.data {
+                EndpointChannelRequest::RemoveTunnelRequest(_) => {
+                    request.respond(OkResponse);
+                }
+                _ => {
+                    request.respond(InvalidResponse);
                 }
             }
         }
@@ -103,14 +98,12 @@ fn start_channel_handler(
 
 fn apply_cors(app: Router, config: &MonitorEndpointConfig) -> Router {
     match config.get_allow_cors_origins() {
-        MonitorOrigin::Any => {
-            return app.layer(
-                CorsLayer::new()
-                    .allow_origin(Any)
-                    .allow_methods(Any)
-                    .allow_headers(Any),
-            );
-        }
+        MonitorOrigin::Any => app.layer(
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any),
+        ),
         MonitorOrigin::List(ref origins) => {
             let origins = origins
                 .iter()
@@ -121,16 +114,14 @@ fn apply_cors(app: Router, config: &MonitorEndpointConfig) -> Router {
                 .allow_methods(Any)
                 .allow_headers(Any)
                 .allow_origin(AllowOrigin::predicate(move |origin, _headers| {
-                    origins.iter().any(|allowed_origin| {
-                        return origin == allowed_origin;
-                    })
+                    origins
+                        .iter()
+                        .any(|allowed_origin| origin == allowed_origin)
                 }));
 
-            return app.layer(cors);
+            app.layer(cors)
         }
-        MonitorOrigin::None => {
-            return app;
-        }
+        MonitorOrigin::None => app,
     }
 }
 

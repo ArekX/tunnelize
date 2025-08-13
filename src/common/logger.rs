@@ -25,7 +25,7 @@ fn resolve_log_level(command: &Commands) -> &'static str {
 }
 
 pub fn initialize_logger(command: &Commands) {
-    let env = Env::default().filter_or("LOG_LEVEL", resolve_log_level(&command));
+    let env = Env::default().filter_or("LOG_LEVEL", resolve_log_level(command));
 
     let show_colors = std::env::var("LOG_COLORS").unwrap_or_else(|_| "true".to_string()) == "true";
 

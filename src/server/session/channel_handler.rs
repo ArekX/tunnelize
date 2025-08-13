@@ -9,7 +9,7 @@ use crate::{
         connection::Connection,
     },
     server::{
-        services::{events::ServiceEvent, Services},
+        services::{Services, events::ServiceEvent},
         session::messages::ClientLinkResponse,
     },
     tunnel::incoming_requests::{InitLinkRequest, InitLinkResponse},
@@ -65,7 +65,7 @@ pub async fn handle(
                     reject_request(
                         services,
                         responder,
-                        &request_data,
+                        request_data,
                         link_session_id,
                         "Failed to initialize link session".to_string(),
                     )
@@ -80,7 +80,7 @@ pub async fn handle(
                     responder.respond(ClientLinkResponse::Accepted);
                 }
                 InitLinkResponse::Rejected { reason } => {
-                    reject_request(services, responder, &request_data, link_session_id, reason)
+                    reject_request(services, responder, request_data, link_session_id, reason)
                         .await;
                 }
             }

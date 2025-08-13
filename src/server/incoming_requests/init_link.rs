@@ -40,7 +40,7 @@ pub async fn process(
         return;
     };
 
-    session::link::start(&services, client_id.clone(), response_stream, cancel_token).await;
+    session::link::start(&services, client_id, response_stream, cancel_token).await;
 
     services
         .push_event(ServiceEvent::LinkDisconnected {

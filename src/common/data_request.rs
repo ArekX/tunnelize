@@ -1,4 +1,4 @@
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 
 pub trait DataRequest: Serialize + DeserializeOwned + Clone {
     type DataEnum: Serialize + DeserializeOwned + Clone;
@@ -10,6 +10,7 @@ macro_rules! create_data_enum {
     ($request_enum: ident, {
         $($request_type: ident -> $response_type: ident),*
     }) => {
+        #[allow(clippy::enum_variant_names)]
         #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
         pub enum $request_enum {
         $(

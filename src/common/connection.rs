@@ -87,48 +87,44 @@ impl Connection {
         match self {
             Self::TcpStream(stream) => {
                 let Ok(peer_addr) = stream.peer_addr() else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to get peer address"));
+                    return Err(Error::other("Failed to get peer address"));
                 };
 
                 let Ok(read_count) = self.read(buf).await else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to read from stream"));
+                    return Err(Error::other("Failed to read from stream"));
                 };
 
                 Ok((read_count, peer_addr))
             }
             Self::TlsStreamServer(stream) => {
                 let Ok(peer_addr) = stream.get_ref().0.peer_addr() else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to get peer address"));
+                    return Err(Error::other("Failed to get peer address"));
                 };
 
                 let Ok(read_count) = self.read(buf).await else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to read from stream"));
+                    return Err(Error::other("Failed to read from stream"));
                 };
 
                 Ok((read_count, peer_addr))
             }
             Self::TlsStreamClient(stream) => {
                 let Ok(peer_addr) = stream.get_ref().0.peer_addr() else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to get peer address"));
+                    return Err(Error::other("Failed to get peer address"));
                 };
 
                 let Ok(read_count) = self.read(buf).await else {
-                    return Err(Error::new(ErrorKind::Other, "Failed to read from stream"));
+                    return Err(Error::other("Failed to read from stream"));
                 };
 
                 Ok((read_count, peer_addr))
             }
             Self::UdpClient(_) => {
-                return Err(Error::new(
-                    ErrorKind::Other,
+                return Err(Error::other(
                     "UDP clients cannot read with address.", // TODO: Do this differently
                 ));
             }
             Self::ChannelSocket(_) => {
-                return Err(Error::new(
-                    ErrorKind::Other,
-                    "Channel sockets cannot read with address.",
-                ))
+                Err(Error::other("Channel sockets cannot read with address."))
             }
         }
     }
@@ -154,8 +150,7 @@ impl Connection {
             Self::TcpStream(stream) => read_message(stream).await,
             Self::TlsStreamServer(stream) => read_message(stream).await,
             Self::TlsStreamClient(stream) => read_message(stream).await,
-            Self::UdpClient(_) => Err(MessageError::IoError(Error::new(
-                ErrorKind::Other,
+            Self::UdpClient(_) => Err(MessageError::IoError(Error::other(
                 "Reading messages from UDP connection is not supported.",
             ))),
             Self::ChannelSocket(socket) => {
@@ -210,8 +205,7 @@ impl Connection {
             Self::TcpStream(stream) => write_message(stream, &message).await,
             Self::TlsStreamServer(stream) => write_message(stream, &message).await,
             Self::TlsStreamClient(stream) => write_message(stream, &message).await,
-            Self::UdpClient(_) => Err(MessageError::IoError(Error::new(
-                ErrorKind::Other,
+            Self::UdpClient(_) => Err(MessageError::IoError(Error::other(
                 "Writing messages to UDP connection is not supported.",
             ))),
             Self::ChannelSocket(socket) => {
@@ -230,19 +224,19 @@ impl Connection {
         }
     }
 
-    pub async fn request_message<RequestMessage: DataRequest>(
+    pub async fn request_message<RequestMessage>(
         &mut self,
         request: RequestMessage,
     ) -> Result<RequestMessage::DataResponse>
     where
-        RequestMessage: ?Sized + Serialize + Into<RequestMessage::DataEnum>,
+        RequestMessage: Serialize + Into<RequestMessage::DataEnum> + DataRequest,
     {
         if let Err(e) = self
             .write_message::<RequestMessage::DataEnum>(&request.into())
             .await
         {
             debug!("Error while sending message: {:?}", e);
-            return Err(Error::new(ErrorKind::Other, e));
+            return Err(Error::other(e));
         }
 
         match timeout(
@@ -255,7 +249,7 @@ impl Connection {
                 Ok(response) => Ok(response),
                 Err(e) => {
                     debug!("Error while reading response: {:?}", e);
-                    Err(Error::new(ErrorKind::Other, e))
+                    Err(Error::other(e))
                 }
             },
             Err(e) => {
@@ -301,7 +295,7 @@ impl Connection {
     }
 
     pub async fn close_with_data(&mut self, message: &[u8]) {
-        if message.len() > 0 {
+        if !message.is_empty() {
             if let Err(e) = self.write_all(message).await {
                 debug!("Error while sending message: {:?}", e);
             }

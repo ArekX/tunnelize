@@ -31,13 +31,7 @@ impl TunnelHost {
     }
 
     pub fn get_first_available_port(&self) -> Option<u16> {
-        for port in self.min_port..self.max_port {
-            if !self.host_tunnel_map.contains_key(&port) {
-                return Some(port);
-            }
-        }
-
-        None
+        (self.min_port..self.max_port).find(|&port| !self.host_tunnel_map.contains_key(&port))
     }
 
     pub fn resolve_port(&self, port: Option<u16>) -> Option<u16> {

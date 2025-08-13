@@ -1,7 +1,7 @@
 use configuration::TunnelConfiguration;
 use log::debug;
 use services::Services;
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 use std::sync::Arc;
 use tokio::io::Result;
 
@@ -63,18 +63,16 @@ pub async fn start(configuration_file: Option<String>) -> Result<()> {
         Ok((result, _)) => match result {
             Ok(_) => {
                 println!("Tunnel stopped.");
-                return Ok(());
+                Ok(())
             }
             Err(_) => {
                 println!("Error occurred while running the tunnel");
-                return Err(Error::new(
-                    ErrorKind::Other,
+                Err(Error::other(
                     "Error occurred in tunnel run.",
-                ));
+                ))
             }
         },
-        Err(_) => Err(Error::new(
-            ErrorKind::Other,
+        Err(_) => Err(Error::other(
             "Error occurred in tunnel run.",
         )),
     }

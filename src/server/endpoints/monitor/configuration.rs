@@ -28,19 +28,19 @@ pub struct MonitorEndpointConfig {
 
 impl MonitorEndpointConfig {
     pub fn get_address(&self) -> String {
-        self.address.clone().unwrap_or_else(|| format!("0.0.0.0"))
+        self.address.clone().unwrap_or_else(|| "0.0.0.0".to_string())
     }
 
     pub fn get_encryption(&self) -> EndpointServerEncryption {
         self.encryption
             .clone()
-            .unwrap_or_else(|| EndpointServerEncryption::None)
+            .unwrap_or(EndpointServerEncryption::None)
     }
 
     pub fn get_allow_cors_origins(&self) -> MonitorOrigin {
         self.allow_cors_origins
             .clone()
-            .unwrap_or_else(|| MonitorOrigin::Any)
+            .unwrap_or(MonitorOrigin::Any)
     }
 }
 
@@ -98,7 +98,7 @@ impl Display for MonitorOrigin {
                 writeln!(f, "List:")?;
 
                 for origin in origins {
-                    writeln!(f, "\t{}", origin)?;
+                    writeln!(f, "\t{origin}")?;
                 }
 
                 Ok(())
@@ -117,7 +117,7 @@ pub enum MonitorAuthentication {
 
 impl MonitorEndpointConfig {
     pub fn get_bind_address(&self) -> String {
-        let address = self.address.clone().unwrap_or_else(|| format!("0.0.0.0"));
+        let address = self.address.clone().unwrap_or_else(|| "0.0.0.0".to_string());
 
         format!("{}:{}", address, self.port)
     }
@@ -125,16 +125,13 @@ impl MonitorEndpointConfig {
 
 impl Validatable for MonitorOrigin {
     fn validate(&self, result: &mut Validation) {
-        match self {
-            MonitorOrigin::List(origins) => {
-                for (index, origin) in origins.iter().enumerate() {
-                    result.validate_rule::<MustNotBeEmptyString>(
-                        &format!("origins.{}", index),
-                        origin,
-                    );
-                }
+        if let MonitorOrigin::List(origins) = self {
+            for (index, origin) in origins.iter().enumerate() {
+                result.validate_rule::<MustNotBeEmptyString>(
+                    &format!("origins.{index}"),
+                    origin,
+                );
             }
-            _ => {}
         }
     }
 }

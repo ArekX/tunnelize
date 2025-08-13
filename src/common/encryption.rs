@@ -27,8 +27,7 @@ impl ServerTlsEncryption {
         let key = PrivateKeyDer::from_pem_file(key_path).expect("Failed to read Server key");
 
         let certs: Vec<CertificateDer> = cert_reader
-            .filter(|i| i.is_ok())
-            .map(|i| i.unwrap())
+            .flatten()
             .collect();
 
         let config = rustls::ServerConfig::builder()
@@ -83,8 +82,7 @@ impl ClientTlsEncryption {
                 let cert_reader =
                     CertificateDer::pem_file_iter(ca_path).expect("Failed to read CA certificate");
                 let certs: Vec<CertificateDer> = cert_reader
-                    .filter(|i| i.is_ok())
-                    .map(|i| i.unwrap())
+                    .flatten()
                     .collect();
 
                 for cert in certs {

@@ -27,7 +27,6 @@ pub fn into_not_found() -> Response<Body> {
 
 #[cfg(test)]
 mod tests {
-    use std::usize;
 
     use super::*;
     use axum::body::Body;

@@ -19,11 +19,11 @@ const MAX_MESSAGE_LENGTH: u32 = 10000000; // 10MB
 impl fmt::Display for MessageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MessageError::EncodeError(e) => write!(f, "Encoding error: {}", e),
-            MessageError::DecodeError(e) => write!(f, "Decoding error: {}", e),
-            MessageError::IoError(e) => write!(f, "IO error: {}", e),
+            MessageError::EncodeError(e) => write!(f, "Encoding error: {e}"),
+            MessageError::DecodeError(e) => write!(f, "Decoding error: {e}"),
+            MessageError::IoError(e) => write!(f, "IO error: {e}"),
             MessageError::InvalidLength(length) => {
-                write!(f, "Message longer than 10MB. Length: {} bytes.", length)
+                write!(f, "Message longer than 10MB. Length: {length} bytes.")
             }
             MessageError::ConnectionClosed => write!(f, "Connection closed."),
         }
@@ -74,7 +74,7 @@ fn deserialize_message<T>(bytes: Bytes) -> Result<T, MessageError>
 where
     T: serde::de::DeserializeOwned,
 {
-    Ok(rmp_serde::from_slice(&bytes.to_vec())?)
+    Ok(rmp_serde::from_slice(&bytes)?)
 }
 
 async fn read_exact<T: AsyncReadExt + Unpin>(
@@ -85,10 +85,10 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
     buffer.resize(length, 0);
     match stream.read_exact(&mut buffer).await {
         Ok(0) => {
-            return Err(MessageError::ConnectionClosed);
+            Err(MessageError::ConnectionClosed)
         }
         Ok(_) => {
-            return Ok(buffer.freeze());
+            Ok(buffer.freeze())
         }
         Err(e)
             if e.kind() == std::io::ErrorKind::UnexpectedEof
@@ -97,11 +97,11 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
                 || e.kind() == std::io::ErrorKind::BrokenPipe =>
         {
             debug!("Cannot read message, connection closed: {:?}", e);
-            return Err(MessageError::ConnectionClosed);
+            Err(MessageError::ConnectionClosed)
         }
         Err(e) => {
             debug!("Error reading message. {:?}", e);
-            return Err(MessageError::IoError(e));
+            Err(MessageError::IoError(e))
         }
     }
 }

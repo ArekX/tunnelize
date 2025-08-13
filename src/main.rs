@@ -32,7 +32,7 @@ async fn main() -> Result<(), std::io::Error> {
 async fn run_command(command: Commands) -> Result<(), std::io::Error> {
     match command {
         Commands::Init { command } => {
-            init_for(command.unwrap_or_else(|| InitCommands::All)).await?;
+            init_for(command.unwrap_or(InitCommands::All)).await?;
         }
         Commands::Server { config } => {
             info!("Starting server...");

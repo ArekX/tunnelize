@@ -53,7 +53,7 @@ impl UdpClient {
         if socket_addrs.is_empty() {
             return Err(Error::new(
                 ErrorKind::NotFound,
-                format!("Could not resolve address: {}", addr_port),
+                format!("Could not resolve address: {addr_port}"),
             ));
         }
 
@@ -62,7 +62,7 @@ impl UdpClient {
         for addr in socket_addrs.iter().filter(|addr| addr.is_ipv6()) {
             match self.listener_socket.send_to(buffer, addr).await {
                 Ok(size) => {
-                    self.destination_address = Some(addr.clone());
+                    self.destination_address = Some(*addr);
                     return Ok(size);
                 }
                 Err(e) => error = Some(e),
@@ -72,7 +72,7 @@ impl UdpClient {
         for addr in socket_addrs.iter().filter(|addr| addr.is_ipv4()) {
             match self.listener_socket.send_to(buffer, addr).await {
                 Ok(size) => {
-                    self.destination_address = Some(addr.clone());
+                    self.destination_address = Some(*addr);
                     return Ok(size);
                 }
                 Err(e) => error = Some(e),
@@ -83,9 +83,8 @@ impl UdpClient {
             return Err(e);
         };
 
-        Err(Error::new(
-            ErrorKind::Other,
-            format!("Failed to connect to address: {}", addr_port),
+        Err(Error::other(
+            format!("Failed to connect to address: {addr_port}"),
         ))
     }
 

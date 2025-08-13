@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use log::warn;
 use log::{debug, error, info};
-use tokio::io::{Error, ErrorKind, Result};
+use tokio::io::{Error, Result};
 use uuid::Uuid;
 
 use crate::common::connection::Connection;
@@ -22,8 +22,7 @@ pub async fn start(port: u16, services: Arc<TcpServices>) -> Result<()> {
             Ok(listener) => listener,
             Err(e) => {
                 error!("Failed to bind client listener: {}", e);
-                return Err(Error::new(
-                    ErrorKind::Other,
+                return Err(Error::other(
                     "Failed to bind client listener",
                 ));
             }

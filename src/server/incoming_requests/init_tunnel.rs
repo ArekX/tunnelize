@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    io::{Error, ErrorKind},
-    sync::Arc,
-};
+use std::{collections::HashMap, io::Error, sync::Arc};
 
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -94,13 +90,10 @@ async fn validate_server_access(
             })
             .await;
 
-        return Err(Error::new(
-            ErrorKind::Other,
-            "Tunnel key is wrong or not valid",
-        ));
+        return Err(Error::other("Tunnel key is wrong or not valid"));
     }
 
-    return Ok(());
+    Ok(())
 }
 
 async fn validate_requested_proxies(
@@ -117,10 +110,7 @@ async fn validate_requested_proxies(
                 ),
             })
             .await;
-        return Err(Error::new(
-            ErrorKind::Other,
-            "Too many proxies requested.".to_owned(),
-        ));
+        return Err(Error::other("Too many proxies requested.".to_owned()));
     }
 
     let mut errors: Vec<String> = vec![];
@@ -149,10 +139,7 @@ async fn validate_requested_proxies(
                 reason: format!("Proxy validation failed: {}", errors.join(", ")),
             })
             .await;
-        return Err(Error::new(
-            ErrorKind::Other,
-            "Proxy validation failed.".to_owned(),
-        ));
+        return Err(Error::other("Proxy validation failed.".to_owned()));
     }
 
     Ok(())
@@ -208,21 +195,25 @@ async fn resolve_endpoint_info(
                 "Error while sending RegisterProxyRequest to endpoint '{}'",
                 service_name
             );
-            return Err(Error::new(
-                ErrorKind::Other,
-                format!(
-                    "Error while sending RegisterProxyRequest to endpoint '{}'",
-                    service_name
-                ),
-            ));
+            return Err(Error::other(format!(
+                "Error while sending RegisterProxyRequest to endpoint '{service_name}'"
+            )));
         };
 
-        let RegisterTunnelResponse::Accepted { proxy_info } = response else {
-            debug!("Endpoint '{}' rejected tunnel registration", service_name);
-            return Err(Error::new(
-                ErrorKind::Other,
-                format!("Endpoint '{}' rejected tunnel registration", service_name),
-            ));
+        let proxy_info = match response {
+            RegisterTunnelResponse::Accepted { proxy_info } => {
+                debug!("Endpoint '{}' accepted tunnel registration", service_name);
+                proxy_info
+            }
+            RegisterTunnelResponse::Rejected { reason } => {
+                debug!(
+                    "Endpoint '{}' rejected tunnel registration: {}",
+                    service_name, reason
+                );
+                return Err(Error::other(format!(
+                    "Endpoint '{service_name}' rejected tunnel registration: {reason}"
+                )));
+            }
         };
 
         for (proxy_id, endpoint_info) in proxy_info {
@@ -269,7 +260,7 @@ async fn start_tunnel_session(
     };
 
     let (tunnel_session, channel_rx) =
-        session::tunnel::create(tunnel_id.clone(), request.name.clone(), proxies);
+        session::tunnel::create(tunnel_id, request.name.clone(), proxies);
 
     let tunnel_id = tunnel_session.get_id();
 

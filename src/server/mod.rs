@@ -1,6 +1,6 @@
 use configuration::ServerConfiguration;
 use log::{debug, info};
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 use std::sync::Arc;
 use tokio::io::Result;
 
@@ -45,8 +45,7 @@ pub async fn start(configuration_file: Option<String>) -> Result<()> {
         Ok((result, _)) => {
             if let Err(e) = result {
                 debug!("Hub server stopped with error: {:?}", e);
-                return Err(Error::new(
-                    ErrorKind::Other,
+                return Err(Error::other(
                     "Hub server stopped with error.",
                 ));
             }
@@ -54,8 +53,7 @@ pub async fn start(configuration_file: Option<String>) -> Result<()> {
             info!("Hub server stopped gracefully.");
             Ok(())
         }
-        Err(_) => Err(Error::new(
-            ErrorKind::Other,
+        Err(_) => Err(Error::other(
             "Error occurred in server run.",
         )),
     }

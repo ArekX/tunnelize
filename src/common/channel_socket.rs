@@ -52,8 +52,7 @@ impl ChannelSocket {
             .await
         {
             Ok(_) => Ok(()),
-            Err(_) => Err(tokio::io::Error::new(
-                tokio::io::ErrorKind::Other,
+            Err(_) => Err(tokio::io::Error::other(
                 "Failed to send data to link",
             )),
         }

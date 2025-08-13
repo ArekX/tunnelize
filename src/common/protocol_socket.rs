@@ -27,13 +27,13 @@ pub async fn connect_to_address<Protocol: ProtocolSocket>(
     port: u16,
     context: Protocol::Context,
 ) -> Result<(Protocol::Socket, SocketAddr)> {
-    let addr_port = format!("{}:{}", address, port);
+    let addr_port = format!("{address}:{port}");
     let socket_addrs: Vec<SocketAddr> = addr_port.to_socket_addrs()?.collect();
 
     if socket_addrs.is_empty() {
         return Err(Error::new(
             ErrorKind::NotFound,
-            format!("Could not resolve address: {}", addr_port),
+            format!("Could not resolve address: {addr_port}"),
         ));
     }
 
@@ -41,14 +41,14 @@ pub async fn connect_to_address<Protocol: ProtocolSocket>(
 
     for addr in socket_addrs.iter().filter(|addr| addr.is_ipv6()) {
         match Protocol::connect(addr, &context).await {
-            Ok(stream) => return Ok((stream, addr.clone())),
+            Ok(stream) => return Ok((stream, *addr)),
             Err(e) => error = Some(e),
         }
     }
 
     for addr in socket_addrs.iter().filter(|addr| addr.is_ipv4()) {
         match Protocol::connect(addr, &context).await {
-            Ok(stream) => return Ok((stream, addr.clone())),
+            Ok(stream) => return Ok((stream, *addr)),
             Err(e) => error = Some(e),
         }
     }
@@ -57,8 +57,7 @@ pub async fn connect_to_address<Protocol: ProtocolSocket>(
         return Err(e);
     }
 
-    Err(Error::new(
-        ErrorKind::Other,
-        format!("Failed to connect to address: {}", addr_port),
+    Err(Error::other(
+        format!("Failed to connect to address: {addr_port}"),
     ))
 }

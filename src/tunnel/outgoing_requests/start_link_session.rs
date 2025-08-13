@@ -48,8 +48,7 @@ pub async fn start_link_session(
 
     let Some(tunnel_id) = services.get_tunnel_data().await.get_tunnel_id() else {
         error!("Tunnel ID not found.");
-        return Err(tokio::io::Error::new(
-            ErrorKind::Other,
+        return Err(tokio::io::Error::other(
             "Tunnel ID not found or incorrectly assigned.",
         ));
     };
@@ -63,7 +62,7 @@ pub async fn start_link_session(
 
     if let ServerInitLinkResponse::Rejected { reason } = auth_response {
         error!("Tunnel server link rejected: {}", reason);
-        return Err(tokio::io::Error::new(ErrorKind::Other, reason));
+        return Err(tokio::io::Error::other(reason));
     }
 
     tokio::spawn(async move {

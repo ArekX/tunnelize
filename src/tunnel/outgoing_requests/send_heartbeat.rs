@@ -9,7 +9,7 @@ use crate::tunnel::services::Services;
 
 pub async fn send_heartbeat(services: &Arc<Services>, server: &mut Connection) -> Result<()> {
     let Some(tunnel_id) = services.get_tunnel_data().await.get_tunnel_id() else {
-        return Err(io::Error::new(io::ErrorKind::Other, "Tunnel ID is not set"));
+        return Err(io::Error::other("Tunnel ID is not set"));
     };
 
     let Ok(response): std::result::Result<HeartbeatResponse, std::io::Error> =
@@ -19,8 +19,7 @@ pub async fn send_heartbeat(services: &Arc<Services>, server: &mut Connection) -
         tunnel_data.record_failed_heartbeat();
 
         if tunnel_data.too_many_failed_heartbeats() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 "Too many failed heartbeat requests to server, server is unavailable.",
             ));
         }
@@ -33,8 +32,7 @@ pub async fn send_heartbeat(services: &Arc<Services>, server: &mut Connection) -
             tunnel_id: response_tunnel_id,
         } => {
             if response_tunnel_id != tunnel_id {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
+                return Err(io::Error::other(
                     "Tunnel ID mismatch in heartbeat response. Server invalid or wrong data received.",
                 ));
             }

@@ -61,11 +61,11 @@ impl TunnelConfiguration {
     }
 }
 
-impl Into<TunnelizeConfiguration> for TunnelConfiguration {
-    fn into(self) -> TunnelizeConfiguration {
+impl From<TunnelConfiguration> for TunnelizeConfiguration {
+    fn from(val: TunnelConfiguration) -> Self {
         TunnelizeConfiguration {
             server: None,
-            tunnel: Some(self),
+            tunnel: Some(val),
         }
     }
 }
@@ -175,13 +175,13 @@ impl Validatable for TunnelConfiguration {
 
         result.validate_child("encryption", &self.get_encryption());
 
-        if self.proxies.len() == 0 {
+        if self.proxies.is_empty() {
             result.add_field_error("proxies", "At least one proxy is required.");
             return;
         }
 
         for (index, proxy) in self.proxies.iter().enumerate() {
-            result.validate_child(&format!("proxies.{}", index), proxy);
+            result.validate_child(&format!("proxies.{index}"), proxy);
         }
     }
 }

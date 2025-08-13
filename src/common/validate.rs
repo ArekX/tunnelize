@@ -76,7 +76,7 @@ impl Validation {
         self.errors.push(format!(
             "{}{}{}: {}",
             self.breadcrumbs.join("."),
-            if self.breadcrumbs.len() > 0 { "." } else { "" },
+            if !self.breadcrumbs.is_empty() { "." } else { "" },
             field,
             error.to_owned()
         ));

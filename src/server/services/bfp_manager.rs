@@ -77,7 +77,7 @@ impl BfpManager {
 
         match self.bfp_ip_map.get(ip_string.as_str()) {
             Some(attempt) => {
-                return attempt.wait_until > Utc::now().timestamp();
+                attempt.wait_until > Utc::now().timestamp()
             }
             None => false,
         }
@@ -155,7 +155,7 @@ mod tests {
                 left_value += 1;
             }
 
-            let ip = get_test_ip(&format!("192.168.{}.{}", left_value, right_value));
+            let ip = get_test_ip(&format!("192.168.{left_value}.{right_value}"));
 
             added_ips.push(ip);
 

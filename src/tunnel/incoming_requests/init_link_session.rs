@@ -40,7 +40,7 @@ pub async fn process_init_link(
         return;
     };
 
-    let address_port = format!("{}:{}", address, port);
+    let address_port = format!("{address}:{port}");
 
     {
         if let Err(e) = outgoing_requests::start_link_session(
@@ -54,8 +54,7 @@ pub async fn process_init_link(
 
             let message = if let ErrorKind::ConnectionRefused = e.kind() {
                 format!(
-                    "Connection refused, could not connect to source at {}",
-                    address_port
+                    "Connection refused, could not connect to source at {address_port}"
                 )
             } else {
                 format!("Failed to start link session: {}", e.kind())

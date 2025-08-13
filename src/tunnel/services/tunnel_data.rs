@@ -5,6 +5,12 @@ pub struct TunnelData {
     pub failed_heartbeats: u16,
 }
 
+impl Default for TunnelData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TunnelData {
     pub fn new() -> Self {
         Self {
@@ -22,7 +28,7 @@ impl TunnelData {
     }
 
     pub fn get_tunnel_id(&self) -> Option<Uuid> {
-        self.tunnel_id.clone()
+        self.tunnel_id
     }
 
     pub fn record_success_heartbeat(&mut self) {

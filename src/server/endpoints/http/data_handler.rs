@@ -1,4 +1,4 @@
-use std::{io::{Error, ErrorKind}, sync::Arc};
+use std::{io::Error, sync::Arc};
 
 use log::error;
 use tokio::io::Result;
@@ -21,12 +21,12 @@ pub async fn handle(
     let request = match HttpRequestReader::new(&mut stream, config.get_max_client_input_wait_secs()).await {
         Ok(request) => request,
         Err(e) => {
-            return Err(Error::new(ErrorKind::Other, e));
+            return Err(Error::other(e));
         }
     };
 
     if !check_authorization(&mut stream, config, &request).await {
-        return Err(Error::new(ErrorKind::Other, "Unauthorized"));
+        return Err(Error::other("Unauthorized"));
     }
 
     let hostname = match request.find_hostname() {
@@ -37,7 +37,7 @@ pub async fn handle(
                     &HttpResponseBuilder::as_missing_header().build_bytes(),
                 )
                 .await;
-            return Err(Error::new(ErrorKind::Other, "Host header is missing"));
+            return Err(Error::other("Host header is missing"));
         }
     };
 
@@ -50,8 +50,7 @@ pub async fn handle(
                 .build_bytes(),
             )
             .await;
-        return Err(Error::new(
-            ErrorKind::Other,
+        return Err(Error::other(
             "No tunnel is assigned for the requested hostname",
         ));
     };
@@ -70,7 +69,7 @@ pub async fn handle(
 
         if let Some(mut link) = link {
             link.stream.close_with_data(
-                &HttpResponseBuilder::as_error(&format!("Could not accept client. Reason: {}", error)).build_bytes(),
+                &HttpResponseBuilder::as_error(&format!("Could not accept client. Reason: {error}")).build_bytes(),
             )
             .await;
         }
@@ -84,7 +83,7 @@ pub async fn handle(
         .send_session_request(
             &session.tunnel_id,
             ClientLinkRequest {
-                client_id: client_id,
+                client_id,
                 proxy_id: session.proxy_id,
             },
         )
@@ -106,7 +105,7 @@ pub async fn handle(
                     )
                     .await;
 
-                return Err(Error::new(ErrorKind::Other, reason));
+                return Err(Error::other(reason));
             }
 
             println!(
@@ -127,8 +126,7 @@ pub async fn handle(
                 )
                 .await;
 
-            return Err(Error::new(
-                ErrorKind::Other,
+            return Err(Error::other(
                 "Failed to link client to tunnel",
             ));
         }

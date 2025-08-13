@@ -30,7 +30,7 @@ pub struct UdpEndpointConfig {
 
 impl UdpEndpointConfig {
     pub fn get_address(&self) -> String {
-        self.address.clone().unwrap_or_else(|| format!("0.0.0.0"))
+        self.address.clone().unwrap_or_else(|| "0.0.0.0".to_string())
     }
 
     pub fn get_bind_address(&self, port: u16) -> String {
@@ -46,11 +46,11 @@ impl UdpEndpointConfig {
     }
 
     pub fn get_allow_desired_port(&self) -> bool {
-        self.allow_desired_port.clone().unwrap_or_else(|| true)
+        self.allow_desired_port.unwrap_or(true)
     }
 
     pub fn get_inactivity_timeout(&self) -> u64 {
-        self.inactivity_timeout.clone().unwrap_or_else(|| 300)
+        self.inactivity_timeout.unwrap_or(300)
     }
 }
 
@@ -67,8 +67,8 @@ impl From<&UdpEndpointConfig> for UdpPublicEndpointConfig {
         Self {
             address: config.get_address(),
             allow_desired_port: config.get_allow_desired_port(),
-            reserve_ports_from: config.reserve_ports_from.clone(),
-            reserve_ports_to: config.reserve_ports_to.clone(),
+            reserve_ports_from: config.reserve_ports_from,
+            reserve_ports_to: config.reserve_ports_to,
         }
     }
 }

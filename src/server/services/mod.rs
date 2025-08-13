@@ -92,8 +92,7 @@ impl Services {
         let seconds = uptime_seconds % 60;
 
         format!(
-            "{} days, {} hours, {} minutes, {} seconds",
-            days, hours, minutes, seconds
+            "{days} days, {hours} hours, {minutes} minutes, {seconds} seconds"
         )
     }
 

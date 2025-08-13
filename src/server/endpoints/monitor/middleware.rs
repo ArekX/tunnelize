@@ -130,7 +130,7 @@ fn to_auth_error_response(
     if let MonitorAuthentication::Basic { .. } = auth {
         response.headers_mut().insert(
             "WWW-Authenticate",
-            format!("Basic realm=\"{}\"", name).parse().unwrap(),
+            format!("Basic realm=\"{name}\"").parse().unwrap(),
         );
     }
 
@@ -144,20 +144,20 @@ fn check_authentication(
     match authentication {
         MonitorAuthentication::Basic { username, password } => {
             let expected_authorization =
-                general_purpose::STANDARD.encode(format!("{}:{}", username, password));
+                general_purpose::STANDARD.encode(format!("{username}:{password}"));
 
             if auth_value == expected_authorization {
                 return Ok(());
             }
 
-            return Err("Invalid authorization header".to_owned());
+            Err("Invalid authorization header".to_owned())
         }
         MonitorAuthentication::Bearer { token } => {
             if auth_value.eq(token) {
                 return Ok(());
             }
 
-            return Err("Invalid authorization header".to_owned());
+            Err("Invalid authorization header".to_owned())
         }
     }
 }

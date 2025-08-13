@@ -93,7 +93,7 @@ async fn start_new_client(services: &Arc<UdpServices>, received_client: Received
             link.stream.shutdown().await;
         }
 
-        discard_client(received_client.id, &services).await;
+        discard_client(received_client.id, services).await;
         warn!("Failed to subscribe client: {}", error);
         return;
     }
@@ -111,7 +111,7 @@ async fn start_new_client(services: &Arc<UdpServices>, received_client: Received
         .await
     else {
         error!("Error sending client link request");
-        discard_client(received_client.id, &services).await;
+        discard_client(received_client.id, services).await;
         return;
     };
 
@@ -124,7 +124,7 @@ async fn start_new_client(services: &Arc<UdpServices>, received_client: Received
         }
         ClientLinkResponse::Rejected { reason } => {
             error!("Client rejected by tunnel: {}", reason);
-            discard_client(received_client.id, &services).await;
+            discard_client(received_client.id, services).await;
         }
     }
 }

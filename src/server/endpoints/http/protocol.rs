@@ -1,4 +1,4 @@
-use std::io::{Error, ErrorKind};
+use std::io::Error;
 use std::{collections::HashMap, time::Duration};
 
 use base64::{engine::general_purpose, Engine as _};
@@ -29,7 +29,7 @@ impl HttpRequestReader {
                         .build_bytes(),
                     )
                     .await;
-                return Err(Error::new(ErrorKind::Other, e));
+                return Err(Error::other(e));
             }
         };
 
@@ -57,7 +57,7 @@ impl HttpRequestReader {
     pub fn is_authorization_matching(&self, username: &str, password: &str) -> bool {
         if let Some(authorization) = self.find_header_value("Authorization") {
             let expected_authorization =
-                general_purpose::STANDARD.encode(format!("{}:{}", username, password));
+                general_purpose::STANDARD.encode(format!("{username}:{password}"));
 
             if let Some(auth_value) = authorization.split_whitespace().last() {
                 return auth_value == expected_authorization;
@@ -68,7 +68,7 @@ impl HttpRequestReader {
     }
 
     fn find_header_value(&self, header_name: &str) -> Option<String> {
-        let header_key_lowercase = format!("{}:", header_name).to_lowercase();
+        let header_key_lowercase = format!("{header_name}:").to_lowercase();
 
         self.request
             .lines()
@@ -184,7 +184,7 @@ impl HttpResponseBuilder {
         let header_string = self
             .headers
             .iter()
-            .map(|(header, value)| format!("{}: {}", header, value))
+            .map(|(header, value)| format!("{header}: {value}"))
             .collect::<Vec<String>>()
             .join("\r\n");
 

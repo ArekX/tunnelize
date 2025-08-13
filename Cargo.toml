@@ -1,7 +1,11 @@
 [package]
 name = "tunnelize"
 version = "1.0.0"
-edition = "2021"
+edition = "2024"
+
+[lints.clippy]
+from_over_into = "allow"
+match_like_matches_macro = "allow"
 
 [dependencies]
 axum = "0.8"

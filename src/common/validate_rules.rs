@@ -10,15 +10,12 @@ impl Rule for FileMustExist {
             return;
         }
 
-        let file_exists = match std::fs::exists(value) {
-            Ok(result) => result,
-            Err(_) => false,
-        };
+        let file_exists = std::fs::exists(value).unwrap_or_default();
 
         if !file_exists {
             result.add_field_error(
                 field,
-                &format!("File '{}' does not exist or is invalid.", value),
+                &format!("File '{value}' does not exist or is invalid."),
             );
         }
     }
@@ -90,7 +87,7 @@ impl Rule for IpTemplateMustBeValid {
         let test_template = value.replace("{port}", "1234");
         let (address, _) = test_template
             .split_once(':')
-            .unwrap_or_else(|| ("", ""))
+            .unwrap_or(("", ""))
             .to_owned();
 
         result.validate_rule::<IpAddressMustBeValid>(field, &address.to_owned());
@@ -201,7 +198,7 @@ mod tests {
         let errors = validation.errors();
 
         let mut found = false;
-        let check = format!("{}: {}", field, expected_error);
+        let check = format!("{field}: {expected_error}");
         for error in errors {
             if error.contains(&check) {
                 found = true;

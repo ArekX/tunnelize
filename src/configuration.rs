@@ -64,7 +64,7 @@ where
 {
     let config_path = config_file
         .map(|f| Ok::<PathBuf, std::io::Error>(PathBuf::from(f)))
-        .unwrap_or_else(|| Ok::<PathBuf, std::io::Error>(get_configuration_path()?))?;
+        .unwrap_or_else(get_configuration_path)?;
 
     if !config_path.exists() {
         println!(
@@ -90,7 +90,7 @@ where
     if !validation_result.is_valid() {
         eprintln!("Configuration is invalid. Please fix following errors:");
         for error in validation_result.errors() {
-            eprintln!("- {}", error);
+            eprintln!("- {error}");
         }
 
         return Err(std::io::Error::new(
@@ -141,5 +141,5 @@ pub fn get_default_command() -> Commands {
         return Commands::Server { config: None };
     }
 
-    return tunnel;
+    tunnel
 }

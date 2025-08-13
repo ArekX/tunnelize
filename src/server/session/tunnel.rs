@@ -50,10 +50,6 @@ impl TunnelSession {
         }
     }
 
-    pub fn get_cancel_token(&self) -> CancellationToken {
-        self.cancel_token.clone()
-    }
-
     pub fn get_child_cancel_token(&self) -> CancellationToken {
         self.cancel_token.child_token()
     }
@@ -92,13 +88,13 @@ pub struct TunnelProxyInfo {
     pub details: ResolvedEndpointInfo,
 }
 
-impl Into<TunnelInfo> for &TunnelSession {
-    fn into(self) -> TunnelInfo {
+impl From<&TunnelSession> for TunnelInfo {
+    fn from(val: &TunnelSession) -> Self {
         TunnelInfo {
-            id: self.id.clone(),
-            name: self.name.clone(),
-            proxies: self.proxies.clone(),
-            last_heartbeat_timestamp: self.last_heartbeat_timestamp,
+            id: val.id,
+            name: val.name.clone(),
+            proxies: val.proxies.clone(),
+            last_heartbeat_timestamp: val.last_heartbeat_timestamp,
         }
     }
 }

@@ -34,10 +34,7 @@ impl TunnelManager {
     }
 
     pub fn get_session_tx(&self, id: &Uuid) -> Option<RequestSender<TunnelChannelRequest>> {
-        match self.tunnels.get(id) {
-            Some(session) => Some(session.get_channel_tx()),
-            None => None,
-        }
+        self.tunnels.get(id).map(|session| session.get_channel_tx())
     }
 
     pub fn cancel_session(&self, id: &Uuid) -> Result<(), String> {
@@ -46,7 +43,7 @@ impl TunnelManager {
             return Ok(());
         }
 
-        Err(format!("Tunnel session not found: {:?}", id))
+        Err(format!("Tunnel session not found: {id:?}"))
     }
 
     pub async fn send_session_request<T: Into<TunnelChannelRequest> + DataResponse>(
@@ -60,7 +57,7 @@ impl TunnelManager {
         let Some(tunnel_tx) = self.get_session_tx(id) else {
             return Err(tokio::io::Error::new(
                 tokio::io::ErrorKind::NotFound,
-                format!("Tunnel session not found: {:?}", id),
+                format!("Tunnel session not found: {id:?}"),
             ));
         };
 
@@ -76,7 +73,7 @@ impl TunnelManager {
     }
 
     pub fn remove_tunnel_session(&mut self, id: &Uuid) {
-        self.tunnels.remove(&id);
+        self.tunnels.remove(id);
     }
 
     pub fn list_all_tunnels(&self) -> Vec<TunnelInfo> {

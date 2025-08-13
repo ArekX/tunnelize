@@ -38,7 +38,7 @@ pub async fn authenticate_tunnel(
             for (proxy_id, endpoint_info) in endpoint_info.iter() {
                 let Some(proxy) = proxy_manager.get_proxy(proxy_id) else {
                     error!("Failed to get proxy for proxy_id: {}", proxy_id);
-                    return Err(io::Error::new(io::ErrorKind::Other, "Failed to get proxy"));
+                    return Err(io::Error::other("Failed to get proxy"));
                 };
 
                 let endpoint_url = match endpoint_info {
@@ -54,7 +54,7 @@ pub async fn authenticate_tunnel(
             }
         }
         InitTunnelResponse::Rejected { reason } => {
-            return Err(io::Error::new(io::ErrorKind::Other, reason));
+            return Err(io::Error::other(reason));
         }
     }
 
@@ -68,7 +68,7 @@ async fn process_input_proxies(
     let mut proxy_manager = services.get_proxy_manager().await;
     let mut results = vec![];
     for proxy in config.proxies.iter() {
-        let proxy_id = proxy_manager.add_proxy(&proxy);
+        let proxy_id = proxy_manager.add_proxy(proxy);
 
         results.push(InputProxy {
             proxy_id,

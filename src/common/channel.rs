@@ -26,7 +26,7 @@ impl<T: RequestEnum> Responder<T> for Option<oneshot::Sender<T::ResponseEnum>> {
         Response: Into<T::ResponseEnum>,
     {
         if let Some(tx) = self {
-            if let Err(_) = tx.send(response.into()) {
+            if tx.send(response.into()).is_err() {
                 error!("Failed to send response!");
             }
         } else {
@@ -46,7 +46,7 @@ impl<T: RequestEnum> Request<T> {
         self.response_tx = Some(tx);
     }
 
-    pub fn take_responder(&mut self) -> impl Responder<T> {
+    pub fn take_responder(&mut self) -> impl Responder<T> + use<T> {
         self.response_tx.take()
     }
 
@@ -67,9 +67,9 @@ unsafe impl<T: RequestEnum> Sync for RequestSender<T> {}
 unsafe impl<T: RequestEnum> Send for RequestSender<T> {}
 
 impl<T: RequestEnum> RequestSender<T> {
-    pub async fn request<Data: DataResponse>(&self, data: Data) -> Result<Data::Response>
+    pub async fn request<Data>(&self, data: Data) -> Result<Data::Response>
     where
-        Data: Into<T>,
+        Data: Into<T> + DataResponse,
         Data::Response: TryFrom<T::ResponseEnum>,
     {
         let (response_tx, response_rx) = oneshot::channel::<T::ResponseEnum>();
@@ -81,18 +81,12 @@ impl<T: RequestEnum> RequestSender<T> {
 
         request.assign_tx(response_tx);
 
-        if let Err(_) = self.tx.send(request).await {
-            return Err(tokio::io::Error::new(
-                tokio::io::ErrorKind::Other,
-                "Failed to send request!",
-            ));
+        if self.tx.send(request).await.is_err() {
+            return Err(tokio::io::Error::other("Failed to send request!"));
         }
 
         let Ok(result) = response_rx.await else {
-            return Err(tokio::io::Error::new(
-                tokio::io::ErrorKind::Other,
-                "Failed to receive response!",
-            ));
+            return Err(tokio::io::Error::other("Failed to receive response!"));
         };
 
         Data::Response::try_from(result).map_err(|_| {
@@ -140,6 +134,7 @@ macro_rules! create_channel_enum {
     ($request_enum: ident -> $response_enum: ident, {
         $($request_type: ident -> $response_type: ident),*
     }) => {
+        #[allow(clippy::enum_variant_names)]
         #[derive(Debug)]
         pub enum $request_enum {
         $(
@@ -151,6 +146,7 @@ macro_rules! create_channel_enum {
             type ResponseEnum = $response_enum;
         }
 
+        #[allow(clippy::enum_variant_names)]
         #[derive(Debug)]
         pub enum $response_enum {
             InvalidResponse,
@@ -160,8 +156,8 @@ macro_rules! create_channel_enum {
 
         }
 
-        impl Into<$response_enum> for $crate::common::channel::InvalidResponse {
-            fn into(self) -> $response_enum {
+        impl From<$crate::common::channel::InvalidResponse> for $response_enum {
+            fn from(_val: $crate::common::channel::InvalidResponse) -> Self {
                 $response_enum::InvalidResponse
             }
         }

@@ -19,7 +19,7 @@ pub async fn handle(
 ) -> Result<()> {
     match &mut request.data {
         EndpointChannelRequest::RegisterTunnelRequest(register_request) => {
-            let tunnel_id = register_request.tunnel_id.clone();
+            let tunnel_id = register_request.tunnel_id;
             let mut proxy_info = HashMap::<Uuid, ResolvedEndpointInfo>::new();
             let mut tunnel_host = services.get_tunnel_host().await;
             let config = services.get_config();
@@ -49,7 +49,7 @@ pub async fn handle(
                 }
 
                 let Ok(port) =
-                    tunnel_host.add_tunnel(desired_port.clone(), tunnel_id, session.proxy_id)
+                    tunnel_host.add_tunnel(desired_port, tunnel_id, session.proxy_id)
                 else {
                     reject_tunnel(
                         &mut request,

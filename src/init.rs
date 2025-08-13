@@ -27,8 +27,8 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
     match command {
         InitCommands::All => {
             write_configuration(TunnelizeConfiguration {
-                server: Some(get_default_server_configuration().into()),
-                tunnel: Some(get_default_tunnel_configuration().into()),
+                server: Some(get_default_server_configuration()),
+                tunnel: Some(get_default_tunnel_configuration()),
             })?;
         }
         InitCommands::Server => {
@@ -46,7 +46,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                 return Ok(());
             };
 
-            println!("Connecting to: {}", server_address);
+            println!("Connecting to: {server_address}");
 
             if server_address.starts_with("http://") || server_address.starts_with("https://") {
                 server_address = server_address
@@ -64,15 +64,14 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
             };
 
             let encryption: Option<ClientEncryption> =
-                tls.then(|| ClientEncryption::Tls { ca_path });
+                tls.then_some(ClientEncryption::Tls { ca_path });
 
             let mut connection =
                 match create_tcp_client(&address, port, encryption.clone().into()).await {
                     Ok(connection) => connection,
                     Err(e) => {
                         error!("Could not retrieve configuration: {}", e);
-                        return Err(std::io::Error::new(
-                            std::io::ErrorKind::Other,
+                        return Err(std::io::Error::other(
                             "Failed to connect to server",
                         ));
                     }
@@ -111,8 +110,8 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
             for PublicEndpointConfig { name, config } in endpoint_config {
                 match config {
                     PublicEndpointConfiguration::Http(http) => {
-                        println!("Discovered HTTP endpoint: {}", name);
-                        println!("{}", http);
+                        println!("Discovered HTTP endpoint: {name}");
+                        println!("{http}");
 
                         tunnel_config.proxies.push(TunnelProxy {
                             address: "localhost".to_owned(),
@@ -126,8 +125,8 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                         });
                     }
                     PublicEndpointConfiguration::Tcp(tcp) => {
-                        println!("Discovered TCP endpoint: {}", name);
-                        println!("{}", tcp);
+                        println!("Discovered TCP endpoint: {name}");
+                        println!("{tcp}");
 
                         tunnel_config.proxies.push(TunnelProxy {
                             address: "localhost".to_owned(),
@@ -136,13 +135,13 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                             endpoint_config: ProxyConfiguration::Tcp {
                                 desired_port: tcp
                                     .allow_desired_port
-                                    .then(|| tcp.reserve_ports_from),
+                                    .then_some(tcp.reserve_ports_from),
                             },
                         });
                     }
                     PublicEndpointConfiguration::Udp(udp) => {
-                        println!("Discovered UDP endpoint: {}", name);
-                        println!("{}", udp);
+                        println!("Discovered UDP endpoint: {name}");
+                        println!("{udp}");
 
                         tunnel_config.proxies.push(TunnelProxy {
                             address: "localhost".to_owned(),
@@ -151,14 +150,14 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                             endpoint_config: ProxyConfiguration::Udp {
                                 desired_port: udp
                                     .allow_desired_port
-                                    .then(|| udp.reserve_ports_from),
+                                    .then_some(udp.reserve_ports_from),
                                 bind_address: None,
                             },
                         });
                     }
                     PublicEndpointConfiguration::Monitoring(monitor) => {
-                        println!("Discovered monitoring endpoint: {}", name);
-                        println!("{}", monitor);
+                        println!("Discovered monitoring endpoint: {name}");
+                        println!("{monitor}");
                         continue;
                     }
                 }

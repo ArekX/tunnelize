@@ -14,12 +14,12 @@ pub struct LinkSession {
     cancellation_token: CancellationToken,
 }
 
-impl Into<LinkInfo> for &LinkSession {
-    fn into(self) -> LinkInfo {
+impl From<&LinkSession> for LinkInfo {
+    fn from(val: &LinkSession) -> Self {
         LinkInfo {
-            id: self.id,
-            endpoint_name: self.client.endpoint_name.clone(),
-            tunnel_id: self.tunnel_id,
+            id: val.id,
+            endpoint_name: val.client.endpoint_name.clone(),
+            tunnel_id: val.tunnel_id,
         }
     }
 }
@@ -105,7 +105,7 @@ impl LinkManager {
             return Ok(());
         }
 
-        Err(format!("Link session not found: {:?}", id))
+        Err(format!("Link session not found: {id:?}"))
     }
 }
 

@@ -71,6 +71,12 @@ pub struct ProxyManager {
     proxy_map: HashMap<Uuid, Proxy>,
 }
 
+impl Default for ProxyManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProxyManager {
     pub fn new() -> Self {
         Self {
