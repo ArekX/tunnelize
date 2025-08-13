@@ -28,19 +28,30 @@ pub async fn start(configuration_file: Option<String>) -> Result<()> {
         let services = services.clone();
         let cancel_token = cancel_token.clone();
         tokio::spawn(async move {
-            if let Err(e) = hub_server::start(services, cancel_token.clone()).await {
+            let result = hub_server::start(services, cancel_token.clone()).await;
+            if let Err(ref e) = result {
                 debug!("Error starting hub server: {:?}", e);
             }
 
             cancel_token.cancel();
+
+            result
         })
     };
 
     let cancel_future = tokio::spawn(async move { start_cancel_listener(cancel_token).await });
 
     match tokio::try_join!(server_future, cancel_future) {
-        Ok(_) => {
-            info!("Server stopped.");
+        Ok((result, _)) => {
+            if let Err(e) = result {
+                debug!("Hub server stopped with error: {:?}", e);
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    "Hub server stopped with error.",
+                ));
+            }
+
+            info!("Hub server stopped gracefully.");
             Ok(())
         }
         Err(_) => Err(Error::new(

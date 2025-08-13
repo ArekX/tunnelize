@@ -46,24 +46,36 @@ pub async fn start(configuration_file: Option<String>) -> Result<()> {
         let services = services.clone();
         let cancel_token = cancel_token.clone();
         tokio::spawn(async move {
-            if let Err(e) = client::start(services, cancel_token.clone()).await {
+            let result = client::start(services, cancel_token.clone()).await;
+            if let Err(ref e) = result {
                 debug!("Error starting tunnel client: {:?}", e);
             }
 
             cancel_token.cancel();
+
+            result
         })
     };
 
     let cancel_future = tokio::spawn(async move { start_cancel_listener(cancel_token).await });
 
     match tokio::try_join!(server_future, cancel_future) {
-        Ok(_) => {
-            println!("Tunnel stopped.");
-            Ok(())
-        }
+        Ok((result, _)) => match result {
+            Ok(_) => {
+                println!("Tunnel stopped.");
+                return Ok(());
+            }
+            Err(_) => {
+                println!("Error occurred while running the tunnel");
+                return Err(Error::new(
+                    ErrorKind::Other,
+                    "Error occurred in tunnel run.",
+                ));
+            }
+        },
         Err(_) => Err(Error::new(
             ErrorKind::Other,
-            "Error occurred in server run.",
+            "Error occurred in tunnel run.",
         )),
     }
 }

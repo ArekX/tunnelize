@@ -52,6 +52,7 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
                 if let Err(e) = outgoing_requests::send_heartbeat(&services, &mut connection_stream).await {
                     error!("Failed to send heartbeat: {}", e);
                     cancel_token.cancel();
+                    return Err(e);
                 }
             }
         }
