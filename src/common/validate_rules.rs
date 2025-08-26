@@ -74,26 +74,6 @@ impl Rule for AlphaNumericOnly {
     }
 }
 
-pub struct IpTemplateMustBeValid;
-
-impl Rule for IpTemplateMustBeValid {
-    type Value = String;
-    fn validate(field: &str, value: &String, result: &mut Validation) {
-        if !value.contains("{port}") {
-            result.add_field_error(field, "Template must contain the {port} placeholder.");
-            return;
-        }
-
-        let test_template = value.replace("{port}", "1234");
-        let (address, _) = test_template
-            .split_once(':')
-            .unwrap_or(("", ""))
-            .to_owned();
-
-        result.validate_rule::<IpAddressMustBeValid>(field, &address.to_owned());
-    }
-}
-
 pub struct HostnameTemplatemustBeValid;
 
 impl Rule for HostnameTemplatemustBeValid {
@@ -123,32 +103,6 @@ impl Rule for PortHostnameTemplatemustBeValid {
         let test_template = value.replace(":{port}", "");
 
         result.validate_rule::<HostAddressMustBeValid>(field, &test_template);
-    }
-}
-
-pub struct UrlTemplateMustBeValid;
-
-impl Rule for UrlTemplateMustBeValid {
-    type Value = String;
-    fn validate(field: &str, value: &String, result: &mut Validation) {
-        if !value.contains("{port}") {
-            result.add_field_error(field, "Template must contain the {port} placeholder.");
-            return;
-        }
-
-        if !value.contains("{hostname}") {
-            result.add_field_error(field, "Template must contain the {hostname} placeholder.");
-            return;
-        }
-
-        let test_template = value.replace(":{port}", "").replace("{hostname}", "");
-
-        let test_template = test_template
-            .trim_start_matches("http://")
-            .trim_start_matches("https://")
-            .to_string();
-
-        result.validate_rule::<AlphaNumericOnly>(field, &test_template);
     }
 }
 
@@ -307,33 +261,6 @@ mod tests {
     }
 
     #[test]
-    fn test_ip_template_must_be_valid_invalid() {
-        let mut validation = Validation::new();
-        IpTemplateMustBeValid::validate(
-            "template",
-            &"invalid_template".to_string(),
-            &mut validation,
-        );
-        assert!(!validation.is_valid());
-        assert_field_error(
-            &validation,
-            "template",
-            "Template must contain the {port} placeholder.",
-        );
-    }
-
-    #[test]
-    fn test_ip_template_must_be_valid_valid() {
-        let mut validation = Validation::new();
-        IpTemplateMustBeValid::validate(
-            "template",
-            &"192.168.1.1:{port}".to_string(),
-            &mut validation,
-        );
-        assert!(validation.is_valid());
-    }
-
-    #[test]
     fn test_hostname_template_must_be_valid_invalid() {
         let mut validation = Validation::new();
         HostnameTemplatemustBeValid::validate(
@@ -382,33 +309,6 @@ mod tests {
         PortHostnameTemplatemustBeValid::validate(
             "template",
             &"host:{port}".to_string(),
-            &mut validation,
-        );
-        assert!(validation.is_valid());
-    }
-
-    #[test]
-    fn test_url_template_must_be_valid_invalid() {
-        let mut validation = Validation::new();
-        UrlTemplateMustBeValid::validate(
-            "template",
-            &"invalid_template".to_string(),
-            &mut validation,
-        );
-        assert!(!validation.is_valid());
-        assert_field_error(
-            &validation,
-            "template",
-            "Template must contain the {port} placeholder.",
-        );
-    }
-
-    #[test]
-    fn test_url_template_must_be_valid_valid() {
-        let mut validation = Validation::new();
-        UrlTemplateMustBeValid::validate(
-            "template",
-            &"http://{hostname}:{port}".to_string(),
             &mut validation,
         );
         assert!(validation.is_valid());

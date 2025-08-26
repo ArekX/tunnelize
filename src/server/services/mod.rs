@@ -53,23 +53,23 @@ impl Services {
         }
     }
 
-    pub async fn get_client_manager(&self) -> MutexGuard<ClientManager> {
+    pub async fn get_client_manager(&self) -> MutexGuard<'_, ClientManager> {
         self.client_manager.lock().await
     }
 
-    pub async fn get_tunnel_manager(&self) -> MutexGuard<TunnelManager> {
+    pub async fn get_tunnel_manager(&self) -> MutexGuard<'_, TunnelManager> {
         self.tunnel_manager.lock().await
     }
 
-    pub async fn get_endpoint_manager(&self) -> MutexGuard<EndpointManager> {
+    pub async fn get_endpoint_manager(&self) -> MutexGuard<'_, EndpointManager> {
         self.endpoint_manager.lock().await
     }
 
-    pub async fn get_link_manager(&self) -> MutexGuard<LinkManager> {
+    pub async fn get_link_manager(&self) -> MutexGuard<'_, LinkManager> {
         self.link_manager.lock().await
     }
 
-    pub async fn get_bfp_manager(&self) -> MutexGuard<BfpManager> {
+    pub async fn get_bfp_manager(&self) -> MutexGuard<'_, BfpManager> {
         self.bfp_manager.lock().await
     }
 
@@ -91,9 +91,7 @@ impl Services {
         let minutes = (uptime_seconds % 3600) / 60;
         let seconds = uptime_seconds % 60;
 
-        format!(
-            "{days} days, {hours} hours, {minutes} minutes, {seconds} seconds"
-        )
+        format!("{days} days, {hours} hours, {minutes} minutes, {seconds} seconds")
     }
 
     pub fn get_cancel_token(&self) -> CancellationToken {

@@ -34,7 +34,7 @@ impl UdpServices {
         self.config.clone()
     }
 
-    pub async fn get_tunnel_host(&self) -> MutexGuard<TunnelHost> {
+    pub async fn get_tunnel_host(&self) -> MutexGuard<'_, TunnelHost> {
         self.tunnel_host.lock().await
     }
 

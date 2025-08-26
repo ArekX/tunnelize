@@ -24,11 +24,11 @@ impl Services {
         }
     }
 
-    pub async fn get_tunnel_data(&self) -> MutexGuard<TunnelData> {
+    pub async fn get_tunnel_data(&self) -> MutexGuard<'_, TunnelData> {
         self.tunnel_data.lock().await
     }
 
-    pub async fn get_proxy_manager(&self) -> MutexGuard<ProxyManager> {
+    pub async fn get_proxy_manager(&self) -> MutexGuard<'_, ProxyManager> {
         self.proxy_manager.lock().await
     }
 
