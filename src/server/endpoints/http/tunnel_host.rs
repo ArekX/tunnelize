@@ -12,6 +12,7 @@ pub struct TunnelHost {
     host_tunnel_map: HashMap<String, HostTunnelSession>,
 }
 
+#[derive(Clone)]
 pub struct HostTunnelSession {
     pub tunnel_id: Uuid,
     pub proxy_id: Uuid,
@@ -84,8 +85,8 @@ impl TunnelHost {
             .retain(|_, v| &v.tunnel_id != tunnel_id);
     }
 
-    pub fn get_session(&self, hostname: &str) -> Option<&HostTunnelSession> {
-        self.host_tunnel_map.get(hostname)
+    pub fn get_session(&self, hostname: &str) -> Option<HostTunnelSession> {
+        self.host_tunnel_map.get(hostname).cloned()
     }
 }
 

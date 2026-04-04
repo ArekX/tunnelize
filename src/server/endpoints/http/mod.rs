@@ -5,6 +5,7 @@ use log::{debug, error, info};
 use protocol::{HttpRequestReader, HttpResponseBuilder};
 use serde::{Deserialize, Serialize};
 use tokio::io::Result;
+use tokio::sync::RwLock;
 use tunnel_host::TunnelHost;
 
 use crate::{
@@ -34,7 +35,8 @@ pub async fn start(
     config: HttpEndpointConfig,
     mut channel_rx: RequestReceiver<EndpointChannelRequest>,
 ) -> Result<()> {
-    let mut tunnel_host = TunnelHost::new(&config);
+    let tunnel_host = Arc::new(RwLock::new(TunnelHost::new(&config)));
+    let config = Arc::new(config);
 
     let encryption = match config
         .get_encryption()
@@ -69,6 +71,7 @@ pub async fn start(
                 match request {
                     Some(request) => {
                         debug!("Received endpoint message");
+                        let mut tunnel_host = tunnel_host.write().await;
                         if let Err(e) = channel_handler::handle(request, &config,  &mut tunnel_host).await {
                             error!("Failed to handle endpoint message: {}", e);
                         }
@@ -83,16 +86,24 @@ pub async fn start(
                 match client {
                     Ok((connection, stream_address)) => {
                         info!("Accepted connection from client: {}", stream_address);
-                        if let Err(e) = data_handler::handle(connection, &tunnel_host, &name, &config, &services).await {
-                            error!("Failed to handle client request: {}", e);
-                        }
+                        let tunnel_host = tunnel_host.clone();
+                        let name = name.clone();
+                        let config = config.clone();
+                        let services = services.clone();
+                        tokio::spawn(async move {
+                            if let Err(e) = data_handler::handle(connection, &tunnel_host, &name, &config, &services).await {
+                                error!("Failed to handle client request: {}", e);
+                            }
+                        });
                     },
                     Err((e, mut connection_returned)) if e.kind() == ErrorKind::InvalidData && has_encryption => {
                         debug!("Received invalid TLS data. Probably not a TLS connection. Error: {:?}", e);
 
                         if let Some(mut connection) = connection_returned.take() {
-                            process_tls_redirection(&mut connection, &config, max_input_read_length).await;
-                            continue;
+                            let config = config.clone();
+                            tokio::spawn(async move {
+                                process_tls_redirection(&mut connection, &config, max_input_read_length).await;
+                            });
                         }
                     },
                     Err((e, _)) => {

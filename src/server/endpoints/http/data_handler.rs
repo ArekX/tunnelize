@@ -1,7 +1,7 @@
 use std::{io::Error, sync::Arc};
 
 use log::error;
-use tokio::io::Result;
+use tokio::{io::Result, sync::RwLock};
 use uuid::Uuid;
 
 use crate::{common::connection::Connection, server::{services::{Client, Services}, session::messages::{ClientLinkRequest, ClientLinkResponse}}};
@@ -11,13 +11,11 @@ use super::{configuration::HttpEndpointConfig, protocol::{HttpRequestReader, Htt
 
 pub async fn handle(
     mut stream: Connection,
-    tunnel_host: &TunnelHost,
+    tunnel_host: &RwLock<TunnelHost>,
     name: &str,
     config: &HttpEndpointConfig,
     services: &Arc<Services>,
 ) -> Result<()> {
-    
-
     let max_input_read_length = services.get_config().get_max_input_read_length();
 
     let request = match HttpRequestReader::new(&mut stream, config.get_max_client_input_wait_secs(), max_input_read_length).await {
@@ -43,7 +41,7 @@ pub async fn handle(
         }
     };
 
-    let Some(session) = tunnel_host.get_session(&hostname) else {
+    let Some(session) = tunnel_host.read().await.get_session(&hostname) else {
         stream
             .close_with_data(
                 &HttpResponseBuilder::as_error(
