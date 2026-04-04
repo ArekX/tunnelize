@@ -12,10 +12,14 @@ pub struct HttpRequestReader {
 }
 
 impl HttpRequestReader {
-    pub async fn new(stream: &mut Connection, max_input_wait: u64) -> Result<Self> {
+    pub async fn new(
+        stream: &mut Connection,
+        max_input_wait: u64,
+        max_input_read_length: usize,
+    ) -> Result<Self> {
         let request = match timeout(
             Duration::from_secs(max_input_wait),
-            stream.read_string_until("\r\n\r\n"),
+            stream.read_string_until("\r\n\r\n", max_input_read_length),
         )
         .await
         {

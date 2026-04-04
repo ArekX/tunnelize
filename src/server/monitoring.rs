@@ -5,6 +5,26 @@ use sysinfo::System;
 
 use super::services::{ClientInfo, EndpointInfo, LinkInfo, Services, TunnelInfo};
 
+fn get_swap_percentage(sys: &System) -> f64 {
+    let total = sys.total_swap();
+
+    if total == 0 {
+        return 0f64;
+    }
+
+    return sys.free_swap() as f64 / total as f64 * 100f64;
+}
+
+fn get_available_memory_percentage(sys: &System) -> f64 {
+    let total = sys.total_memory();
+
+    if total == 0 {
+        return 0f64;
+    }
+
+    return sys.available_memory() as f64 / total as f64 * 100f64;
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SystemInfo {
     cpu_count: usize,
@@ -50,15 +70,9 @@ impl SystemInfo {
             cpu_usages,
             global_cpu_usage: format!("{:.2}%", sys.global_cpu_usage().round()),
             available_memory: sys.available_memory(),
-            available_memory_percentage: format!(
-                "{:.2}%",
-                (sys.available_memory() as f64 / sys.total_memory() as f64 * 100f64)
-            ),
+            available_memory_percentage: format!("{:.2}%", get_available_memory_percentage(&sys)),
             free_swap: sys.free_swap(),
-            free_swap_percentage: format!(
-                "{:.2}%",
-                (sys.free_swap() as f64 / sys.total_swap() as f64 * 100f64)
-            ),
+            free_swap_percentage: format!("{:.2}%", get_swap_percentage(&sys)),
             system_name: System::name().unwrap_or_default(),
             kernel_version: System::kernel_version().unwrap_or_default(),
             os_version: System::os_version().unwrap_or_default(),

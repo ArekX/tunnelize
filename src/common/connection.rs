@@ -5,7 +5,7 @@ use std::{
 
 use bytes::BytesMut;
 use log::debug;
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, Result},
     net::TcpStream,
@@ -16,7 +16,7 @@ use super::{
     channel_socket::ChannelSocket,
     data_bridge::DataBridge,
     data_request::DataRequest,
-    transport::{read_message, write_message, MessageError},
+    transport::{MessageError, read_message, write_message},
     udp_client::UdpClient,
 };
 
@@ -63,7 +63,7 @@ impl From<ChannelSocket> for Connection {
 }
 
 impl Connection {
-    pub async fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+    async fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         match self {
             Self::TcpStream(stream) => stream.read(buf).await,
             Self::TlsStreamServer(stream) => stream.read(buf).await,
@@ -73,58 +73,20 @@ impl Connection {
                 let data = socket.receive().await?;
                 let data_len = data.len();
 
+                if data_len > buf.len() {
+                    return Err(std::io::Error::new(
+                        ErrorKind::InvalidData,
+                        format!(
+                            "Received data ({} bytes) exceeds buffer size ({} bytes)",
+                            data_len,
+                            buf.len()
+                        ),
+                    ));
+                }
+
                 buf[..data_len].copy_from_slice(&data);
 
                 Ok(data_len)
-            }
-        }
-    }
-
-    pub async fn read_with_address(
-        &mut self,
-        buf: &mut [u8],
-    ) -> Result<(usize, std::net::SocketAddr)> {
-        match self {
-            Self::TcpStream(stream) => {
-                let Ok(peer_addr) = stream.peer_addr() else {
-                    return Err(Error::other("Failed to get peer address"));
-                };
-
-                let Ok(read_count) = self.read(buf).await else {
-                    return Err(Error::other("Failed to read from stream"));
-                };
-
-                Ok((read_count, peer_addr))
-            }
-            Self::TlsStreamServer(stream) => {
-                let Ok(peer_addr) = stream.get_ref().0.peer_addr() else {
-                    return Err(Error::other("Failed to get peer address"));
-                };
-
-                let Ok(read_count) = self.read(buf).await else {
-                    return Err(Error::other("Failed to read from stream"));
-                };
-
-                Ok((read_count, peer_addr))
-            }
-            Self::TlsStreamClient(stream) => {
-                let Ok(peer_addr) = stream.get_ref().0.peer_addr() else {
-                    return Err(Error::other("Failed to get peer address"));
-                };
-
-                let Ok(read_count) = self.read(buf).await else {
-                    return Err(Error::other("Failed to read from stream"));
-                };
-
-                Ok((read_count, peer_addr))
-            }
-            Self::UdpClient(_) => {
-                return Err(Error::other(
-                    "UDP clients cannot read with address.", // TODO: Do this differently
-                ));
-            }
-            Self::ChannelSocket(_) => {
-                Err(Error::other("Channel sockets cannot read with address."))
             }
         }
     }
@@ -161,7 +123,11 @@ impl Connection {
         }
     }
 
-    pub async fn read_string_until(&mut self, until_string: &str) -> String {
+    pub async fn read_string_until(
+        &mut self,
+        until_string: &str,
+        max_input_read_length: usize,
+    ) -> String {
         let mut request_buffer = Vec::new();
         let mut buffer = BytesMut::with_capacity(2048);
         buffer.resize(2048, 0);
@@ -173,6 +139,14 @@ impl Connection {
                 }
                 Ok(read) => {
                     request_buffer.extend_from_slice(&buffer[..read]);
+
+                    if request_buffer.len() > max_input_read_length {
+                        debug!(
+                            "Buffer size exceeded max_input_read_length ({} bytes), stopping read",
+                            max_input_read_length
+                        );
+                        break;
+                    }
 
                     if String::from_utf8_lossy(&request_buffer).contains(until_string) {
                         break;

@@ -63,8 +63,8 @@ pub struct RequestSender<T: RequestEnum> {
     tx: Sender<Request<T>>,
 }
 
-unsafe impl<T: RequestEnum> Sync for RequestSender<T> {}
-unsafe impl<T: RequestEnum> Send for RequestSender<T> {}
+unsafe impl<T: RequestEnum + Sync> Sync for RequestSender<T> {}
+unsafe impl<T: RequestEnum + Send> Send for RequestSender<T> {}
 
 impl<T: RequestEnum> RequestSender<T> {
     pub async fn request<Data>(&self, data: Data) -> Result<Data::Response>

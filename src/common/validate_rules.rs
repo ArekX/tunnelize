@@ -37,6 +37,22 @@ pub struct HostAddressMustBeValid;
 impl Rule for HostAddressMustBeValid {
     type Value = String;
     fn validate(field: &str, value: &String, result: &mut Validation) {
+        if value.is_empty() {
+            result.add_field_error(field, "Value cannot be empty.");
+            return;
+        }
+
+        // IPv6 addresses: allow colons and brackets (e.g. [::1] or ::1)
+        if value.contains(':') {
+            if !value
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() || c == ':' || c == '[' || c == ']' || c == '.')
+            {
+                result.add_field_error(field, "Invalid IPv6 address format.");
+            }
+            return;
+        }
+
         if !value
             .chars()
             .all(|c| c.is_alphanumeric() || c == '-' || c == '.')
@@ -220,10 +236,41 @@ mod tests {
     }
 
     #[test]
+    fn test_host_address_must_be_valid_empty() {
+        let mut validation = Validation::new();
+        HostAddressMustBeValid::validate("host", &"".to_string(), &mut validation);
+        assert!(!validation.is_valid());
+        assert_field_error(&validation, "host", "Value cannot be empty.");
+    }
+
+    #[test]
     fn test_host_address_must_be_valid_valid() {
         let mut validation = Validation::new();
         HostAddressMustBeValid::validate("host", &"valid-host.com".to_string(), &mut validation);
         assert!(validation.is_valid());
+    }
+
+    #[test]
+    fn test_host_address_must_be_valid_ipv6() {
+        let mut validation = Validation::new();
+        HostAddressMustBeValid::validate("host", &"::1".to_string(), &mut validation);
+        assert!(validation.is_valid());
+
+        validation = Validation::new();
+        HostAddressMustBeValid::validate("host", &"[::1]".to_string(), &mut validation);
+        assert!(validation.is_valid());
+
+        validation = Validation::new();
+        HostAddressMustBeValid::validate("host", &"2001:db8::1".to_string(), &mut validation);
+        assert!(validation.is_valid());
+    }
+
+    #[test]
+    fn test_host_address_must_be_valid_ipv6_invalid() {
+        let mut validation = Validation::new();
+        HostAddressMustBeValid::validate("host", &"::1;drop".to_string(), &mut validation);
+        assert!(!validation.is_valid());
+        assert_field_error(&validation, "host", "Invalid IPv6 address format.");
     }
 
     #[test]

@@ -49,6 +49,7 @@ mod tests {
             max_tunnels: None,
             max_clients: None,
             max_proxies_per_tunnel: None,
+            max_input_read_length: None,
         };
 
         Arc::new(Services::new(config, CancellationToken::new()))

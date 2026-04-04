@@ -231,8 +231,8 @@ async fn bridge_channel_socket_with_writable<T: AsyncWriteExt + Unpin + AsyncRea
                         channel_socket.shutdown().await;
                         break;
                     },
-                    Ok(_) => {
-                        if let Err(e) = channel_socket.send(writable_buffer.to_vec()).await {
+                    Ok(n) => {
+                        if let Err(e) = channel_socket.send(writable_buffer[..n].to_vec()).await {
                             error!("Failed to send data to Channel socket: {}", e);
                         }
                     }

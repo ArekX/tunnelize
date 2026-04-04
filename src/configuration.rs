@@ -128,7 +128,7 @@ pub fn get_default_command() -> Commands {
     let mut tunnel_key_set = false;
 
     if let Some(obj) = json.as_object() {
-        for (key, value) in obj.iter().take(2) {
+        for (key, value) in obj.iter() {
             if key == "server" && !value.is_null() {
                 server_key_set = true;
             } else if key == "tunnel" && !value.is_null() {

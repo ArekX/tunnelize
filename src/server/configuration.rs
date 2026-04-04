@@ -110,6 +110,9 @@ pub struct ServerConfiguration {
 
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub max_proxies_per_tunnel: Option<usize>,
+
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub max_input_read_length: Option<usize>,
 }
 
 impl From<ServerConfiguration> for TunnelizeConfiguration {
@@ -158,6 +161,10 @@ impl ServerConfiguration {
 
     pub fn get_max_proxies_per_tunnel(&self) -> usize {
         self.max_proxies_per_tunnel.unwrap_or(10)
+    }
+
+    pub fn get_max_input_read_length(&self) -> usize {
+        self.max_input_read_length.unwrap_or(2 * 1024 * 1024 * 1024)
     }
 
     pub fn get_encryption(&self) -> ServerEncryption {
@@ -302,6 +309,7 @@ mod tests {
             max_tunnels: Some(200),
             max_clients: Some(200),
             max_proxies_per_tunnel: Some(20),
+            max_input_read_length: None,
         }
     }
 

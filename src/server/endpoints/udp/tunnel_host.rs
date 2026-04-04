@@ -28,11 +28,11 @@ impl TunnelHost {
     }
 
     pub fn has_available_ports(&self) -> bool {
-        self.host_tunnel_map.len() < (self.max_port - self.min_port) as usize
+        self.host_tunnel_map.len() < (self.max_port - self.min_port + 1) as usize
     }
 
     pub fn get_first_available_port(&self) -> Option<u16> {
-        (self.min_port..self.max_port).find(|&port| !self.host_tunnel_map.contains_key(&port))
+        (self.min_port..=self.max_port).find(|&port| !self.host_tunnel_map.contains_key(&port))
     }
 
     pub fn resolve_port(&self, port: Option<u16>) -> Option<u16> {

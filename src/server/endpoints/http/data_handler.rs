@@ -18,14 +18,16 @@ pub async fn handle(
 ) -> Result<()> {
     
 
-    let request = match HttpRequestReader::new(&mut stream, config.get_max_client_input_wait_secs()).await {
+    let max_input_read_length = services.get_config().get_max_input_read_length();
+
+    let request = match HttpRequestReader::new(&mut stream, config.get_max_client_input_wait_secs(), max_input_read_length).await {
         Ok(request) => request,
         Err(e) => {
             return Err(Error::other(e));
         }
     };
 
-    if !check_authorization(&mut stream, config, &request).await {
+    if !validate_authorization(&mut stream, config, &request).await {
         return Err(Error::other("Unauthorized"));
     }
 
@@ -135,7 +137,7 @@ pub async fn handle(
     Ok(())
 }
 
-async fn check_authorization(
+async fn validate_authorization(
     stream: &mut Connection,
     config: &HttpEndpointConfig,
     request: &HttpRequestReader,

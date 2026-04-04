@@ -61,6 +61,7 @@ pub async fn start(
     };
 
     let cancel_token = services.get_cancel_token();
+    let max_input_read_length = services.get_config().get_max_input_read_length();
 
     loop {
         tokio::select! {
@@ -90,7 +91,7 @@ pub async fn start(
                         debug!("Received invalid TLS data. Probably not a TLS connection. Error: {:?}", e);
 
                         if let Some(mut connection) = connection_returned.take() {
-                            process_tls_redirection(&mut connection, &config).await;
+                            process_tls_redirection(&mut connection, &config, max_input_read_length).await;
                             continue;
                         }
                     },
@@ -108,9 +109,13 @@ pub async fn start(
     }
 }
 
-async fn process_tls_redirection(connection: &mut Connection, config: &HttpEndpointConfig) {
+async fn process_tls_redirection(
+    connection: &mut Connection,
+    config: &HttpEndpointConfig,
+    max_input_read_length: usize,
+) {
     let request =
-        match HttpRequestReader::new(connection, config.get_max_client_input_wait_secs()).await {
+        match HttpRequestReader::new(connection, config.get_max_client_input_wait_secs(), max_input_read_length).await {
             Ok(request) => request,
             Err(e) => {
                 debug!(

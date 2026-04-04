@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use log::info;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-use super::{client_manager::ClientInfo, events::ServiceEvent, HandleServiceEvent};
+use super::{HandleServiceEvent, client_manager::ClientInfo, events::ServiceEvent};
 
 pub struct LinkSession {
     id: Uuid,
@@ -67,12 +67,12 @@ impl LinkManager {
         tunnel_id: &Uuid,
     ) -> Option<(Uuid, CancellationToken)> {
         let Some(session) = self.link_sessions.get(session_id) else {
-            println!("Session not found");
+            warn!("Session not found");
             return None;
         };
 
         if &session.tunnel_id != tunnel_id {
-            println!("Tunnel ID mismatch");
+            warn!("Tunnel ID mismatch");
             return None;
         }
 

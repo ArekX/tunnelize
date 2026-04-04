@@ -249,10 +249,10 @@ async fn start_tunnel_session(
     let (proxies, endpoint_info) = match resolve_endpoint_info(tunnel_id, &request, &services).await
     {
         Ok(data) => data,
-        Err(_) => {
+        Err(e) => {
             response_stream
                 .respond_message(&InitTunnelResponse::Rejected {
-                    reason: "".to_owned(),
+                    reason: e.to_string(),
                 })
                 .await;
             return;

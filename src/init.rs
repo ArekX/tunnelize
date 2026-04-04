@@ -226,6 +226,7 @@ fn get_default_server_configuration() -> ServerConfiguration {
         max_tunnels: None,
         max_clients: None,
         max_proxies_per_tunnel: None,
+        max_input_read_length: None,
         encryption: None,
     };
 
