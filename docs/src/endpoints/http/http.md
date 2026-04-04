@@ -45,6 +45,8 @@ Fields:
 | allow_custom_hostnames     | Whether custom hostnames are allowed. See [configuring templates](#configuring-templates) below.                             | true                             |
 | require_authorization      | Whether authorization is required. See [configuring authorization](#configuring-authorization) below.                        | No authorization required        |
 
+Note: The server-level `max_input_read_length` setting also affects HTTP endpoints by limiting the maximum size of data read from a single client request. See [server configuration](../../setting-up-server.md) for details.
+
 ### Configuring templates
 
 For HTTP endpoints you can set templates to define how an URL will will be generated for a tunnel. There are two templates

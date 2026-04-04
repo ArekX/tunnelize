@@ -46,6 +46,7 @@ Below are all available parameters:
 | `max_tunnels`            | Maximum number of tunnels allowed on the server.                                                  | 100             |
 | `max_clients`            | Maximum number of clients allowed on the server.                                                  | 100             |
 | `max_proxies_per_tunnel` | Maximum number of proxies per tunnel allowed.                                                     | 10              |
+| `max_input_read_length`  | Maximum read buffer size in bytes for incoming data from a single read.                            | 2147483648 (2GB)|
 
 ## Configuring Encryption
 
