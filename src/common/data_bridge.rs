@@ -137,7 +137,9 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
                 match result {
                     Ok(n) => {
                         if let Err(e) = writable.write_all(&udp_buffer[..n]).await {
-                            error!("Failed to send data to Writable stream: {}", e);
+                            debug!("Writable <-> UDP connection ended: {:?}", e);
+                            cancel_token.cancel();
+                            break;
                         }
                     }
                     Err(e)
@@ -163,7 +165,9 @@ async fn bridge_udp_with_writable<T: AsyncWriteExt + Unpin + AsyncReadExt>(
                     },
                     Ok(n) => {
                         if let Err(e) = udp_client.write(&writable_buffer[..n]).await {
-                            error!("Failed to send data to UDP socket: {}", e);
+                            debug!("Writable <-> UDP connection ended: {:?}", e);
+                            cancel_token.cancel();
+                            break;
                         }
                     }
                     Err(e)
@@ -212,7 +216,9 @@ async fn bridge_channel_socket_with_writable<T: AsyncWriteExt + Unpin + AsyncRea
                 match result {
                     Ok(bytes) => {
                         if let Err(e) = writable.write_all(&bytes).await {
-                            error!("Failed to send data to Writable stream: {}", e);
+                            debug!("Writable <-> Channel Socket connection ended: {:?}", e);
+                            channel_socket.shutdown().await;
+                            break;
                         }
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::ConnectionAborted =>
@@ -233,7 +239,8 @@ async fn bridge_channel_socket_with_writable<T: AsyncWriteExt + Unpin + AsyncRea
                     },
                     Ok(n) => {
                         if let Err(e) = channel_socket.send(writable_buffer[..n].to_vec()).await {
-                            error!("Failed to send data to Channel socket: {}", e);
+                            debug!("Writable <-> Channel socket connection ended: {:?}", e);
+                            break;
                         }
                     }
                     Err(e)

@@ -9,7 +9,8 @@ use crate::{
     server::{
         configuration::ServerConfiguration,
         endpoints::messages::{
-            RegisterTunnelRequest, RegisterTunnelResponse, ResolvedEndpointInfo,
+            RegisterTunnelRequest, RegisterTunnelResponse, RemoveTunnelRequest,
+            ResolvedEndpointInfo,
         },
         services::events::ServiceEvent,
         session::{self, tunnel::TunnelProxyInfo},
@@ -56,7 +57,7 @@ pub async fn process(
 ) {
     let config = services.get_config();
 
-    if services.get_tunnel_manager().await.get_count() == config.get_max_tunnels() {
+    if services.get_tunnel_manager().await.get_count() >= config.get_max_tunnels() {
         response_stream
             .respond_message(&InitTunnelResponse::Rejected {
                 reason: "Too many tunnels connected".to_string(),
@@ -177,6 +178,7 @@ async fn resolve_endpoint_info(
     }
 
     let mut proxy_data = HashMap::<Uuid, ResolvedEndpointInfo>::new();
+    let mut registered_endpoints: Vec<String> = Vec::new();
 
     for (service_name, proxies) in service_proxies.iter() {
         let Ok(response) = services
@@ -195,6 +197,7 @@ async fn resolve_endpoint_info(
                 "Error while sending RegisterProxyRequest to endpoint '{}'",
                 service_name
             );
+            rollback_endpoint_registrations(services, tunnel_id, &registered_endpoints).await;
             return Err(Error::other(format!(
                 "Error while sending RegisterProxyRequest to endpoint '{service_name}'"
             )));
@@ -203,6 +206,7 @@ async fn resolve_endpoint_info(
         let proxy_info = match response {
             RegisterTunnelResponse::Accepted { proxy_info } => {
                 debug!("Endpoint '{}' accepted tunnel registration", service_name);
+                registered_endpoints.push(service_name.clone());
                 proxy_info
             }
             RegisterTunnelResponse::Rejected { reason } => {
@@ -210,6 +214,7 @@ async fn resolve_endpoint_info(
                     "Endpoint '{}' rejected tunnel registration: {}",
                     service_name, reason
                 );
+                rollback_endpoint_registrations(services, tunnel_id, &registered_endpoints).await;
                 return Err(Error::other(format!(
                     "Endpoint '{service_name}' rejected tunnel registration: {reason}"
                 )));
@@ -237,6 +242,26 @@ async fn resolve_endpoint_info(
     }
 
     Ok((tunnel_proxy_info, proxy_data))
+}
+
+async fn rollback_endpoint_registrations(
+    services: &Arc<Services>,
+    tunnel_id: Uuid,
+    registered_endpoints: &[String],
+) {
+    for service_name in registered_endpoints {
+        if let Err(e) = services
+            .get_endpoint_manager()
+            .await
+            .send_request(service_name, RemoveTunnelRequest { tunnel_id })
+            .await
+        {
+            debug!(
+                "Error while rolling back tunnel registration on endpoint '{}': {}",
+                service_name, e
+            );
+        }
+    }
 }
 
 async fn start_tunnel_session(
