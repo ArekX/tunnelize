@@ -1,6 +1,6 @@
-use std::fmt;
+use std::{fmt, time::Duration};
 
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{BufMut, Bytes, BytesMut};
 use log::debug;
 use serde::de::DeserializeOwned;
 use tokio::io::AsyncReadExt;
@@ -15,6 +15,7 @@ pub enum MessageError {
 }
 
 const MAX_MESSAGE_LENGTH: u32 = 10000000; // 10MB
+const MAX_RECEIVE_TIMEOUT: Duration = Duration::from_secs(30);
 
 impl fmt::Display for MessageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -84,12 +85,8 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
     let mut buffer = BytesMut::with_capacity(length);
     buffer.resize(length, 0);
     match stream.read_exact(&mut buffer).await {
-        Ok(0) => {
-            Err(MessageError::ConnectionClosed)
-        }
-        Ok(_) => {
-            Ok(buffer.freeze())
-        }
+        Ok(0) => Err(MessageError::ConnectionClosed),
+        Ok(_) => Ok(buffer.freeze()),
         Err(e)
             if e.kind() == std::io::ErrorKind::UnexpectedEof
                 || e.kind() == std::io::ErrorKind::ConnectionAborted
@@ -106,18 +103,39 @@ async fn read_exact<T: AsyncReadExt + Unpin>(
     }
 }
 
+async fn read_exact_with_timeout<T: AsyncReadExt + Unpin>(
+    stream: &mut T,
+    length: usize,
+) -> Result<Bytes, MessageError> {
+    match tokio::time::timeout(MAX_RECEIVE_TIMEOUT, read_exact(stream, length)).await {
+        Ok(result) => result,
+        Err(_) => Err(MessageError::IoError(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            "Timed out while reading message",
+        ))),
+    }
+}
+
 pub async fn read_message<T: AsyncReadExt + Unpin, M>(stream: &mut T) -> Result<M, MessageError>
 where
     M: DeserializeOwned,
 {
-    let mut length_bytes = read_exact(stream, 4).await?;
-    let length = length_bytes.get_u32();
+    let start_of_length = read_exact(stream, 1).await?;
 
-    if (length) > MAX_MESSAGE_LENGTH {
+    let rest_of_length_bytes = read_exact_with_timeout(stream, 3).await?;
+
+    let length = u32::from_be_bytes([
+        start_of_length[0],
+        rest_of_length_bytes[0],
+        rest_of_length_bytes[1],
+        rest_of_length_bytes[2],
+    ]);
+
+    if length > MAX_MESSAGE_LENGTH {
         return Err(MessageError::InvalidLength(length));
     }
 
-    let message_bytes = read_exact(stream, length as usize).await?;
+    let message_bytes = read_exact_with_timeout(stream, length as usize).await?;
 
     deserialize_message(message_bytes)
 }
