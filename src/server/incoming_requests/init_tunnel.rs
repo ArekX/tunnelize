@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Error, sync::Arc};
+use std::{collections::HashMap, io::Error, net::SocketAddr, sync::Arc};
 
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -54,7 +54,20 @@ pub async fn process(
     services: Arc<Services>,
     request: InitTunelRequest,
     mut response_stream: Connection,
+    address: SocketAddr,
 ) {
+    let ip_address = address.ip();
+
+    if services.get_bfp_manager().await.is_locked(&ip_address) {
+        response_stream
+            .respond_message(&InitTunnelResponse::Rejected {
+                reason: "Too many failed attempts. Please try again later.".to_string(),
+            })
+            .await;
+        response_stream.shutdown().await;
+        return;
+    }
+
     let config = services.get_config();
 
     if services.get_tunnel_manager().await.get_count() >= config.get_max_tunnels() {
@@ -67,9 +80,15 @@ pub async fn process(
     }
 
     if let Err(e) = validate_server_access(&services, &request, &mut response_stream).await {
+        services.get_bfp_manager().await.log_ip_attempt(&ip_address);
         debug!("Error validating server access: {:?}", e);
         return;
     }
+
+    services
+        .get_bfp_manager()
+        .await
+        .clear_ip_attempts(&ip_address);
 
     if let Err(e) = validate_requested_proxies(&request, &config, &mut response_stream).await {
         debug!("Error validating requested proxies: {:?}", e);

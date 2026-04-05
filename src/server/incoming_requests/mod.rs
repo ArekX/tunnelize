@@ -35,7 +35,7 @@ pub async fn handle(
 ) {
     match message {
         ServerRequestMessage::InitTunelRequest(request) => {
-            init_tunnel::process(services, request, stream).await
+            init_tunnel::process(services, request, stream, address).await
         }
         ServerRequestMessage::InitLinkRequest(request) => {
             init_link::process(services, request, stream).await
@@ -44,7 +44,7 @@ pub async fn handle(
             monitoring_request::process(services, request, stream, address).await
         }
         ServerRequestMessage::ProcessConfigRequest(request) => {
-            config_request::process(services, request, stream).await
+            config_request::process(services, request, stream, address).await
         }
         ServerRequestMessage::HeartbeatRequest(request) => {
             heartbeat_request::process_heartbeat_request(&services, request, &mut stream).await
