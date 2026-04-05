@@ -11,9 +11,11 @@ use axum::{
 use base64::{Engine as _, engine::general_purpose};
 use log::debug;
 use serde::Serialize;
-use subtle::ConstantTimeEq;
 
-use crate::server::endpoints::monitor::configuration::MonitorAuthentication;
+use crate::{
+    common::text::is_constant_time_equals,
+    server::endpoints::monitor::configuration::MonitorAuthentication,
+};
 
 use super::state::AppState;
 
@@ -147,18 +149,14 @@ fn check_authentication(
             let expected_authorization =
                 general_purpose::STANDARD.encode(format!("{username}:{password}"));
 
-            if auth_value
-                .as_bytes()
-                .ct_eq(expected_authorization.as_bytes())
-                .into()
-            {
+            if is_constant_time_equals(auth_value, &expected_authorization) {
                 return Ok(());
             }
 
             Err("Invalid authorization header".to_owned())
         }
         MonitorAuthentication::Bearer { token } => {
-            if auth_value.as_bytes().ct_eq(token.as_bytes()).into() {
+            if is_constant_time_equals(auth_value, token) {
                 return Ok(());
             }
 

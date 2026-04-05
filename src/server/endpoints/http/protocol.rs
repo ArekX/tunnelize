@@ -2,11 +2,11 @@ use std::io::Error;
 use std::{collections::HashMap, time::Duration};
 
 use base64::{Engine as _, engine::general_purpose};
-use subtle::ConstantTimeEq;
 use tokio::io::Result;
 use tokio::time::timeout;
 
 use crate::common::connection::Connection;
+use crate::common::text::is_constant_time_equals;
 
 pub struct HttpRequestReader {
     request: String,
@@ -65,10 +65,7 @@ impl HttpRequestReader {
                 general_purpose::STANDARD.encode(format!("{username}:{password}"));
 
             if let Some(auth_value) = authorization.split_whitespace().last() {
-                return auth_value
-                    .as_bytes()
-                    .ct_eq(expected_authorization.as_bytes())
-                    .into();
+                return is_constant_time_equals(auth_value, &expected_authorization);
             }
         }
 

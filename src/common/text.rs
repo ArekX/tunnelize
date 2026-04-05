@@ -1,3 +1,5 @@
+use subtle::ConstantTimeEq;
+
 const CHARACTER_SET: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
 pub fn get_random_letters(max: i32) -> String {
     (0..max)
@@ -6,6 +8,10 @@ pub fn get_random_letters(max: i32) -> String {
             CHARACTER_SET[idx] as char
         })
         .collect()
+}
+
+pub fn is_constant_time_equals(a: &str, b: &str) -> bool {
+    return a.as_bytes().ct_eq(b.as_bytes()).into();
 }
 
 #[cfg(test)]
@@ -30,5 +36,10 @@ mod tests {
     fn test_get_random_letters_zero_length() {
         let result = get_random_letters(0);
         assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_is_constant_time_equals_equal() {
+        assert!(is_constant_time_equals("test", "test"));
     }
 }

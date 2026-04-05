@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use crate::server::services::Services;
+use crate::{common::text::is_constant_time_equals, server::services::Services};
 
 pub fn has_tunnel_access(services: &Arc<Services>, key: Option<&String>) -> bool {
     let config = services.get_config();
     if let Some(endpoint_key) = config.tunnel_key.as_ref() {
         if let Some(request_key) = key {
-            return endpoint_key == request_key;
+            return is_constant_time_equals(endpoint_key, request_key);
         }
         return false;
     }
@@ -18,7 +18,7 @@ pub fn has_monitoring_access(services: &Arc<Services>, key: Option<&String>) -> 
     let config = services.get_config();
     if let Some(endpoint_key) = config.monitor_key.as_ref() {
         if let Some(request_key) = key {
-            return endpoint_key == request_key;
+            return is_constant_time_equals(endpoint_key, request_key);
         }
         return false;
     }

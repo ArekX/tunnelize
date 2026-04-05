@@ -41,13 +41,13 @@ pub async fn start(
     let state = AppState::new(services.clone(), config.clone(), name.clone());
 
     let mut app = Router::new()
+        .nest("/tunnels", tunnel_routes::get_router())
+        .nest("/links", link_routes::get_router())
+        .nest("/system", system_routes::get_router())
         .layer(from_fn_with_state(
             state.clone(),
             middleware::handle_authorization,
         ))
-        .nest("/tunnels", tunnel_routes::get_router())
-        .nest("/links", link_routes::get_router())
-        .nest("/system", system_routes::get_router())
         .layer(from_fn(middleware::handle_default_response))
         .with_state(state.clone());
 
