@@ -160,7 +160,7 @@ async fn resolve_endpoint_info(
     let mut tunnel_proxy_info: Vec<TunnelProxyInfo> = Vec::new();
 
     for proxy in request.proxies.iter() {
-        let sessions = {
+        let sessions: &mut Vec<ProxySession> = {
             if !service_proxies.contains_key(&proxy.endpoint_name) {
                 service_proxies.insert(proxy.endpoint_name.clone(), Vec::new());
             }

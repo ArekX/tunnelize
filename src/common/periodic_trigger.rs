@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio_util::sync::CancellationToken;
 
 pub struct PeriodicTrigger {
@@ -34,7 +34,9 @@ impl PeriodicTrigger {
                         break;
                     }
                     _ = tokio::time::sleep(interval) => {
-                        tx.send(()).await.unwrap();
+                        let Ok(()) = tx.send(()).await else {
+                            break;
+                        };
                     }
                 }
             }

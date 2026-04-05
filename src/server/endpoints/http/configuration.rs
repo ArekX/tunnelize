@@ -40,7 +40,9 @@ pub struct HttpEndpointConfig {
 
 impl HttpEndpointConfig {
     pub fn get_address(&self) -> String {
-        self.address.clone().unwrap_or_else(|| "0.0.0.0".to_string())
+        self.address
+            .clone()
+            .unwrap_or_else(|| "0.0.0.0".to_string())
     }
 
     pub fn get_full_url(&self, hostname: &str) -> String {
@@ -81,8 +83,7 @@ impl HttpEndpointConfig {
     }
 
     pub fn get_max_client_input_wait_secs(&self) -> u64 {
-        self.max_client_input_wait_secs
-            .unwrap_or(300)
+        self.max_client_input_wait_secs.unwrap_or(300)
     }
 
     pub fn get_allow_custom_hostnames(&self) -> bool {
@@ -95,15 +96,6 @@ pub struct AuthorizeUser {
     pub realm: Option<String>,
     pub username: String,
     pub password: String,
-}
-
-impl Display for AuthorizeUser {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "\tUsername: {}", self.username)?;
-        writeln!(f, "\tPassword: {}", self.password)?;
-
-        Ok(())
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -155,9 +147,8 @@ impl Display for HttpPublicEndpointConfig {
         )?;
         writeln!(f, "Template: {}", self.hostname_template)?;
 
-        if let Some(authorization) = &self.require_authorization {
-            writeln!(f, "Requires clients to authorize:")?;
-            write!(f, "{authorization}")?;
+        if let Some(_) = &self.require_authorization {
+            writeln!(f, "Requires clients to authorize")?;
         }
 
         Ok(())

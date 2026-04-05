@@ -66,7 +66,7 @@ impl BfpManager {
             }
         };
 
-        attempt.count = attempt.count.wrapping_add(1);
+        attempt.count = attempt.count.saturating_add(1);
         if attempt.count >= 5 {
             attempt.wait_until = Utc::now().timestamp() + BFP_WAIT_FOR_SECONDS;
         }

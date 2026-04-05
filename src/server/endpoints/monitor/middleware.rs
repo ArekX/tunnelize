@@ -1,16 +1,17 @@
 use std::net::SocketAddr;
 
 use axum::{
+    Json,
     body::Body,
     extract::{ConnectInfo, Request, State},
     http::StatusCode,
     middleware::Next,
     response::{IntoResponse, Response},
-    Json,
 };
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use log::debug;
 use serde::Serialize;
+use subtle::ConstantTimeEq;
 
 use crate::server::endpoints::monitor::configuration::MonitorAuthentication;
 
@@ -146,14 +147,18 @@ fn check_authentication(
             let expected_authorization =
                 general_purpose::STANDARD.encode(format!("{username}:{password}"));
 
-            if auth_value == expected_authorization {
+            if auth_value
+                .as_bytes()
+                .ct_eq(expected_authorization.as_bytes())
+                .into()
+            {
                 return Ok(());
             }
 
             Err("Invalid authorization header".to_owned())
         }
         MonitorAuthentication::Bearer { token } => {
-            if auth_value.eq(token) {
+            if auth_value.as_bytes().ct_eq(token.as_bytes()).into() {
                 return Ok(());
             }
 

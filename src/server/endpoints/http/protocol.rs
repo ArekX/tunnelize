@@ -1,7 +1,8 @@
 use std::io::Error;
 use std::{collections::HashMap, time::Duration};
 
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
+use subtle::ConstantTimeEq;
 use tokio::io::Result;
 use tokio::time::timeout;
 
@@ -64,7 +65,10 @@ impl HttpRequestReader {
                 general_purpose::STANDARD.encode(format!("{username}:{password}"));
 
             if let Some(auth_value) = authorization.split_whitespace().last() {
-                return auth_value == expected_authorization;
+                return auth_value
+                    .as_bytes()
+                    .ct_eq(expected_authorization.as_bytes())
+                    .into();
             }
         }
 
