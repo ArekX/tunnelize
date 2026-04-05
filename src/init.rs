@@ -6,6 +6,7 @@ use crate::{
     common::{
         cli::InitCommands,
         tcp_client::{create_tcp_client, ClientEncryption},
+        text::get_random_secret,
     },
     configuration::{write_configuration, TunnelizeConfiguration},
     server::{
@@ -26,13 +27,29 @@ use crate::{
 pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
     match command {
         InitCommands::All => {
+            let monitor_key = get_random_secret(32);
+            let monitor_password = get_random_secret(32);
+
             write_configuration(TunnelizeConfiguration {
-                server: Some(get_default_server_configuration()),
-                tunnel: Some(get_default_tunnel_configuration()),
+                server: Some(get_default_server_configuration(
+                    monitor_key.clone(),
+                    monitor_password.clone(),
+                )),
+                tunnel: Some(get_default_tunnel_configuration(Some(monitor_key.clone()))),
             })?;
+
+            print_generated_monitor_credentials(&monitor_key, &monitor_password);
         }
         InitCommands::Server => {
-            write_configuration(get_default_server_configuration().into())?;
+            let monitor_key = get_random_secret(32);
+            let monitor_password = get_random_secret(32);
+
+            write_configuration(
+                get_default_server_configuration(monitor_key.clone(), monitor_password.clone())
+                    .into(),
+            )?;
+
+            print_generated_monitor_credentials(&monitor_key, &monitor_password);
         }
         InitCommands::Tunnel {
             server,
@@ -41,7 +58,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
             key,
         } => {
             let Some(mut server_address) = server else {
-                write_configuration(get_default_tunnel_configuration().into())?;
+                write_configuration(get_default_tunnel_configuration(None).into())?;
 
                 return Ok(());
             };
@@ -174,7 +191,16 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn get_default_tunnel_configuration() -> TunnelConfiguration {
+fn print_generated_monitor_credentials(monitor_key: &str, monitor_password: &str) {
+    println!();
+    println!("Generated monitor credentials (save these — they will not be shown again):");
+    println!("  monitor_key:      {monitor_key}");
+    println!("  monitor username: admin");
+    println!("  monitor password: {monitor_password}");
+    println!();
+}
+
+fn get_default_tunnel_configuration(monitor_key: Option<String>) -> TunnelConfiguration {
     let mut configuration = TunnelConfiguration {
         name: Some("my-tunnel".to_owned()),
         server_address: "localhost".to_owned(),
@@ -182,7 +208,7 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
         forward_connection_timeout_seconds: None,
         encryption: None,
         tunnel_key: None,
-        monitor_key: Some("changethismonitorkey".to_owned()),
+        monitor_key,
         proxies: Vec::new(),
     };
 
@@ -215,11 +241,14 @@ fn get_default_tunnel_configuration() -> TunnelConfiguration {
     configuration
 }
 
-fn get_default_server_configuration() -> ServerConfiguration {
+fn get_default_server_configuration(
+    monitor_key: String,
+    monitor_password: String,
+) -> ServerConfiguration {
     let mut configuration = ServerConfiguration {
         server_port: None,
         server_address: None,
-        monitor_key: Some("changethismonitorkey".to_owned()),
+        monitor_key: Some(monitor_key),
         max_tunnel_input_wait: None,
         tunnel_key: None,
         endpoints: HashMap::new(),
@@ -253,7 +282,7 @@ fn get_default_server_configuration() -> ServerConfiguration {
             allow_cors_origins: None,
             authentication: MonitorAuthentication::Basic {
                 username: "admin".to_owned(),
-                password: "changethispassword".to_owned(),
+                password: monitor_password,
             },
         }),
     );

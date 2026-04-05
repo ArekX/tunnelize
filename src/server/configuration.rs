@@ -164,7 +164,7 @@ impl ServerConfiguration {
     }
 
     pub fn get_max_input_read_length(&self) -> usize {
-        self.max_input_read_length.unwrap_or(64 * 1024 * 1024)
+        self.max_input_read_length.unwrap_or(64 * 1024)
     }
 
     pub fn get_encryption(&self) -> ServerEncryption {

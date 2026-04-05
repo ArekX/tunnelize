@@ -10,6 +10,18 @@ pub fn get_random_letters(max: i32) -> String {
         .collect()
 }
 
+const SECRET_CHARACTER_SET: &[u8] =
+    b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+pub fn get_random_secret(len: usize) -> String {
+    (0..len)
+        .map(|_| {
+            let idx = rand::random_range(0..SECRET_CHARACTER_SET.len());
+            SECRET_CHARACTER_SET[idx] as char
+        })
+        .collect()
+}
+
 pub fn is_constant_time_equals(a: &str, b: &str) -> bool {
     return a.as_bytes().ct_eq(b.as_bytes()).into();
 }
