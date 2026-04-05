@@ -56,7 +56,7 @@ pub async fn process(
 ) {
     let config = services.get_config();
 
-    if services.get_tunnel_manager().await.get_count() == config.get_max_tunnnels() {
+    if services.get_tunnel_manager().await.get_count() == config.get_max_tunnels() {
         response_stream
             .respond_message(&InitTunnelResponse::Rejected {
                 reason: "Too many tunnels connected".to_string(),

@@ -151,7 +151,7 @@ impl ServerConfiguration {
         self.max_tunnel_input_wait.unwrap_or(30)
     }
 
-    pub fn get_max_tunnnels(&self) -> usize {
+    pub fn get_max_tunnels(&self) -> usize {
         self.max_tunnels.unwrap_or(100)
     }
 
@@ -250,7 +250,7 @@ impl Validatable for ServerConfiguration {
         result.validate_child("encryption", &self.get_encryption());
 
         result
-            .validate_rule_for::<_, MustBeGreaterThanZero>("max_tunnels", &self.get_max_tunnnels());
+            .validate_rule_for::<_, MustBeGreaterThanZero>("max_tunnels", &self.get_max_tunnels());
         result
             .validate_rule_for::<_, MustBeGreaterThanZero>("max_clients", &self.get_max_clients());
 
@@ -352,13 +352,13 @@ mod tests {
     #[test]
     fn test_get_max_tunnels() {
         let config = default_server_config();
-        assert_eq!(config.get_max_tunnnels(), 200);
+        assert_eq!(config.get_max_tunnels(), 200);
 
         let config = ServerConfiguration {
             max_tunnels: None,
             ..default_server_config()
         };
-        assert_eq!(config.get_max_tunnnels(), 100);
+        assert_eq!(config.get_max_tunnels(), 100);
     }
 
     #[test]
