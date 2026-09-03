@@ -3,7 +3,7 @@ use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::common::connection::Connection;
+use crate::{common::connection::Connection, tunnel::incoming_requests::TunnelRequestMessage};
 
 use super::super::services::Services;
 
@@ -28,8 +28,10 @@ pub async fn process_heartbeat_request(
         .update_last_heartbeat(&request.tunnel_id);
 
     response_stream
-        .respond_message(&HeartbeatResponse::Acknowledged {
-            tunnel_id: request.tunnel_id,
-        })
+        .respond_message(&TunnelRequestMessage::HeartbeatResponse(
+            HeartbeatResponse::Acknowledged {
+                tunnel_id: request.tunnel_id,
+            },
+        ))
         .await;
 }

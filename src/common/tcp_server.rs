@@ -1,6 +1,8 @@
 use std::{
     io::{Error, ErrorKind},
     net::SocketAddr,
+    sync::Arc,
+    time::Duration,
 };
 
 use tokio::net::{TcpListener, TcpStream};
@@ -11,41 +13,69 @@ use super::{
     configuration::ServerEncryption, connection::Connection, encryption::ServerTlsEncryption,
 };
 
+const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+
 pub struct TcpServer {
-    encryption: Option<ServerTlsEncryption>,
+    encryption: Arc<Option<ServerTlsEncryption>>,
     listener: TcpListener,
+}
+
+pub struct PendingConnection {
+    stream: TcpStream,
+    encryption: Arc<Option<ServerTlsEncryption>>,
 }
 
 impl TcpServer {
     pub async fn new(address: String, port: u16, encryption: ServerEncryption) -> Result<Self> {
         Ok(TcpServer {
-            encryption: match encryption {
+            encryption: Arc::new(match encryption {
                 ServerEncryption::None => None,
                 ServerEncryption::Tls {
                     cert_path: cert,
                     key_path: key,
                 } => Some(ServerTlsEncryption::new(&cert, &key).await),
-            },
+            }),
             listener: TcpListener::bind(format!("{address}:{port}")).await?,
         })
     }
 
-    pub async fn listen_for_connection(
-        &self,
-    ) -> core::result::Result<(Connection, SocketAddr), (Error, Option<Connection>)> {
-        let (stream, addr) = self.listener.accept().await.map_err(|e| (e, None))?;
+    pub async fn listen_for_connection(&self) -> Result<(PendingConnection, SocketAddr)> {
+        let (stream, addr) = self.listener.accept().await?;
 
-        if self.encryption.is_some() && !is_tls_stream(&stream).await.map_err(|e| (e, None))? {
+        Ok((
+            PendingConnection {
+                stream,
+                encryption: self.encryption.clone(),
+            },
+            addr,
+        ))
+    }
+}
+
+impl PendingConnection {
+    pub async fn establish(self) -> core::result::Result<Connection, (Error, Option<Connection>)> {
+        match tokio::time::timeout(HANDSHAKE_TIMEOUT, self.handshake()).await {
+            Ok(result) => result,
+            Err(_) => Err((
+                Error::new(ErrorKind::TimedOut, "Connection handshake timed out"),
+                None,
+            )),
+        }
+    }
+
+    async fn handshake(self) -> core::result::Result<Connection, (Error, Option<Connection>)> {
+        let Some(tls) = self.encryption.as_ref() else {
+            return Ok(Connection::from(self.stream));
+        };
+
+        if !is_tls_stream(&self.stream).await.map_err(|e| (e, None))? {
             return Err((
                 Error::new(ErrorKind::InvalidData, "Not TLS"),
-                Some(Connection::from(stream)),
+                Some(Connection::from(self.stream)),
             ));
         }
 
-        match self.encryption {
-            Some(ref tls) => Ok((tls.accept(stream).await.map_err(|e| (e, None))?, addr)),
-            None => Ok((Connection::from(stream), addr)),
-        }
+        tls.accept(self.stream).await.map_err(|e| (e, None))
     }
 }
 

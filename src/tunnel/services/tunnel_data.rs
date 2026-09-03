@@ -3,6 +3,7 @@ use uuid::Uuid;
 pub struct TunnelData {
     pub tunnel_id: Option<Uuid>,
     pub failed_heartbeats: u16,
+    heartbeat_pending: bool,
 }
 
 impl Default for TunnelData {
@@ -16,6 +17,7 @@ impl TunnelData {
         Self {
             tunnel_id: None,
             failed_heartbeats: 0,
+            heartbeat_pending: false,
         }
     }
 
@@ -31,8 +33,17 @@ impl TunnelData {
         self.tunnel_id
     }
 
+    pub fn mark_heartbeat_sent(&mut self) {
+        self.heartbeat_pending = true;
+    }
+
+    pub fn is_heartbeat_pending(&self) -> bool {
+        self.heartbeat_pending
+    }
+
     pub fn record_success_heartbeat(&mut self) {
         self.failed_heartbeats = 0;
+        self.heartbeat_pending = false;
     }
 
     pub fn record_failed_heartbeat(&mut self) {
@@ -86,5 +97,21 @@ mod tests {
     fn test_get_tunnel_id_none() {
         let tunnel_data = TunnelData::new();
         assert!(tunnel_data.get_tunnel_id().is_none());
+    }
+
+    #[test]
+    fn test_heartbeat_pending_cleared_on_success() {
+        let mut tunnel_data = TunnelData::new();
+        assert!(!tunnel_data.is_heartbeat_pending());
+
+        tunnel_data.mark_heartbeat_sent();
+        assert!(tunnel_data.is_heartbeat_pending());
+
+        tunnel_data.record_failed_heartbeat();
+        assert_eq!(tunnel_data.failed_heartbeats, 1);
+
+        tunnel_data.record_success_heartbeat();
+        assert!(!tunnel_data.is_heartbeat_pending());
+        assert_eq!(tunnel_data.failed_heartbeats, 0);
     }
 }

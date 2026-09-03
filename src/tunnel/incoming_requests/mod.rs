@@ -1,27 +1,13 @@
-use std::sync::Arc;
+use serde::{Deserialize, Serialize};
 
-use init_link_session::process_init_link;
-
-use crate::{common::connection::Connection, create_data_enum};
-
-use super::services::Services;
+use crate::server::incoming_requests::HeartbeatResponse;
 
 mod init_link_session;
 
-pub use init_link_session::{InitLinkRequest, InitLinkResponse};
+pub use init_link_session::{InitLinkRequest, process_init_link};
 
-create_data_enum!(TunnelRequestMessage, {
-    InitLinkRequest -> InitLinkResponse
-});
-
-pub async fn handle(
-    services: &Arc<Services>,
-    stream: &mut Connection,
-    message: TunnelRequestMessage,
-) {
-    match message {
-        TunnelRequestMessage::InitLinkRequest(request) => {
-            process_init_link(services, request, stream).await;
-        }
-    }
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum TunnelRequestMessage {
+    InitLinkRequest(InitLinkRequest),
+    HeartbeatResponse(HeartbeatResponse),
 }

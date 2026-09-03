@@ -83,34 +83,36 @@ pub async fn start(
                 }
             }
             client = server.listen_for_connection() => {
-                match client {
-                    Ok((connection, stream_address)) => {
-                        info!("Accepted connection from client: {}", stream_address);
-                        let tunnel_host = tunnel_host.clone();
-                        let name = name.clone();
-                        let config = config.clone();
-                        let services = services.clone();
-                        tokio::spawn(async move {
-                            if let Err(e) = data_handler::handle(connection, &tunnel_host, &name, &config, &services).await {
-                                error!("Failed to handle client request: {}", e);
-                            }
-                        });
-                    },
-                    Err((e, mut connection_returned)) if e.kind() == ErrorKind::InvalidData && has_encryption => {
-                        debug!("Received invalid TLS data. Probably not a TLS connection. Error: {:?}", e);
-
-                        if let Some(mut connection) = connection_returned.take() {
-                            let config = config.clone();
-                            tokio::spawn(async move {
-                                process_tls_redirection(&mut connection, &config, max_input_read_length).await;
-                            });
-                        }
-                    },
-                    Err((e, _)) => {
+                let (pending, stream_address) = match client {
+                    Ok(accepted) => accepted,
+                    Err(e) => {
                         error!("Failed to accept client connection: {}", e);
                         continue;
                     }
                 };
+
+                info!("Accepted connection from client: {}", stream_address);
+
+                let tunnel_host = tunnel_host.clone();
+                let name = name.clone();
+                let config = config.clone();
+                let services = services.clone();
+                tokio::spawn(async move {
+                    match pending.establish().await {
+                        Ok(connection) => {
+                            if let Err(e) = data_handler::handle(connection, &tunnel_host, &name, &config, &services).await {
+                                error!("Failed to handle client request: {}", e);
+                            }
+                        }
+                        Err((e, Some(mut connection))) if e.kind() == ErrorKind::InvalidData && has_encryption => {
+                            debug!("Received invalid TLS data. Probably not a TLS connection. Error: {:?}", e);
+                            process_tls_redirection(&mut connection, &config, max_input_read_length).await;
+                        }
+                        Err((e, _)) => {
+                            error!("Failed to establish client connection: {}", e);
+                        }
+                    }
+                });
             },
             _ = cancel_token.cancelled() => {
                 info!("Endpoint '{}' has been cancelled", name);

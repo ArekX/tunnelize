@@ -134,15 +134,9 @@ impl ClientManager {
 
 impl HandleServiceEvent for ClientManager {
     async fn handle_event(&mut self, event: &ServiceEvent) {
-        match event {
-            ServiceEvent::LinkDisconnected { client_id, .. } => {
-                self.remove_client(client_id);
-            }
-            ServiceEvent::LinkRejected { client_id, .. } => {
-                self.remove_client(client_id);
-            }
-            _ => {}
-        };
+        if let ServiceEvent::LinkDisconnected { client_id, .. } = event {
+            self.remove_client(client_id);
+        }
     }
 }
 

@@ -35,7 +35,7 @@ pub async fn start(port: u16, services: Arc<TcpServices>) -> Result<()> {
                 break;
             }
             result = listener.listen_for_connection() => {
-                 let Ok((connection, address)) = result else {
+                 let Ok((pending, address)) = result else {
                     error!("Failed to accept connection.");
                     continue;
                 };
@@ -45,7 +45,13 @@ pub async fn start(port: u16, services: Arc<TcpServices>) -> Result<()> {
                     address, port
                 );
 
-                start_client(port, connection, &services).await;
+                let services = services.clone();
+                tokio::spawn(async move {
+                    match pending.establish().await {
+                        Ok(connection) => start_client(port, connection, &services).await,
+                        Err((e, _)) => error!("Failed to establish connection with client '{}': {}", address, e),
+                    }
+                });
             }
         }
     }
@@ -54,9 +60,7 @@ pub async fn start(port: u16, services: Arc<TcpServices>) -> Result<()> {
 }
 
 pub async fn start_client(port: u16, mut connection: Connection, services: &Arc<TcpServices>) {
-    let tunnel_host = services.get_tunnel_host().await;
-
-    let Some(tunnel) = tunnel_host.get_tunnel(port) else {
+    let Some(tunnel) = services.get_tunnel_host().await.get_tunnel(port) else {
         error!("No tunnel found for port {}", port);
         connection.shutdown().await;
         return;
@@ -83,9 +87,7 @@ pub async fn start_client(port: u16, mut connection: Connection, services: &Arc<
     }
 
     let Ok(response) = main_services
-        .get_tunnel_manager()
-        .await
-        .send_session_request(
+        .send_tunnel_request(
             &tunnel.tunnel_id,
             ClientLinkRequest {
                 client_id,

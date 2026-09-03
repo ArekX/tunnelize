@@ -21,36 +21,46 @@ pub async fn start_link_session(
 
     info!("Starting link session.");
 
-    let mut forward_connection = match timeout(
-        Duration::from_secs(config.get_forward_connection_timeout_seconds()),
-        services
-            .get_proxy_manager()
-            .await
-            .create_forward_connection(&proxy_id),
-    )
-    .await
-    {
-        Ok(Ok(connection)) => connection,
-        Ok(Err(e)) => {
-            error!("Failed to create forward connection: {}", e);
-            return Err(e);
-        }
-        Err(_) => {
-            error!("Forward connection creation timed out.");
-            return Err(tokio::io::Error::new(
-                ErrorKind::TimedOut,
-                "Forward connection creation timed out.",
-            ));
-        }
+    let Some(proxy) = services.get_proxy_manager().await.get_proxy(&proxy_id).cloned() else {
+        error!("Failed to find proxy session with id: {}", proxy_id);
+        return Err(tokio::io::Error::new(
+            ErrorKind::NotFound,
+            "Failed to find proxy session",
+        ));
     };
-
-    let mut server_connection = config.create_tcp_client().await?;
 
     let Some(tunnel_id) = services.get_tunnel_data().await.get_tunnel_id() else {
         error!("Tunnel ID not found.");
         return Err(tokio::io::Error::other(
             "Tunnel ID not found or incorrectly assigned.",
         ));
+    };
+
+    let (forward_result, server_result) = tokio::join!(
+        timeout(
+            Duration::from_secs(config.get_forward_connection_timeout_seconds()),
+            proxy.create_forward_connection(),
+        ),
+        config.create_tcp_client(),
+    );
+
+    let mut server_connection = server_result?;
+
+    let mut forward_connection = match forward_result {
+        Ok(Ok(connection)) => connection,
+        Ok(Err(e)) => {
+            error!("Failed to create forward connection: {}", e);
+            server_connection.shutdown().await;
+            return Err(e);
+        }
+        Err(_) => {
+            error!("Forward connection creation timed out.");
+            server_connection.shutdown().await;
+            return Err(tokio::io::Error::new(
+                ErrorKind::TimedOut,
+                "Forward connection creation timed out.",
+            ));
+        }
     };
 
     let auth_response: ServerInitLinkResponse = server_connection
@@ -62,17 +72,16 @@ pub async fn start_link_session(
 
     if let ServerInitLinkResponse::Rejected { reason } = auth_response {
         error!("Tunnel server link rejected: {}", reason);
+        forward_connection.shutdown().await;
         return Err(tokio::io::Error::other(reason));
     }
 
-    tokio::spawn(async move {
-        if let Err(e) = forward_connection.bridge_to(&mut server_connection).await {
-            error!("Relay session failed: {}", e);
-        }
+    if let Err(e) = forward_connection.bridge_to(&mut server_connection).await {
+        error!("Relay session failed: {}", e);
+    }
 
-        forward_connection.shutdown().await;
-        server_connection.shutdown().await;
-    });
+    forward_connection.shutdown().await;
+    server_connection.shutdown().await;
 
     Ok(())
 }

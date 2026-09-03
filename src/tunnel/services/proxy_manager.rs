@@ -11,6 +11,7 @@ use crate::common::udp_client::UdpClient;
 use crate::tunnel::configuration::ProxyConfiguration;
 use crate::{common::connection::Connection, tunnel::configuration::TunnelProxy};
 
+#[derive(Clone)]
 pub struct Proxy {
     pub address: String,
     pub port: u16,
@@ -50,6 +51,7 @@ impl Proxy {
     }
 }
 
+#[derive(Clone)]
 pub enum ProxyProtocol {
     Tcp,
     Udp { bind_address: Option<String> },
@@ -107,19 +109,6 @@ impl ProxyManager {
         self.proxy_map.insert(id, proxy);
 
         id
-    }
-
-    pub async fn create_forward_connection(&self, id: &Uuid) -> Result<Connection> {
-        if let Some(session) = self.proxy_map.get(id) {
-            return session.create_forward_connection().await;
-        }
-
-        error!("Failed to find proxy session with id: {}", id);
-
-        Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Failed to find proxy session",
-        ))
     }
 }
 

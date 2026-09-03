@@ -45,7 +45,10 @@ pub async fn start(port: u16, services: Arc<UdpServices>) -> Result<()> {
                     continue;
                 };
 
-                start_new_client(&services, client, port).await
+                let services = services.clone();
+                tokio::spawn(async move {
+                    start_new_client(&services, client, port).await
+                });
             },
             data = server_rx.recv() => {
                 match data {
@@ -99,9 +102,7 @@ async fn start_new_client(services: &Arc<UdpServices>, received_client: Received
     }
 
     let Ok(response) = main_services
-        .get_tunnel_manager()
-        .await
-        .send_session_request(
+        .send_tunnel_request(
             &tunnel.tunnel_id,
             ClientLinkRequest {
                 client_id: received_client.id,

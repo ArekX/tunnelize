@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    common::channel::{DataResponse, RequestSender},
+    common::channel::RequestSender,
     server::session::{
-        messages::{TunnelChannelRequest, TunnelChannelResponse},
+        messages::TunnelChannelRequest,
         tunnel::{TunnelProxyInfo, TunnelSession},
     },
 };
@@ -44,24 +44,6 @@ impl TunnelManager {
         }
 
         Err(format!("Tunnel session not found: {id:?}"))
-    }
-
-    pub async fn send_session_request<T: Into<TunnelChannelRequest> + DataResponse>(
-        &self,
-        id: &Uuid,
-        request: T,
-    ) -> tokio::io::Result<T::Response>
-    where
-        T::Response: TryFrom<TunnelChannelResponse>,
-    {
-        let Some(tunnel_tx) = self.get_session_tx(id) else {
-            return Err(tokio::io::Error::new(
-                tokio::io::ErrorKind::NotFound,
-                format!("Tunnel session not found: {id:?}"),
-            ));
-        };
-
-        tunnel_tx.request(request).await
     }
 
     pub fn get_count(&self) -> usize {

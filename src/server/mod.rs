@@ -16,7 +16,7 @@ mod hub_server;
 pub mod incoming_requests;
 mod monitoring;
 mod services;
-mod session;
+pub mod session;
 
 pub async fn start(configuration_file: Option<String>) -> Result<()> {
     let configuration: ServerConfiguration = load_configuration(configuration_file)?;

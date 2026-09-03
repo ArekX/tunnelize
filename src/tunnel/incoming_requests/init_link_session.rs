@@ -2,10 +2,11 @@ use std::{io::ErrorKind, sync::Arc};
 
 use log::error;
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::Sender;
 use uuid::Uuid;
 
 use crate::{
-    common::connection::Connection,
+    server::session::messages::{LinkRejected, TunnelSessionMessage},
     tunnel::{outgoing_requests, services::Services},
 };
 
@@ -16,58 +17,49 @@ pub struct InitLinkRequest {
     pub session_id: Uuid,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum InitLinkResponse {
-    Accepted,
-    Rejected { reason: String },
-}
-
 pub async fn process_init_link(
-    services: &Arc<Services>,
+    services: Arc<Services>,
     request: InitLinkRequest,
-    response_stream: &mut Connection,
+    control_tx: Sender<TunnelSessionMessage>,
 ) {
     let Some((address, port)) = services
         .get_proxy_manager()
         .await
         .get_forward_address(&request.proxy_id)
     else {
-        response_stream
-            .respond_message(&InitLinkResponse::Rejected {
-                reason: "Requested proxy not found".to_string(),
-            })
-            .await;
+        reject_link(
+            &control_tx,
+            request.session_id,
+            "Requested proxy not found".to_string(),
+        )
+        .await;
         return;
     };
 
-    let address_port = format!("{address}:{port}");
-
+    if let Err(e) =
+        outgoing_requests::start_link_session(services, request.proxy_id, request.session_id).await
     {
-        if let Err(e) = outgoing_requests::start_link_session(
-            services.clone(),
-            request.proxy_id,
-            request.session_id,
-        )
+        error!("Failed to start link session: {}", e);
+
+        let message = if let ErrorKind::ConnectionRefused = e.kind() {
+            format!("Connection refused, could not connect to source at {address}:{port}")
+        } else {
+            format!("Failed to start link session: {}", e.kind())
+        };
+
+        reject_link(&control_tx, request.session_id, message).await;
+    }
+}
+
+async fn reject_link(control_tx: &Sender<TunnelSessionMessage>, session_id: Uuid, reason: String) {
+    if control_tx
+        .send(TunnelSessionMessage::LinkRejected(LinkRejected {
+            session_id,
+            reason,
+        }))
         .await
-        {
-            error!("Failed to start link session: {}", e);
-
-            let message = if let ErrorKind::ConnectionRefused = e.kind() {
-                format!(
-                    "Connection refused, could not connect to source at {address_port}"
-                )
-            } else {
-                format!("Failed to start link session: {}", e.kind())
-            };
-
-            response_stream
-                .respond_message(&InitLinkResponse::Rejected { reason: message })
-                .await;
-            return;
-        }
-
-        response_stream
-            .respond_message(&InitLinkResponse::Accepted)
-            .await;
-    };
+        .is_err()
+    {
+        error!("Failed to report rejected link, control connection is gone");
+    }
 }

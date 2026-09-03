@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
-use super::messages::TunnelChannelRequest;
+use super::messages::{LinkRejected, TunnelChannelRequest, TunnelSessionMessage};
 use chrono::Utc;
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -14,14 +14,16 @@ use crate::{
         transport::MessageError,
     },
     server::{
-        endpoints::messages::ResolvedEndpointInfo,
-        incoming_requests::{self, ServerRequestMessage},
-        services::TunnelInfo,
+        endpoints::messages::ResolvedEndpointInfo, incoming_requests, services::TunnelInfo,
         session::channel_handler,
     },
 };
 
 use super::super::services::Services;
+
+const MAINTENANCE_INTERVAL: Duration = Duration::from_secs(30);
+
+const PENDING_LINK_MAX_AGE: Duration = Duration::from_secs(120);
 
 #[derive(Clone, Debug)]
 pub struct TunnelSession {
@@ -120,6 +122,9 @@ pub async fn start(
 ) {
     let id = session.get_id();
 
+    let mut maintenance_interval = tokio::time::interval(MAINTENANCE_INTERVAL);
+    maintenance_interval.tick().await;
+
     loop {
         tokio::select! {
             _ = session.wait_for_cancellation() => {
@@ -136,19 +141,17 @@ pub async fn start(
 
                 channel_handler::handle(&services, &session, &mut stream, message).await;
             },
-            result = stream.read_message::<ServerRequestMessage>() => {
+            result = stream.read_message::<TunnelSessionMessage>() => {
                 match result {
-                    Ok(message) => {
-                        match message {
-                            ServerRequestMessage::HeartbeatRequest(request) => {
-                                incoming_requests::process_heartbeat_request(
-                                    &services,
-                                    request,
-                                    &mut stream
-                                ).await;
-                            },
-                            _ => debug!("Received unexpected message from client: {:?}", message)
-                        }
+                    Ok(TunnelSessionMessage::HeartbeatRequest(request)) => {
+                        incoming_requests::process_heartbeat_request(
+                            &services,
+                            request,
+                            &mut stream
+                        ).await;
+                    },
+                    Ok(TunnelSessionMessage::LinkRejected(rejected)) => {
+                        handle_link_rejected(&services, &id, rejected).await;
                     },
                     Err(MessageError::ConnectionClosed) => {
                         debug!("Tunnel Connection closed.");
@@ -161,17 +164,41 @@ pub async fn start(
                     }
                 }
             }
-            _ = tokio::time::sleep(tokio::time::Duration::from_secs(30)) => {
-                let manager = services.get_tunnel_manager().await;
-
-                if manager.is_tunnel_stale(&id) {
+            _ = maintenance_interval.tick() => {
+                if services.get_tunnel_manager().await.is_tunnel_stale(&id) {
                     info!("Tunnel {} connection is stale (no heartbeat updated received in over 5 minutes), cancelling session.", id);
                     session.cancel();
                 }
+
+                services
+                    .get_link_manager()
+                    .await
+                    .reject_stale_pending_sessions(PENDING_LINK_MAX_AGE);
             }
         }
     }
 
     stream.shutdown().await;
     channel_rx.close();
+}
+
+async fn handle_link_rejected(services: &Arc<Services>, tunnel_id: &Uuid, rejected: LinkRejected) {
+    let Some((client_id, _)) = services
+        .get_link_manager()
+        .await
+        .resolve_tunnel_session_client(&rejected.session_id, tunnel_id)
+    else {
+        debug!(
+            "Tunnel {} rejected unknown link session {}",
+            tunnel_id, rejected.session_id
+        );
+        return;
+    };
+
+    info!(
+        "Link session {} rejected by tunnel {}: {}",
+        rejected.session_id, tunnel_id, rejected.reason
+    );
+
+    channel_handler::reject_link(services, client_id, rejected.session_id, rejected.reason).await;
 }

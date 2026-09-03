@@ -50,6 +50,10 @@ impl<T: RequestEnum> Request<T> {
         self.response_tx.take()
     }
 
+    pub fn take_response_tx(&mut self) -> Option<oneshot::Sender<T::ResponseEnum>> {
+        self.response_tx.take()
+    }
+
     pub fn respond<Response>(&mut self, response: Response)
     where
         Response: Into<T::ResponseEnum>,

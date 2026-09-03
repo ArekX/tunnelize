@@ -1,6 +1,7 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use log::{debug, error};
+use tokio::time::timeout;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -33,6 +34,8 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
         return Ok(());
     }
 
+    let max_input_wait = u64::from(config.get_max_tunnel_input_wait());
+
     loop {
         tokio::select! {
             _ = cancel_token.cancelled() => {
@@ -40,29 +43,47 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
                 return Ok(());
             }
             result = server.listen_for_connection() => {
-                match result {
-                    Ok((mut connection_stream, address)) => {
-                        debug!("Accepted connection from client: {}, protocol: {}", address, connection_stream.get_protocol());
-
-                        let message: ServerRequestMessage = match connection_stream.read_message().await {
-                            Ok(message) => message,
-                            Err(e) => {
-                                error!("Failed to read message from client: {}", e);
-                                continue;
-                            }
-                        };
-
-                        let services = services.clone();
-
-                        tokio::spawn(async move {
-                            incoming_requests::handle(services, connection_stream, address, message).await;
-                        });
-                    },
-                    Err((e, _)) => {
+                let (pending, address) = match result {
+                    Ok(accepted) => accepted,
+                    Err(e) => {
                         error!("Failed to accept client connection: {}", e);
                         continue;
                     }
                 };
+
+                let services = services.clone();
+
+                tokio::spawn(async move {
+                    let mut connection_stream = match pending.establish().await {
+                        Ok(connection) => connection,
+                        Err((e, _)) => {
+                            error!("Failed to establish connection with client {}: {}", address, e);
+                            return;
+                        }
+                    };
+
+                    debug!("Accepted connection from client: {}, protocol: {}", address, connection_stream.get_protocol());
+
+                    let message: ServerRequestMessage = match timeout(
+                        Duration::from_secs(max_input_wait),
+                        connection_stream.read_message(),
+                    )
+                    .await
+                    {
+                        Ok(Ok(message)) => message,
+                        Ok(Err(e)) => {
+                            error!("Failed to read message from client: {}", e);
+                            return;
+                        }
+                        Err(_) => {
+                            error!("Client {} did not send a request within {} seconds", address, max_input_wait);
+                            connection_stream.shutdown().await;
+                            return;
+                        }
+                    };
+
+                    incoming_requests::handle(services, connection_stream, address, message).await;
+                });
             }
         }
     }

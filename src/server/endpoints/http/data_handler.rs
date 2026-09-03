@@ -78,9 +78,7 @@ pub async fn handle(
     }
 
     match services
-        .get_tunnel_manager()
-        .await
-        .send_session_request(
+        .send_tunnel_request(
             &session.tunnel_id,
             ClientLinkRequest {
                 client_id,

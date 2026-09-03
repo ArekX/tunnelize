@@ -1,17 +1,27 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
+use crate::server::session::messages::{ClientLinkResponse, TunnelChannelResponse};
+
 use super::{HandleServiceEvent, client_manager::ClientInfo, events::ServiceEvent};
+
+pub type LinkResponder = oneshot::Sender<TunnelChannelResponse>;
 
 pub struct LinkSession {
     id: Uuid,
     tunnel_id: Uuid,
     client: ClientInfo,
     cancellation_token: CancellationToken,
+    responder: Option<LinkResponder>,
+    created_at: Instant,
 }
 
 impl From<&LinkSession> for LinkInfo {
@@ -47,6 +57,7 @@ impl LinkManager {
         tunnel_id: Uuid,
         client: ClientInfo,
         cancellation_token: CancellationToken,
+        responder: Option<LinkResponder>,
     ) -> Uuid {
         let id = Uuid::new_v4();
         self.link_sessions.insert(
@@ -56,9 +67,41 @@ impl LinkManager {
                 tunnel_id,
                 client,
                 cancellation_token,
+                responder,
+                created_at: Instant::now(),
             },
         );
         id
+    }
+
+    pub fn respond_to_link(&mut self, session_id: &Uuid, response: ClientLinkResponse) {
+        if let Some(responder) = self
+            .link_sessions
+            .get_mut(session_id)
+            .and_then(|session| session.responder.take())
+        {
+            let _ = responder.send(response.into());
+        }
+    }
+
+    pub fn reject_stale_pending_sessions(&mut self, max_age: Duration) {
+        let stale_ids: Vec<Uuid> = self
+            .link_sessions
+            .values()
+            .filter(|session| session.responder.is_some() && session.created_at.elapsed() > max_age)
+            .map(|session| session.id)
+            .collect();
+
+        for id in stale_ids {
+            warn!("Link session {} was never established by the tunnel, dropping it", id);
+            self.respond_to_link(
+                &id,
+                ClientLinkResponse::Rejected {
+                    reason: "Tunnel did not establish the link in time".to_string(),
+                },
+            );
+            self.remove_session(&id);
+        }
     }
 
     pub fn resolve_tunnel_session_client(
@@ -116,12 +159,28 @@ impl HandleServiceEvent for LinkManager {
                 self.remove_session(session_id);
             }
             ServiceEvent::TunnelDisconnected { tunnel_id } => {
+                let mut pending_ids = Vec::new();
+
                 for session in self.link_sessions.values() {
-                    if &session.tunnel_id == tunnel_id {
-                        if let Err(e) = self.cancel_session(&session.id) {
-                            info!("Error while cancelling link session: {:?}", e);
-                        }
+                    if &session.tunnel_id != tunnel_id {
+                        continue;
                     }
+
+                    if session.responder.is_some() {
+                        pending_ids.push(session.id);
+                    } else if let Err(e) = self.cancel_session(&session.id) {
+                        info!("Error while cancelling link session: {:?}", e);
+                    }
+                }
+
+                for id in pending_ids {
+                    self.respond_to_link(
+                        &id,
+                        ClientLinkResponse::Rejected {
+                            reason: "Tunnel disconnected".to_string(),
+                        },
+                    );
+                    self.remove_session(&id);
                 }
             }
             ServiceEvent::LinkRejected {
@@ -163,7 +222,7 @@ mod tests {
         let cancellation_token = CancellationToken::new();
 
         let session_id =
-            manager.create_link_session(tunnel_id, client.clone(), cancellation_token.clone());
+            manager.create_link_session(tunnel_id, client.clone(), cancellation_token.clone(), None);
 
         assert!(manager.link_sessions.contains_key(&session_id));
         let session = manager.link_sessions.get(&session_id).unwrap();
@@ -179,7 +238,7 @@ mod tests {
         let cancellation_token = CancellationToken::new();
 
         let session_id =
-            manager.create_link_session(tunnel_id, client.clone(), cancellation_token.clone());
+            manager.create_link_session(tunnel_id, client.clone(), cancellation_token.clone(), None);
 
         let result = manager.resolve_tunnel_session_client(&session_id, &tunnel_id);
         assert!(result.is_some());
@@ -194,7 +253,7 @@ mod tests {
         let tunnel_id = Uuid::new_v4();
         let cancellation_token = CancellationToken::new();
 
-        let session_id = manager.create_link_session(tunnel_id, client, cancellation_token);
+        let session_id = manager.create_link_session(tunnel_id, client, cancellation_token, None);
         manager.remove_session(&session_id);
 
         assert!(!manager.link_sessions.contains_key(&session_id));
@@ -209,7 +268,7 @@ mod tests {
         let tunnel_id = Uuid::new_v4();
         let cancellation_token = CancellationToken::new();
 
-        manager.create_link_session(tunnel_id, client, cancellation_token);
+        manager.create_link_session(tunnel_id, client, cancellation_token, None);
         assert_eq!(manager.get_count(), 1);
     }
 
@@ -220,7 +279,7 @@ mod tests {
         let tunnel_id = Uuid::new_v4();
         let cancellation_token = CancellationToken::new();
 
-        let session_id = manager.create_link_session(tunnel_id, client.clone(), cancellation_token);
+        let session_id = manager.create_link_session(tunnel_id, client.clone(), cancellation_token, None);
         let sessions = manager.list_all_sessions();
 
         assert_eq!(sessions.len(), 1);
@@ -236,7 +295,7 @@ mod tests {
         let tunnel_id = Uuid::new_v4();
         let cancellation_token = CancellationToken::new();
 
-        let session_id = manager.create_link_session(tunnel_id, client.clone(), cancellation_token);
+        let session_id = manager.create_link_session(tunnel_id, client.clone(), cancellation_token, None);
         let session_info = manager.get_session_info(&session_id);
 
         assert!(session_info.is_some());
@@ -253,7 +312,7 @@ mod tests {
         let tunnel_id = Uuid::new_v4();
         let cancellation_token = CancellationToken::new();
 
-        let session_id = manager.create_link_session(tunnel_id, client, cancellation_token.clone());
+        let session_id = manager.create_link_session(tunnel_id, client, cancellation_token.clone(), None);
         assert!(manager.cancel_session(&session_id).is_ok());
         assert!(cancellation_token.is_cancelled());
     }

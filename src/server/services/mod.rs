@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use bfp_manager::BfpManager;
 use chrono::Utc;
@@ -9,8 +9,16 @@ use link_manager::LinkManager;
 use tokio::sync::{Mutex, MutexGuard};
 use tokio_util::sync::CancellationToken;
 use tunnel_manager::TunnelManager;
+use uuid::Uuid;
 
-use super::configuration::ServerConfiguration;
+use crate::common::channel::DataResponse;
+
+use super::{
+    configuration::ServerConfiguration,
+    session::messages::{TunnelChannelRequest, TunnelChannelResponse},
+};
+
+pub const LINK_REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 
 mod bfp_manager;
 mod client_manager;
@@ -71,6 +79,30 @@ impl Services {
 
     pub async fn get_bfp_manager(&self) -> MutexGuard<'_, BfpManager> {
         self.bfp_manager.lock().await
+    }
+
+    pub async fn send_tunnel_request<T: Into<TunnelChannelRequest> + DataResponse>(
+        &self,
+        tunnel_id: &Uuid,
+        request: T,
+    ) -> tokio::io::Result<T::Response>
+    where
+        T::Response: TryFrom<TunnelChannelResponse>,
+    {
+        let Some(tunnel_tx) = self.get_tunnel_manager().await.get_session_tx(tunnel_id) else {
+            return Err(tokio::io::Error::new(
+                tokio::io::ErrorKind::NotFound,
+                format!("Tunnel session not found: {tunnel_id:?}"),
+            ));
+        };
+
+        match tokio::time::timeout(LINK_REQUEST_TIMEOUT, tunnel_tx.request(request)).await {
+            Ok(result) => result,
+            Err(_) => Err(tokio::io::Error::new(
+                tokio::io::ErrorKind::TimedOut,
+                "Timed out waiting for tunnel to answer the request",
+            )),
+        }
     }
 
     pub async fn push_event(&self, event: ServiceEvent) {

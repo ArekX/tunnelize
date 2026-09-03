@@ -6,12 +6,17 @@ use uuid::Uuid;
 
 use crate::{
     common::{connection::Connection, data_bridge::DataBridge},
-    server::{incoming_requests::InitLinkResponse, services::Services},
+    server::{
+        incoming_requests::InitLinkResponse,
+        services::Services,
+        session::messages::ClientLinkResponse,
+    },
 };
 
 pub async fn start(
     services: &Arc<Services>,
     client_id: Uuid,
+    session_id: Uuid,
     mut response_stream: Connection,
     cancel_token: CancellationToken,
 ) {
@@ -20,6 +25,13 @@ pub async fn start(
         .await
         .take_client_link(&client_id)
     else {
+        services.get_link_manager().await.respond_to_link(
+            &session_id,
+            ClientLinkResponse::Rejected {
+                reason: "Client not found".to_string(),
+            },
+        );
+
         response_stream
             .respond_message(&InitLinkResponse::Rejected {
                 reason: "Client not found".to_string(),
@@ -27,6 +39,11 @@ pub async fn start(
             .await;
         return;
     };
+
+    services
+        .get_link_manager()
+        .await
+        .respond_to_link(&session_id, ClientLinkResponse::Accepted);
 
     response_stream
         .respond_message(&InitLinkResponse::Accepted)
