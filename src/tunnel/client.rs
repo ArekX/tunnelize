@@ -56,12 +56,15 @@ pub async fn start(services: Arc<Services>, cancel_token: CancellationToken) -> 
                         }
                     },
                     Err(MessageError::ConnectionClosed) => {
-                        debug!("Connection closed.");
+                        error!("Connection to server closed.");
                         cancel_token.cancel();
                     },
                     Err(e) => {
-                        error!("Failed to read message from server: {}", e);
-                        continue;
+                        // Once a frame fails to parse the stream framing can no longer be
+                        // trusted, so continuing would only produce garbage reads.
+                        error!("Failed to read message from server, closing tunnel: {}", e);
+                        cancel_token.cancel();
+                        return Err(std::io::Error::other(e));
                     }
                 }
             }

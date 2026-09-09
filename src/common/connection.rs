@@ -16,7 +16,7 @@ use super::{
     channel_socket::ChannelSocket,
     data_bridge::DataBridge,
     data_request::DataRequest,
-    transport::{MessageError, read_message, write_message},
+    transport::{MessageError, MessageReadState, read_message, write_message},
     udp_client::UdpClient,
 };
 
@@ -24,7 +24,7 @@ use tokio_rustls::client::TlsStream as ClientTlsStream;
 use tokio_rustls::server::TlsStream as ServerTlsStream;
 
 #[derive(Debug)]
-pub enum Connection {
+pub enum ConnectionStream {
     TcpStream(TcpStream),
     UdpClient(UdpClient),
     TlsStreamServer(ServerTlsStream<TcpStream>),
@@ -32,44 +32,64 @@ pub enum Connection {
     ChannelSocket(ChannelSocket),
 }
 
+/// A connection together with the state of any partially received message.
+///
+/// The read state is what makes `read_message` safe to use inside `tokio::select!`:
+/// when the read is cancelled part-way through a frame, the bytes already received
+/// stay here and the next `read_message` call picks up where it left off.
+#[derive(Debug)]
+pub struct Connection {
+    stream: ConnectionStream,
+    read_state: MessageReadState,
+}
+
+impl From<ConnectionStream> for Connection {
+    fn from(stream: ConnectionStream) -> Self {
+        Self {
+            stream,
+            read_state: MessageReadState::new(),
+        }
+    }
+}
+
 impl From<TcpStream> for Connection {
     fn from(stream: TcpStream) -> Self {
-        Self::TcpStream(stream)
+        ConnectionStream::TcpStream(stream).into()
     }
 }
 
 impl From<UdpClient> for Connection {
     fn from(client: UdpClient) -> Self {
-        Self::UdpClient(client)
+        ConnectionStream::UdpClient(client).into()
     }
 }
 
 impl From<ServerTlsStream<TcpStream>> for Connection {
     fn from(stream: ServerTlsStream<TcpStream>) -> Self {
-        Self::TlsStreamServer(stream)
+        ConnectionStream::TlsStreamServer(stream).into()
     }
 }
 
 impl From<ClientTlsStream<TcpStream>> for Connection {
     fn from(stream: ClientTlsStream<TcpStream>) -> Self {
-        Self::TlsStreamClient(stream)
+        ConnectionStream::TlsStreamClient(stream).into()
     }
 }
 
 impl From<ChannelSocket> for Connection {
     fn from(socket: ChannelSocket) -> Self {
-        Self::ChannelSocket(socket)
+        ConnectionStream::ChannelSocket(socket).into()
     }
 }
 
 impl Connection {
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
-        match self {
-            Self::TcpStream(stream) => stream.read(buf).await,
-            Self::TlsStreamServer(stream) => stream.read(buf).await,
-            Self::TlsStreamClient(stream) => stream.read(buf).await,
-            Self::UdpClient(client) => client.read(buf).await,
-            Self::ChannelSocket(socket) => {
+        match &mut self.stream {
+            ConnectionStream::TcpStream(stream) => stream.read(buf).await,
+            ConnectionStream::TlsStreamServer(stream) => stream.read(buf).await,
+            ConnectionStream::TlsStreamClient(stream) => stream.read(buf).await,
+            ConnectionStream::UdpClient(client) => client.read(buf).await,
+            ConnectionStream::ChannelSocket(socket) => {
                 let data = socket.receive().await?;
                 let data_len = data.len();
 
@@ -92,30 +112,37 @@ impl Connection {
     }
 
     pub async fn write_all(&mut self, buf: &[u8]) -> Result<()> {
-        match self {
-            Self::TcpStream(stream) => stream.write_all(buf).await,
-            Self::TlsStreamServer(stream) => stream.write_all(buf).await,
-            Self::TlsStreamClient(stream) => stream.write_all(buf).await,
-            Self::UdpClient(client) => client.write(buf).await.map(|_| ()),
-            Self::ChannelSocket(socket) => {
+        match &mut self.stream {
+            ConnectionStream::TcpStream(stream) => stream.write_all(buf).await,
+            ConnectionStream::TlsStreamServer(stream) => stream.write_all(buf).await,
+            ConnectionStream::TlsStreamClient(stream) => stream.write_all(buf).await,
+            ConnectionStream::UdpClient(client) => client.write(buf).await.map(|_| ()),
+            ConnectionStream::ChannelSocket(socket) => {
                 socket.send(buf.to_vec()).await?;
                 Ok(())
             }
         }
     }
 
+    /// Reads one message from the connection.
+    ///
+    /// Cancel-safe: if the returned future is dropped (e.g. by a losing
+    /// `tokio::select!` branch) a partially received message is kept and the next
+    /// call resumes it instead of desynchronising the stream.
     pub async fn read_message<Message>(&mut self) -> std::result::Result<Message, MessageError>
     where
         Message: DeserializeOwned,
     {
-        match self {
-            Self::TcpStream(stream) => read_message(stream).await,
-            Self::TlsStreamServer(stream) => read_message(stream).await,
-            Self::TlsStreamClient(stream) => read_message(stream).await,
-            Self::UdpClient(_) => Err(MessageError::IoError(Error::other(
+        let read_state = &mut self.read_state;
+
+        match &mut self.stream {
+            ConnectionStream::TcpStream(stream) => read_message(stream, read_state).await,
+            ConnectionStream::TlsStreamServer(stream) => read_message(stream, read_state).await,
+            ConnectionStream::TlsStreamClient(stream) => read_message(stream, read_state).await,
+            ConnectionStream::UdpClient(_) => Err(MessageError::IoError(Error::other(
                 "Reading messages from UDP connection is not supported.",
             ))),
-            Self::ChannelSocket(socket) => {
+            ConnectionStream::ChannelSocket(socket) => {
                 let data = socket.receive().await?;
 
                 Ok(rmp_serde::from_slice(&data)?)
@@ -175,14 +202,14 @@ impl Connection {
     where
         Message: ?Sized + Serialize,
     {
-        match self {
-            Self::TcpStream(stream) => write_message(stream, &message).await,
-            Self::TlsStreamServer(stream) => write_message(stream, &message).await,
-            Self::TlsStreamClient(stream) => write_message(stream, &message).await,
-            Self::UdpClient(_) => Err(MessageError::IoError(Error::other(
+        match &mut self.stream {
+            ConnectionStream::TcpStream(stream) => write_message(stream, &message).await,
+            ConnectionStream::TlsStreamServer(stream) => write_message(stream, &message).await,
+            ConnectionStream::TlsStreamClient(stream) => write_message(stream, &message).await,
+            ConnectionStream::UdpClient(_) => Err(MessageError::IoError(Error::other(
                 "Writing messages to UDP connection is not supported.",
             ))),
-            Self::ChannelSocket(socket) => {
+            ConnectionStream::ChannelSocket(socket) => {
                 let data = match rmp_serde::to_vec(&message) {
                     Ok(data) => data,
                     Err(e) => {
@@ -243,26 +270,26 @@ impl Connection {
     }
 
     pub async fn shutdown(&mut self) {
-        match self {
-            Self::TcpStream(stream) => {
+        match &mut self.stream {
+            ConnectionStream::TcpStream(stream) => {
                 if let Err(e) = stream.shutdown().await {
                     debug!("Error while closing stream: {:?}", e);
                 }
             }
-            Self::TlsStreamServer(stream) => {
+            ConnectionStream::TlsStreamServer(stream) => {
                 if let Err(e) = stream.shutdown().await {
                     debug!("Error while closing stream: {:?}", e);
                 }
             }
-            Self::TlsStreamClient(stream) => {
+            ConnectionStream::TlsStreamClient(stream) => {
                 if let Err(e) = stream.shutdown().await {
                     debug!("Error while closing stream: {:?}", e);
                 }
             }
-            Self::UdpClient(client) => {
+            ConnectionStream::UdpClient(client) => {
                 client.shutdown();
             }
-            Self::ChannelSocket(socket) => {
+            ConnectionStream::ChannelSocket(socket) => {
                 socket.shutdown().await;
             }
         }
@@ -278,6 +305,12 @@ impl Connection {
         self.shutdown().await;
     }
 
+    pub fn get_protocol(&self) -> &str {
+        self.stream.get_protocol()
+    }
+}
+
+impl ConnectionStream {
     pub fn get_protocol(&self) -> &str {
         match self {
             Self::TcpStream(_) => "tcp",
@@ -295,7 +328,7 @@ macro_rules! allow_bridges {
     }) => {
         match ($self_item, $destination) {
             $(
-                (Self::$from(src), Self::$to(dst)) => src.bridge_to(dst).await,
+                (ConnectionStream::$from(src), ConnectionStream::$to(dst)) => src.bridge_to(dst).await,
             )*
             (a, b) => Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
@@ -311,7 +344,10 @@ macro_rules! allow_bridges {
 
 impl DataBridge<Connection> for Connection {
     async fn bridge_to(&mut self, to: &mut Connection) -> Result<()> {
-        allow_bridges!(self, to, context, {
+        let from_stream = &mut self.stream;
+        let to_stream = &mut to.stream;
+
+        allow_bridges!(from_stream, to_stream, context, {
             TcpStream -> TcpStream,
             TcpStream -> TlsStreamServer,
             TlsStreamServer -> TcpStream,
