@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{tunnel_host::TunnelHost, HttpEndpointConfig};
+use super::{HttpEndpointConfig, tunnel_host::TunnelHost};
 use log::{debug, info};
 use tokio::io::Result;
 use uuid::Uuid;

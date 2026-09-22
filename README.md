@@ -20,7 +20,7 @@ connection.
 
 # Features
 
-* **Traffic tunneling**: Tunnel local traffic to HTTP/HTTPS, TCP and UDP endpoints
+* **Traffic tunneling**: Tunnel local traffic to HTTP/HTTPS (with HTTP/2 and WebSocket support), TCP and UDP endpoints
 * **Secure Connection**: Securely connect to the tunnel server and allow secure connections on endpoints
 * **Client Provisioning**: Initialize client by downloading settings from tunnel server.
 * **Monitoring**: View and manage active tunnels, clients and links via CLI or JSON API

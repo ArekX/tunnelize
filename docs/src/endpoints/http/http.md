@@ -6,10 +6,19 @@ Tunnels configured to forward HTTP traffic first connect to the server where the
 assigned a domain to where a client can connect to through a browser to access the local
 HTTP server.
 
-When a client first connects to the HTTP endpoint, server uses the `Host` header
-to decide to which tunnel it needs to connect to. After tunnel is found, a link is
-established between client and tunnel and data is forwarded until either side closes the
-connection.
+The endpoint speaks HTTP/1.1 and, when encryption is enabled, HTTP/2. For every request the
+server uses the `Host` header (or the `:authority` of an HTTP/2 request) to decide which tunnel
+it belongs to, then forwards the request to the tunnel over a link and streams the response back.
+
+Links are pooled: an idle link is kept open (for up to 90 seconds) and reused for the next
+request to the same tunnel, so your local server sees keep-alive connections as usual. With
+HTTP/2 a browser sends all of its requests over a single connection and the server fans them
+out over as many links as needed, so pages with many resources are not limited by the browser's
+six-connections-per-host rule that applies to HTTP/1.1. The number of links open at the same
+time is capped by the server's `max_clients`; requests beyond that wait for a link to free up.
+
+WebSocket connections (and other `Upgrade` requests) are proxied as well. Every forwarded
+request carries `X-Forwarded-For` and `X-Forwarded-Proto` headers.
 
 ## Configuring endpoint
 
@@ -39,13 +48,13 @@ Fields:
 | port                       | The port number for the connection                                                                                           | No default                       |
 | encryption                 | The type of encryption used to enable HTTPS. See [configuring encryption](../setting-up-encryption.md).                      | No encryption                    |
 | address                    | The address for the connection to bind to.                                                                                   | 0.0.0.0                          |
-| max_client_input_wait_secs | Maximum amount of seconds on how long to wait between start of TCP connection and first request being sent.                  | 300                              |
+| max_client_input_wait_secs | Maximum amount of seconds to wait for the request headers of a new connection to arrive.                                     | 300                              |
 | hostname_template          | Template for the hostname to use when generating a hostname. See [configuring templates](#configuring-templates) below.      | No default                       |
 | full_url_template          | Template for the full URL to use when returning it to the tunnel. See [configuring templates](#configuring-templates) below. | Automatic generation if not set. |
 | allow_custom_hostnames     | Whether custom hostnames are allowed. See [configuring templates](#configuring-templates) below.                             | true                             |
 | require_authorization      | Whether authorization is required. See [configuring authorization](#configuring-authorization) below.                        | No authorization required        |
 
-Note: The server-level `max_input_read_length` setting also affects HTTP endpoints by limiting the maximum size of data read from a single client request. See [server configuration](../../setting-up-server.md) for details.
+Note: The server-level `max_clients` setting caps how many tunnel links an HTTP endpoint keeps open at the same time. See [server configuration](../../setting-up-server.md) for details.
 
 ### Configuring templates
 

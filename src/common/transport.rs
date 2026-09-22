@@ -93,8 +93,7 @@ impl MessageReadState {
         self.frame_started_at = None;
     }
 
-    #[cfg(test)]
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.buffer.is_empty() && self.frame_started_at.is_none()
     }
 }

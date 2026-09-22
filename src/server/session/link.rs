@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use log::{debug, info};
+use tokio::sync::oneshot;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -8,7 +9,7 @@ use crate::{
     common::{connection::Connection, data_bridge::DataBridge},
     server::{
         incoming_requests::InitLinkResponse,
-        services::Services,
+        services::{ClientLink, LinkHandoff, Services},
         session::messages::ClientLinkResponse,
     },
 };
@@ -20,7 +21,7 @@ pub async fn start(
     mut response_stream: Connection,
     cancel_token: CancellationToken,
 ) {
-    let Some(mut client_link) = services
+    let Some(client_link) = services
         .get_client_manager()
         .await
         .take_client_link(&client_id)
@@ -49,26 +50,54 @@ pub async fn start(
         .respond_message(&InitLinkResponse::Accepted)
         .await;
 
-    if let Some(data) = client_link.initial_tunnel_data {
-        if let Err(e) = response_stream.write_all(&data).await {
-            debug!("Error writing initial tunnel data: {:?}", e);
-            return;
-        }
-    }
+    match client_link {
+        ClientLink::Stream {
+            mut stream,
+            initial_tunnel_data,
+        } => {
+            if let Some(data) = initial_tunnel_data
+                && let Err(e) = response_stream.write_all(&data).await
+            {
+                debug!("Error writing initial tunnel data: {:?}", e);
+                return;
+            }
 
-    tokio::select! {
-        _ = cancel_token.cancelled() => {
-            debug!("Link session cancelled");
+            tokio::select! {
+                _ = cancel_token.cancelled() => {
+                    debug!("Link session cancelled");
+                }
+                result = response_stream.bridge_to(&mut stream) => {
+                    if let Err(e) = result {
+                        debug!("Error linking session: {:?}", e);
+                    }
+                }
+            }
+
+            response_stream.shutdown().await;
+            stream.shutdown().await;
         }
-        result = response_stream.bridge_to(&mut client_link.stream) => {
-            if let Err(e) = result {
-                debug!("Error linking session: {:?}", e);
+        ClientLink::Handoff(handoff_tx) => {
+            let (release_tx, release_rx) = oneshot::channel();
+
+            if let Err(mut handoff) = handoff_tx.send(LinkHandoff {
+                stream: response_stream,
+                release: release_tx,
+            }) {
+                debug!("Nobody is waiting for the link anymore, closing it");
+                handoff.stream.shutdown().await;
+                return;
+            }
+
+            // The receiver owns the stream now; stay registered until it drops
+            // the release handle or the tunnel goes away.
+            tokio::select! {
+                _ = cancel_token.cancelled() => {
+                    debug!("Link session cancelled");
+                }
+                _ = release_rx => {}
             }
         }
     }
-
-    response_stream.shutdown().await;
-    client_link.stream.shutdown().await;
 
     info!("Link session, client_id '{}' ended", client_id);
 }

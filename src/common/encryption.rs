@@ -21,7 +21,7 @@ pub struct ServerTlsEncryption {
 }
 
 impl ServerTlsEncryption {
-    pub async fn new(cert_path: &str, key_path: &str) -> Self {
+    pub async fn new(cert_path: &str, key_path: &str, alpn_protocols: Vec<Vec<u8>>) -> Self {
         let cert_reader =
             CertificateDer::pem_file_iter(cert_path).expect("Failed to read Server cert");
 
@@ -31,10 +31,12 @@ impl ServerTlsEncryption {
             .flatten()
             .collect();
 
-        let config = rustls::ServerConfig::builder()
+        let mut config = rustls::ServerConfig::builder()
             .with_no_client_auth()
             .with_single_cert(certs, key)
             .expect("Failed to create Server config");
+
+        config.alpn_protocols = alpn_protocols;
 
         let acceptor = TlsAcceptor::from(Arc::new(config));
 

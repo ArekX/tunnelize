@@ -2,17 +2,14 @@ use std::{io::ErrorKind, sync::Arc};
 
 use configuration::HttpEndpointConfig;
 use log::{debug, error, info};
-use protocol::{HttpRequestReader, HttpResponseBuilder};
+use proxy::HttpProxy;
 use serde::{Deserialize, Serialize};
 use tokio::io::Result;
 use tokio::sync::RwLock;
 use tunnel_host::TunnelHost;
 
 use crate::{
-    common::{
-        channel::RequestReceiver, configuration::ServerEncryption, connection::Connection,
-        tcp_server::TcpServer,
-    },
+    common::{channel::RequestReceiver, configuration::ServerEncryption, tcp_server::TcpServer},
     server::services::Services,
 };
 
@@ -20,8 +17,8 @@ use super::messages::EndpointChannelRequest;
 
 mod channel_handler;
 pub mod configuration;
-mod data_handler;
-mod protocol;
+mod link_connector;
+mod proxy;
 mod tunnel_host;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -54,16 +51,27 @@ pub async fn start(
         _ => true,
     };
 
-    let server = match TcpServer::new(config.get_address(), config.port, encryption).await {
-        Ok(listener) => listener,
-        Err(e) => {
-            error!("Failed to bind client listener: {}", e);
-            return Ok(());
-        }
-    };
+    // Offer HTTP/2 to TLS clients so browsers multiplex all their requests
+    // over one connection instead of queueing behind their 6-connection limit.
+    let alpn = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+
+    let server =
+        match TcpServer::new_with_alpn(config.get_address(), config.port, encryption, alpn).await {
+            Ok(listener) => listener,
+            Err(e) => {
+                error!("Failed to bind client listener: {}", e);
+                return Ok(());
+            }
+        };
+
+    let proxy = Arc::new(HttpProxy::new(
+        services.clone(),
+        name.clone(),
+        config.clone(),
+        tunnel_host.clone(),
+    ));
 
     let cancel_token = services.get_cancel_token();
-    let max_input_read_length = services.get_config().get_max_input_read_length();
 
     loop {
         tokio::select! {
@@ -91,22 +99,21 @@ pub async fn start(
                     }
                 };
 
-                info!("Accepted connection from client: {}", stream_address);
+                debug!("Accepted connection from client: {}", stream_address);
 
-                let tunnel_host = tunnel_host.clone();
-                let name = name.clone();
-                let config = config.clone();
-                let services = services.clone();
+                let proxy = proxy.clone();
                 tokio::spawn(async move {
                     match pending.establish().await {
                         Ok(connection) => {
-                            if let Err(e) = data_handler::handle(connection, &tunnel_host, &name, &config, &services).await {
-                                error!("Failed to handle client request: {}", e);
+                            if let Err(e) = proxy.serve(connection, stream_address).await {
+                                debug!("Client connection {} ended with error: {}", stream_address, e);
                             }
                         }
-                        Err((e, Some(mut connection))) if e.kind() == ErrorKind::InvalidData && has_encryption => {
+                        Err((e, Some(connection))) if e.kind() == ErrorKind::InvalidData && has_encryption => {
                             debug!("Received invalid TLS data. Probably not a TLS connection. Error: {:?}", e);
-                            process_tls_redirection(&mut connection, &config, max_input_read_length).await;
+                            if let Err(e) = proxy.serve_tls_redirect(connection).await {
+                                debug!("TLS redirect for {} failed: {}", stream_address, e);
+                            }
                         }
                         Err((e, _)) => {
                             error!("Failed to establish client connection: {}", e);
@@ -118,43 +125,6 @@ pub async fn start(
                 info!("Endpoint '{}' has been cancelled", name);
                 return Ok(());
             }
-        }
-    }
-}
-
-async fn process_tls_redirection(
-    connection: &mut Connection,
-    config: &HttpEndpointConfig,
-    max_input_read_length: usize,
-) {
-    let request =
-        match HttpRequestReader::new(connection, config.get_max_client_input_wait_secs(), max_input_read_length).await {
-            Ok(request) => request,
-            Err(e) => {
-                debug!(
-                    "Failed to read request data within allowed time frame: {}",
-                    e
-                );
-                return;
-            }
-        };
-
-    match request.find_hostname() {
-        Some(hostname) => {
-            connection
-                .close_with_data(
-                    &HttpResponseBuilder::as_redirect(&format!(
-                        "https://{}:{}",
-                        hostname, config.port
-                    ))
-                    .build_bytes(),
-                )
-                .await;
-        }
-        None => {
-            connection
-                .close_with_data(&HttpResponseBuilder::as_missing_header().build_bytes())
-                .await;
         }
     }
 }

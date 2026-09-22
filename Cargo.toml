@@ -33,3 +33,8 @@ axum-server = { version = "0.8", features = ["tls-rustls"] }
 tower-http = { version = "0.6", features = ["cors"] }
 subtle = "2.6.1"
 socket2 = "0.6"
+hyper = { version = "1.9", features = ["http1", "http2", "server", "client"] }
+hyper-util = { version = "0.1.20", features = ["tokio", "server", "server-auto", "client", "client-legacy", "http1", "http2"] }
+http = "1"
+http-body-util = "0.1"
+tower-service = "0.3"

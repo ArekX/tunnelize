@@ -92,8 +92,8 @@ async fn start_new_client(services: &Arc<UdpServices>, received_client: Received
         .await
         .subscribe_client(client)
     {
-        if let Some(mut link) = link {
-            link.stream.shutdown().await;
+        if let Some(link) = link {
+            link.shutdown().await;
         }
 
         discard_client(received_client.id, services).await;
@@ -133,12 +133,12 @@ async fn start_new_client(services: &Arc<UdpServices>, received_client: Received
 async fn discard_client(client_id: Uuid, services: &Arc<UdpServices>) {
     let main_services = services.get_main_services();
 
-    if let Some(mut link) = main_services
+    if let Some(link) = main_services
         .get_client_manager()
         .await
         .take_client_link(&client_id)
     {
-        link.stream.shutdown().await;
+        link.shutdown().await;
     }
 
     main_services

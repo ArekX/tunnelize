@@ -3,14 +3,32 @@ use std::{collections::HashMap, io::Error};
 use crate::common::connection::Connection;
 use log::info;
 use serde::{Deserialize, Serialize};
+use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use super::{HandleServiceEvent, events::ServiceEvent};
 
+/// An established link stream handed to the code that asked for it. The link
+/// session stays registered until `release` is dropped.
 #[derive(Debug)]
-pub struct ClientLink {
+pub struct LinkHandoff {
     pub stream: Connection,
-    pub initial_tunnel_data: Option<Vec<u8>>,
+    pub release: oneshot::Sender<()>,
+}
+
+#[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
+pub enum ClientLink {
+    /// A client socket to bridge to the tunnel link byte for byte, optionally
+    /// preceded by data already read from the client.
+    Stream {
+        stream: Connection,
+        initial_tunnel_data: Option<Vec<u8>>,
+    },
+    /// No client socket: the established link is handed over through the
+    /// channel instead (used by the HTTP endpoint, which multiplexes requests
+    /// onto links itself).
+    Handoff(oneshot::Sender<LinkHandoff>),
 }
 
 #[derive(Debug)]
@@ -35,6 +53,15 @@ pub struct ClientInfo {
     pub endpoint_name: String,
 }
 
+impl ClientLink {
+    /// Closes the client side of an unlinked client, whichever form it takes.
+    pub async fn shutdown(self) {
+        if let ClientLink::Stream { mut stream, .. } = self {
+            stream.shutdown().await;
+        }
+    }
+}
+
 impl Client {
     pub fn new(
         id: Uuid,
@@ -45,11 +72,24 @@ impl Client {
         Self {
             id,
             endpoint_name,
-            link: Some(ClientLink {
+            link: Some(ClientLink::Stream {
                 stream,
                 initial_tunnel_data,
             }),
         }
+    }
+
+    pub fn new_handoff(id: Uuid, endpoint_name: String) -> (Self, oneshot::Receiver<LinkHandoff>) {
+        let (handoff_tx, handoff_rx) = oneshot::channel();
+
+        (
+            Self {
+                id,
+                endpoint_name,
+                link: Some(ClientLink::Handoff(handoff_tx)),
+            },
+            handoff_rx,
+        )
     }
 
     #[cfg(test)]
@@ -97,12 +137,16 @@ impl ClientManager {
     }
 
     pub async fn cancel_client(&mut self, id: &Uuid, cancel_with_data: &Option<Vec<u8>>) {
-        if let Some(mut link) = self.take_client_link(id) {
-            if let Some(cancel_data) = cancel_with_data {
-                link.stream.close_with_data(cancel_data).await;
-            } else {
-                link.stream.shutdown().await;
+        match self.take_client_link(id) {
+            Some(ClientLink::Stream { mut stream, .. }) => {
+                if let Some(cancel_data) = cancel_with_data {
+                    stream.close_with_data(cancel_data).await;
+                } else {
+                    stream.shutdown().await;
+                }
             }
+            // Dropping the sender tells the waiting side that no link is coming.
+            Some(ClientLink::Handoff(_)) | None => {}
         }
 
         self.remove_client(id);

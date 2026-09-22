@@ -77,8 +77,8 @@ pub async fn start_client(port: u16, mut connection: Connection, services: &Arc<
         .await
         .subscribe_client(client)
     {
-        if let Some(mut link) = link {
-            link.stream.shutdown().await;
+        if let Some(link) = link {
+            link.shutdown().await;
         }
 
         discard_client(client_id, &main_services).await;
@@ -118,8 +118,8 @@ pub async fn start_client(port: u16, mut connection: Connection, services: &Arc<
 async fn discard_client(client_id: Uuid, services: &Arc<MainServices>) {
     let mut client_manager = services.get_client_manager().await;
 
-    if let Some(mut link) = client_manager.take_client_link(&client_id) {
-        link.stream.shutdown().await;
+    if let Some(link) = client_manager.take_client_link(&client_id) {
+        link.shutdown().await;
     }
 
     client_manager.remove_client(&client_id);

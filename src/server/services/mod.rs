@@ -27,7 +27,7 @@ pub mod events;
 mod link_manager;
 mod tunnel_manager;
 
-pub use client_manager::{Client, ClientInfo};
+pub use client_manager::{Client, ClientInfo, ClientLink, LinkHandoff};
 pub use endpoint_manager::EndpointInfo;
 pub use link_manager::LinkInfo;
 pub use tunnel_manager::TunnelInfo;

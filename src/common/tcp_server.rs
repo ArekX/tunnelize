@@ -28,13 +28,24 @@ pub struct PendingConnection {
 
 impl TcpServer {
     pub async fn new(address: String, port: u16, encryption: ServerEncryption) -> Result<Self> {
+        Self::new_with_alpn(address, port, encryption, Vec::new()).await
+    }
+
+    /// Like [`TcpServer::new`], additionally offering `alpn_protocols` (for
+    /// example `h2` and `http/1.1`) to TLS clients.
+    pub async fn new_with_alpn(
+        address: String,
+        port: u16,
+        encryption: ServerEncryption,
+        alpn_protocols: Vec<Vec<u8>>,
+    ) -> Result<Self> {
         Ok(TcpServer {
             encryption: Arc::new(match encryption {
                 ServerEncryption::None => None,
                 ServerEncryption::Tls {
                     cert_path: cert,
                     key_path: key,
-                } => Some(ServerTlsEncryption::new(&cert, &key).await),
+                } => Some(ServerTlsEncryption::new(&cert, &key, alpn_protocols).await),
             }),
             listener: bind_tcp_listener(&address, port).await?,
         })

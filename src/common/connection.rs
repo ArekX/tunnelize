@@ -1,5 +1,7 @@
 use std::{
     io::{Error, ErrorKind},
+    pin::Pin,
+    task::{Context, Poll},
     time::Duration,
 };
 
@@ -7,7 +9,7 @@ use bytes::BytesMut;
 use log::debug;
 use serde::{Serialize, de::DeserializeOwned};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt, Result},
+    io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf, Result},
     net::TcpStream,
     time::timeout,
 };
@@ -82,7 +84,79 @@ impl From<ChannelSocket> for Connection {
     }
 }
 
+/// A plain byte stream taken out of a [`Connection`], for code that drives the
+/// socket through the `AsyncRead`/`AsyncWrite` traits (such as an HTTP parser).
+#[derive(Debug)]
+pub enum TransportStream {
+    Tcp(TcpStream),
+    TlsServer(ServerTlsStream<TcpStream>),
+    TlsClient(ClientTlsStream<TcpStream>),
+}
+
+impl AsyncRead for TransportStream {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<Result<()>> {
+        match self.get_mut() {
+            Self::Tcp(stream) => Pin::new(stream).poll_read(cx, buf),
+            Self::TlsServer(stream) => Pin::new(stream).poll_read(cx, buf),
+            Self::TlsClient(stream) => Pin::new(stream).poll_read(cx, buf),
+        }
+    }
+}
+
+impl AsyncWrite for TransportStream {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<Result<usize>> {
+        match self.get_mut() {
+            Self::Tcp(stream) => Pin::new(stream).poll_write(cx, buf),
+            Self::TlsServer(stream) => Pin::new(stream).poll_write(cx, buf),
+            Self::TlsClient(stream) => Pin::new(stream).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<()>> {
+        match self.get_mut() {
+            Self::Tcp(stream) => Pin::new(stream).poll_flush(cx),
+            Self::TlsServer(stream) => Pin::new(stream).poll_flush(cx),
+            Self::TlsClient(stream) => Pin::new(stream).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<()>> {
+        match self.get_mut() {
+            Self::Tcp(stream) => Pin::new(stream).poll_shutdown(cx),
+            Self::TlsServer(stream) => Pin::new(stream).poll_shutdown(cx),
+            Self::TlsClient(stream) => Pin::new(stream).poll_shutdown(cx),
+        }
+    }
+}
+
 impl Connection {
+    /// Gives up the message framing and returns the underlying byte stream.
+    ///
+    /// Fails for datagram/channel backed connections and when part of a framed
+    /// message has already been buffered, since those bytes would be lost.
+    pub fn into_transport_stream(self) -> Result<TransportStream> {
+        if !self.read_state.is_empty() {
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "Connection has a partially read message buffered",
+            ));
+        }
+
+        match self.stream {
+            ConnectionStream::TcpStream(stream) => Ok(TransportStream::Tcp(stream)),
+            ConnectionStream::TlsStreamServer(stream) => Ok(TransportStream::TlsServer(stream)),
+            ConnectionStream::TlsStreamClient(stream) => Ok(TransportStream::TlsClient(stream)),
+            other => Err(Error::new(
+                ErrorKind::Unsupported,
+                format!("Connection protocol '{}' is not a byte stream", other.get_protocol()),
+            )),
+        }
+    }
+
     async fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
         match &mut self.stream {
             ConnectionStream::TcpStream(stream) => stream.read(buf).await,
