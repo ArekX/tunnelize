@@ -79,7 +79,7 @@ Fields:
 | Name                               | Description                                                                                      | Default Value    |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------- |
 | name                               | Name of the tunnel. Optional, helps identify the tunnel in monitoring.                           | Empty string     |
-| server_address                     | Hostname or address to the main tunnelize server.                                                | No default       |
+| server_address                     | Hostname, IPv4 or IPv6 address of the main tunnelize server. A hostname is resolved to all of its addresses and IPv4 is tried first, with IPv6 tried shortly after; unreachable addresses are skipped after a few seconds instead of hanging. | No default       |
 | server_port                        | Port of the server                                                                               | 3456             |
 | forward_connection_timeout_seconds | How much time to wait in seconds for first response from your local server before disconnecting. | 30               |
 | encryption                         | Type of encryption. **See** [configuring encryption](#configuring-encryption) below.             | No encryption    |

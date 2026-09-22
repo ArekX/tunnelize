@@ -11,6 +11,7 @@ use tokio::io::Result;
 
 use super::{
     configuration::ServerEncryption, connection::Connection, encryption::ServerTlsEncryption,
+    listener::bind_tcp_listener, protocol_socket::unmap_socket_addr,
 };
 
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
@@ -35,7 +36,7 @@ impl TcpServer {
                     key_path: key,
                 } => Some(ServerTlsEncryption::new(&cert, &key).await),
             }),
-            listener: TcpListener::bind(format!("{address}:{port}")).await?,
+            listener: bind_tcp_listener(&address, port).await?,
         })
     }
 
@@ -47,7 +48,9 @@ impl TcpServer {
                 stream,
                 encryption: self.encryption.clone(),
             },
-            addr,
+            // On a dual-stack listener IPv4 peers arrive as `::ffff:a.b.c.d`;
+            // report them as plain IPv4 so logs and brute force tracking stay consistent.
+            unmap_socket_addr(addr),
         ))
     }
 }

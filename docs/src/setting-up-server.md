@@ -37,7 +37,7 @@ Below are all available parameters:
 | Field                    | Description                                                                                       | Default Value   |
 | ------------------------ | ------------------------------------------------------------------------------------------------- | --------------- |
 | `server_port`            | Port on which the server listens for tunnel connections.                                          | 3456            |
-| `server_address`         | Address to which the server will bind to.                                                         | 0.0.0.0         |
+| `server_address`         | Address to which the server will bind to. The default binds both IPv4 and IPv6 (falls back to IPv4 only where IPv6 is unavailable). | 0.0.0.0         |
 | `max_tunnel_input_wait`  | Maximum amount of time (in seconds) to wait from tunnel connection to first message from tunnel.  | 30              |
 | `tunnel_key`             | Key which tunnel must have in order to be allowed to communicate.                                 | No key required |
 | `monitor_key`            | Key which tunnelize tunnel must have in order to execute monitor commands on the server.          | No key required |

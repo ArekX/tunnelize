@@ -6,8 +6,9 @@ use rustls::{
 use rustls_native_certs::load_native_certs;
 
 use std::{
+    collections::HashMap,
     io::{Error, ErrorKind},
-    sync::Arc,
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use tokio_rustls::{TlsAcceptor, TlsConnector};
@@ -51,15 +52,46 @@ pub struct ClientTlsEncryption {
     connector: TlsConnector,
 }
 
+/// Client TLS configurations by CA path. Building one means reading the CA file
+/// or the whole OS certificate store, which is slow (hundreds of milliseconds on
+/// macOS) and blocking, so it is done once per process instead of once per link.
+static CLIENT_CONFIGS: OnceLock<Mutex<HashMap<Option<String>, Arc<ClientConfig>>>> =
+    OnceLock::new();
+
 impl ClientTlsEncryption {
     pub async fn new(ca_path: Option<String>) -> Self {
-        let client_config = ClientConfig::builder()
-            .with_root_certificates(Self::resolve_client_root_cert_store(ca_path))
-            .with_no_client_auth();
-
-        let connector = TlsConnector::from(Arc::new(client_config));
+        let connector = TlsConnector::from(Self::client_config(ca_path).await);
 
         ClientTlsEncryption { connector }
+    }
+
+    async fn client_config(ca_path: Option<String>) -> Arc<ClientConfig> {
+        let cache = CLIENT_CONFIGS.get_or_init(|| Mutex::new(HashMap::new()));
+
+        if let Some(config) = cache.lock().expect("TLS config cache poisoned").get(&ca_path) {
+            return config.clone();
+        }
+
+        let config = {
+            let ca_path = ca_path.clone();
+
+            tokio::task::spawn_blocking(move || {
+                Arc::new(
+                    ClientConfig::builder()
+                        .with_root_certificates(Self::resolve_client_root_cert_store(ca_path))
+                        .with_no_client_auth(),
+                )
+            })
+            .await
+            .expect("Failed to build TLS client configuration")
+        };
+
+        cache
+            .lock()
+            .expect("TLS config cache poisoned")
+            .entry(ca_path)
+            .or_insert(config)
+            .clone()
     }
 
     pub async fn connect(&self, stream: TcpStream, domain: &str) -> Result<Connection> {

@@ -3,6 +3,7 @@ use std::{collections::HashMap, net::SocketAddr, time::Instant};
 use super::{
     channel_socket::{ChannelPacket, ChannelSocket},
     connection::Connection,
+    listener::bind_udp_socket,
 };
 use bytes::BytesMut;
 use log::error;
@@ -64,11 +65,7 @@ impl UdpServer {
         max_timeout: u64,
         cancel_token: CancellationToken,
     ) -> Result<(Self, Receiver<ChannelPacket>)> {
-        let address_port = format!(
-            "{}:{}",
-            address.unwrap_or_else(|| "0.0.0.0".to_string()),
-            port
-        );
+        let address = address.unwrap_or_else(|| "0.0.0.0".to_string());
 
         let (server_tx, server_rx) = channel::<ChannelPacket>(100);
 
@@ -77,7 +74,7 @@ impl UdpServer {
 
         Ok((
             Self {
-                socket: UdpSocket::bind(address_port).await?,
+                socket: bind_udp_socket(&address, port).await?,
                 data_buffer,
                 cancel_token,
                 max_timeout,

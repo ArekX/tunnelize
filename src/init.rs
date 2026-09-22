@@ -71,14 +71,7 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
                     .replace("https://", "");
             }
 
-            let (address, port) = match server_address.find(':') {
-                Some(index) => {
-                    let (address, port) = server_address.split_at(index);
-
-                    (address.to_owned(), port[1..].parse::<u16>().unwrap_or(3456))
-                }
-                None => (server_address, 3456),
-            };
+            let (address, port) = split_host_port(&server_address, 3456);
 
             let encryption: Option<ClientEncryption> =
                 tls.then_some(ClientEncryption::Tls { ca_path });
@@ -190,6 +183,28 @@ pub async fn init_for(command: InitCommands) -> Result<(), std::io::Error> {
 
     Ok(())
 }
+
+/// Splits `host`, `host:port`, `[v6]`, `[v6]:port` or a bare IPv6 literal into
+/// its host and port, falling back to `default_port` when no valid port is given.
+fn split_host_port(input: &str, default_port: u16) -> (String, u16) {
+    let parse_port = |port: &str| port.parse::<u16>().unwrap_or(default_port);
+
+    if let Some((host, rest)) = input.strip_prefix('[').and_then(|rest| rest.split_once(']')) {
+        let port = rest.strip_prefix(':').map(parse_port).unwrap_or(default_port);
+        return (host.to_owned(), port);
+    }
+
+    // More than one colon and no brackets: a bare IPv6 literal without a port.
+    if input.matches(':').count() > 1 {
+        return (input.to_owned(), default_port);
+    }
+
+    match input.split_once(':') {
+        Some((host, port)) => (host.to_owned(), parse_port(port)),
+        None => (input.to_owned(), default_port),
+    }
+}
+
 
 fn print_generated_monitor_credentials(monitor_key: &str, monitor_password: &str) {
     println!();
@@ -312,4 +327,20 @@ fn get_default_server_configuration(
     );
 
     configuration
+}
+
+#[cfg(test)]
+mod tests {
+    use super::split_host_port;
+
+    #[test]
+    fn test_split_host_port() {
+        assert_eq!(split_host_port("example.com", 3456), ("example.com".to_owned(), 3456));
+        assert_eq!(split_host_port("example.com:8000", 3456), ("example.com".to_owned(), 8000));
+        assert_eq!(split_host_port("example.com:bad", 3456), ("example.com".to_owned(), 3456));
+        assert_eq!(split_host_port("10.0.0.1:1", 3456), ("10.0.0.1".to_owned(), 1));
+        assert_eq!(split_host_port("::1", 3456), ("::1".to_owned(), 3456));
+        assert_eq!(split_host_port("[::1]", 3456), ("::1".to_owned(), 3456));
+        assert_eq!(split_host_port("[::1]:8000", 3456), ("::1".to_owned(), 8000));
+    }
 }
